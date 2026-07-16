@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import SettlementAuditor from "./SettlementAuditor";
 import NibbsSettings from "./NibbsSettings";
+import ThemeToggle from "./ThemeToggle";
 import {
 	DEFAULT_MASTER,
 	loadMaster,
@@ -142,6 +143,7 @@ export default function AppShell() {
 				{navGroup("Configuration", CONFIG, mini)}
 			</div>
 			<div className="border-t border-border px-3 py-3">
+				<ThemeToggle mini={mini} className="w-full" />
 				{showToggle && (
 					<button
 						onClick={() => setCollapsed((c) => !c)}
@@ -201,6 +203,7 @@ export default function AppShell() {
 					<span className="text-sm font-bold text-foreground">
 						NIBBS Reports
 					</span>
+					<ThemeToggle mini className="ml-auto border border-border" />
 				</div>
 
 				{/* Views (kept mounted to preserve in-progress work) */}
