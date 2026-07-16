@@ -17,7 +17,7 @@ import {
 } from "@/lib/parseTxt";
 import type { MasterBank } from "@/lib/master";
 import { reconcile, type BreachRecord } from "@/lib/reconcile";
-import { downloadExcel, printReport } from "@/lib/exportReport";
+import { downloadExcel } from "@/lib/exportReport";
 import { formatNaira } from "@/lib/format";
 
 function toDate(str: string): Date {
@@ -222,12 +222,6 @@ export default function SettlementAuditor({
 								className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm hover:bg-black/5 dark:hover:bg-white/5"
 							>
 								⬇ Download Excel
-							</button>
-							<button
-								onClick={printReport}
-								className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm hover:bg-black/5 dark:hover:bg-white/5"
-							>
-								🖨 Print / PDF
 							</button>
 						</>
 					)}
