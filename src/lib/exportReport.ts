@@ -59,7 +59,6 @@ function esc(s: string): string {
  */
 export function buildBreachClipboard(
   breaches: BreachRecord[],
-  reportDate: Date,
 ): { html: string; tsv: string } {
   const headerCells = BREACH_COLUMNS.map(
     (c) =>
@@ -91,9 +90,6 @@ export function buildBreachClipboard(
 
   const html =
     `<table style="border-collapse:collapse;border:1px solid #999;">` +
-    `<tr><td colspan="${BREACH_COLUMNS.length}" style="border:1px solid #999;background:#c0392b;color:#fff;font-weight:bold;padding:6px 8px;font-family:Calibri,Arial,sans-serif;">Breached Section For Escalation — ${toDdmmyyyy(
-      reportDate,
-    )}</td></tr>` +
     `<tr>${headerCells}</tr>${bodyRows}</table>`;
 
   const tsvRows = [
