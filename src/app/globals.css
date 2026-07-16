@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eef1f8;
+  --background-2: #e4e9f4;
+  --surface: #ffffff;
+  --foreground: #0f172a;
+  --muted: #5b6b86;
+  --border: #dbe2ef;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1a2236;
+    --background-2: #141b2c;
+    --surface: #222d45;
+    --foreground: #eaf0fa;
+    --muted: #a4b2cc;
+    --border: #33415d;
   }
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(180deg, var(--background) 0%, var(--background-2) 100%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Right-aligned monetary figures use tabular numerals for clean columns. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Subtle animated gradient for the hero header. */
+.hero-gradient {
+  background: linear-gradient(120deg, #0d9488 0%, #4338ca 55%, #7c3aed 100%);
+}
+
+/* Print / Save-as-PDF: hide interactive chrome, expand the report. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+  .print-block {
+    break-inside: avoid;
+  }
+  table {
+    font-size: 10px;
+  }
 }
