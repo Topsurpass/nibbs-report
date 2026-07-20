@@ -32,6 +32,19 @@ create table if not exists nibbs_sessions (
 create index if not exists nibbs_sessions_token_idx on nibbs_sessions (token_hash);
 create index if not exists nibbs_sessions_expiry_idx on nibbs_sessions (expires_at);
 
+-- Single-use, time-limited password-reset tokens (forgot-password flow). The
+-- emailed link carries a raw token; only its SHA-256 is stored here.
+create table if not exists nibbs_password_resets (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references nibbs_users(id) on delete cascade,
+  token_hash  text not null unique,
+  expires_at  timestamptz not null,
+  used_at     timestamptz,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists nibbs_password_resets_token_idx on nibbs_password_resets (token_hash);
+
 -- Master bank list + posted collateral (the reference data the uploaded
 -- HTML/TXT files do not carry). `code` is the 10-digit NIBBS settlement code.
 create table if not exists nibbs_banks (

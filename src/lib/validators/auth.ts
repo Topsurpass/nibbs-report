@@ -28,3 +28,22 @@ export const changePasswordSchema = z
 	});
 
 export type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
+
+export const forgotPasswordSchema = z.object({
+	email: z.string().trim().email("Enter a valid email"),
+});
+
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+	.object({
+		token: z.string().min(1, "Missing reset token"),
+		newPassword: z.string().min(8, "Use at least 8 characters").max(200, "Too long"),
+		confirmPassword: z.string().min(1, "Confirm your new password"),
+	})
+	.refine((v) => v.newPassword === v.confirmPassword, {
+		path: ["confirmPassword"],
+		message: "Passwords do not match",
+	});
+
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

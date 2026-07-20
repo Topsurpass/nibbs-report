@@ -1,99 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import FileDropzone from "./FileDropzone";
 import CheckSummary from "./CheckSummary";
 import ReconciliationTable from "./ReconciliationTable";
 import BreachSection from "./BreachSection";
-import {
-	decodeSettlementHtml,
-	parseSettlementHtml,
-	type FrameParseResult,
-} from "@/lib/parseHtml";
-import {
-	parseEtranzactTxt,
-	validateTxtFilename,
-	type TxtParseResult,
-} from "@/lib/parseTxt";
-import type { MasterBank } from "@/lib/master";
+import { validateTxtFilename } from "@/lib/parseTxt";
 import { reconcile, type BreachRecord } from "@/lib/reconcile";
 import { downloadExcel } from "@/lib/exportReport";
 import { formatNaira } from "@/lib/format";
+import { useMaster } from "./providers/MasterProvider";
+import { useAudit } from "./providers/AuditProvider";
 
 function toDate(str: string): Date {
 	const [y, m, d] = str.split("-").map(Number);
 	return new Date(y, (m || 1) - 1, d || 1);
 }
-function todayStr(): string {
-	const d = new Date();
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-		d.getDate(),
-	).padStart(2, "0")}`;
-}
 const breachKey = (b: Pick<BreachRecord, "code" | "kind">) =>
 	`${b.code}-${b.kind}`;
 
-export default function SettlementAuditor({
-	master,
-}: {
-	master: MasterBank[];
-}) {
-	const [reportDate, setReportDate] = useState("");
-
-	const [htmlFile, setHtmlFile] = useState<File | null>(null);
-	const [txtFile, setTxtFile] = useState<File | null>(null);
-	const [frame, setFrame] = useState<FrameParseResult | null>(null);
-	const [txt, setTxt] = useState<TxtParseResult | null>(null);
-	const [htmlError, setHtmlError] = useState<string>();
-	const [txtError, setTxtError] = useState<string>();
-
-	const [armed, setArmed] = useState(false);
-	const [breachEdits, setBreachEdits] = useState<
-		Record<string, Partial<BreachRecord>>
-	>({});
-
-	useEffect(() => {
-		/* eslint-disable-next-line react-hooks/set-state-in-effect */
-		setReportDate(todayStr());
-	}, []);
-
-	const onHtml = useCallback(async (file: File) => {
-		setHtmlError(undefined);
-		try {
-			const buf = await file.arrayBuffer();
-			const parsed = parseSettlementHtml(decodeSettlementHtml(buf));
-			setHtmlFile(file);
-			setFrame(parsed);
-			if (parsed.rows.length === 0)
-				setHtmlError("No bank rows found in the HTML table.");
-		} catch (e) {
-			setHtmlFile(file);
-			setFrame(null);
-			setHtmlError(
-				e instanceof Error ? e.message : "Failed to parse HTML.",
-			);
-		}
-	}, []);
-
-	const onTxt = useCallback(async (file: File) => {
-		setTxtError(undefined);
-		try {
-			const text = await file.text();
-			const parsed = parseEtranzactTxt(text);
-			setTxtFile(file);
-			setTxt(parsed);
-			if (parsed.rows.length === 0)
-				setTxtError("No records parsed from the TXT.");
-			else if (!parsed.format.valid)
-				setTxtError(
-					`⚠ ${parsed.format.issues.length} line(s) break the required format — see “Format deviations” after running the audit.`,
-				);
-		} catch (e) {
-			setTxtFile(file);
-			setTxt(null);
-			setTxtError(e instanceof Error ? e.message : "Failed to read TXT.");
-		}
-	}, []);
+export default function SettlementAuditor() {
+	const { master } = useMaster();
+	const {
+		reportDate,
+		setReportDate,
+		htmlFile,
+		txtFile,
+		frame,
+		txt,
+		htmlError,
+		txtError,
+		armed,
+		setArmed,
+		breachEdits,
+		setBreachEdits,
+		onHtml,
+		onTxt,
+	} = useAudit();
 
 	const result = useMemo(() => {
 		if (!armed || !frame || !txt || !txtFile || !reportDate) return null;

@@ -70,6 +70,55 @@ export async function sendPasswordResetEmail(
 	);
 }
 
+/** Send a self-service password-reset link (forgot-password flow). */
+export async function sendPasswordResetLinkEmail(
+	recipient: CredentialRecipient,
+	resetUrl: string,
+): Promise<SendResult> {
+	const name = firstName(recipient.firstName);
+	const text = [
+		`Hi ${name},`,
+		"",
+		"We received a request to reset your NIBBS Settlement Auditor password. Open the link below to choose a new one. It expires in 1 hour and can be used once.",
+		"",
+		`Reset your password: ${resetUrl}`,
+		"",
+		"If you didn't request this, you can ignore this email — your password won't change.",
+		"",
+		"— NIBBS Settlement Auditor",
+	].join("\n");
+
+	const html = `<!doctype html>
+  <html>
+    <body style="margin:0;background:#f4f6fb;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#0d9488,#4f46e5);padding:18px 24px;">
+            <span style="color:#ffffff;font-size:16px;font-weight:800;letter-spacing:-0.01em;">NIBBS Settlement Auditor</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px;">
+            <p style="margin:0 0 12px;color:#111827;font-size:16px;font-weight:700;">Reset your password</p>
+            <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.6;">
+              Hi ${escapeHtml(name)}, we got a request to reset your password. Click below to choose a new one.
+              This link expires in <strong>1 hour</strong> and works once.
+            </p>
+            <div style="margin:0 0 18px;">
+              <a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:12px 28px;border-radius:9999px;background:#4f46e5;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Reset password</a>
+            </div>
+            <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+              Didn't request this? You can safely ignore this email — your password won't change.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>`;
+
+	return send(recipient.email, "Reset your NIBBS Settlement Auditor password", text, html);
+}
+
 async function send(
 	to: string,
 	subject: string,

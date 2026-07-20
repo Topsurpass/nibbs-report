@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "db:create": "node scripts/db-create.mjs",
     "db:push": "node scripts/db-push.mjs",
     "seed:admin": "node scripts/seed-admin.mjs"
   },

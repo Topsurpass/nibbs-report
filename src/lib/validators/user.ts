@@ -9,3 +9,10 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserValues = z.infer<typeof createUserSchema>;
+
+/** Admin changing another account's role. */
+export const updateRoleSchema = z.object({
+	role: z.enum(["admin", "analyst"]),
+});
+
+export type UpdateRoleValues = z.infer<typeof updateRoleSchema>;

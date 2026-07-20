@@ -152,3 +152,29 @@ export async function deleteUser(id: string): Promise<void> {
 	const sql = requireSql();
 	await withRetry(() => sql`delete from nibbs_users where id = ${id}`);
 }
+
+/** Number of admin accounts — used to prevent removing the last admin. */
+export async function countAdmins(): Promise<number> {
+	const sql = requireSql();
+	const rows = (await withRetry(
+		() => sql`select count(*)::int as n from nibbs_users where role = 'admin'`,
+	)) as { n: number }[];
+	return rows[0]?.n ?? 0;
+}
+
+/** Set a user's role. Returns the updated record, or null if not found. */
+export async function setUserRole(
+	id: string,
+	role: UserRole,
+): Promise<UserRecord | null> {
+	const sql = requireSql();
+	const rows = (await withRetry(
+		() => sql`
+			update nibbs_users
+			set role = ${role}, updated_at = now()
+			where id = ${id}
+			returning *
+		`,
+	)) as UserRow[];
+	return rows[0] ? toRecord(rows[0]) : null;
+}

@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePasswordSchema, loginSchema } from "./auth.ts";
-import { createUserSchema } from "./user.ts";
+import {
+	changePasswordSchema,
+	forgotPasswordSchema,
+	loginSchema,
+	resetPasswordSchema,
+} from "./auth.ts";
+import { createUserSchema, updateRoleSchema } from "./user.ts";
 import { bankSchema, bankListSchema } from "./bank.ts";
 
 test("loginSchema accepts valid, rejects bad email / empty password", () => {
@@ -80,6 +85,41 @@ test("bankSchema enforces 10-digit code and non-negative collateral", () => {
 	assert.equal(
 		bankSchema.safeParse({ code: "4000470158", name: "Access", collateral: -1 }).success,
 		false,
+	);
+});
+
+test("updateRoleSchema only accepts admin/analyst", () => {
+	assert.equal(updateRoleSchema.safeParse({ role: "admin" }).success, true);
+	assert.equal(updateRoleSchema.safeParse({ role: "analyst" }).success, true);
+	assert.equal(updateRoleSchema.safeParse({ role: "superuser" }).success, false);
+	assert.equal(updateRoleSchema.safeParse({}).success, false);
+});
+
+test("forgotPasswordSchema requires a valid email", () => {
+	assert.equal(forgotPasswordSchema.safeParse({ email: "a@b.com" }).success, true);
+	assert.equal(forgotPasswordSchema.safeParse({ email: "nope" }).success, false);
+});
+
+test("resetPasswordSchema enforces token, length, and match", () => {
+	// missing token
+	assert.equal(
+		resetPasswordSchema.safeParse({ token: "", newPassword: "longenough", confirmPassword: "longenough" }).success,
+		false,
+	);
+	// short password
+	assert.equal(
+		resetPasswordSchema.safeParse({ token: "t", newPassword: "short", confirmPassword: "short" }).success,
+		false,
+	);
+	// mismatch
+	assert.equal(
+		resetPasswordSchema.safeParse({ token: "t", newPassword: "longenough1", confirmPassword: "different1" }).success,
+		false,
+	);
+	// valid
+	assert.equal(
+		resetPasswordSchema.safeParse({ token: "t", newPassword: "brandNew99", confirmPassword: "brandNew99" }).success,
+		true,
 	);
 });
 

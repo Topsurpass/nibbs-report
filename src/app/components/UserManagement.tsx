@@ -120,6 +120,31 @@ export default function UserManagement({ currentUserId }: Props) {
 		}
 	};
 
+	const onSetRole = async (u: AuthUser, role: "admin" | "analyst") => {
+		const verb = role === "admin" ? "Make admin" : "Revoke admin from";
+		if (!window.confirm(`${verb} ${u.email}?`)) return;
+		setBusyId(u.id);
+		setBanner(null);
+		try {
+			const res = await fetch(`/api/users/${u.id}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ role }),
+			});
+			const data = await res.json();
+			if (!res.ok || !data.ok) throw new Error(data.error ?? "Role update failed.");
+			setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, role } : x)));
+			setBanner({
+				kind: "success",
+				text: role === "admin" ? `${u.email} is now an admin.` : `${u.email} is no longer an admin.`,
+			});
+		} catch (err) {
+			setBanner({ kind: "error", text: err instanceof Error ? err.message : "Role update failed." });
+		} finally {
+			setBusyId(null);
+		}
+	};
+
 	const onDelete = async (u: AuthUser) => {
 		if (!window.confirm(`Delete ${u.email}? This cannot be undone.`)) return;
 		setBusyId(u.id);
@@ -136,6 +161,8 @@ export default function UserManagement({ currentUserId }: Props) {
 			setBusyId(null);
 		}
 	};
+
+	const adminCount = users.filter((u) => u.role === "admin").length;
 
 	const bannerClass =
 		banner?.kind === "success"
@@ -280,6 +307,24 @@ export default function UserManagement({ currentUserId }: Props) {
 											</td>
 											<td className="px-5 py-3 text-right">
 												<div className="flex justify-end gap-2">
+													{u.role === "analyst" ? (
+														<button
+															onClick={() => onSetRole(u, "admin")}
+															disabled={busyId === u.id}
+															className="rounded-md border border-indigo-500/30 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 disabled:opacity-50 dark:text-indigo-300"
+														>
+															Make admin
+														</button>
+													) : (
+														<button
+															onClick={() => onSetRole(u, "analyst")}
+															disabled={busyId === u.id || adminCount <= 1}
+															title={adminCount <= 1 ? "Can't remove the last admin" : "Revoke admin"}
+															className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5"
+														>
+															Revoke admin
+														</button>
+													)}
 													<button
 														onClick={() => onReset(u)}
 														disabled={busyId === u.id}

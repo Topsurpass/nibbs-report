@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import SettlementAuditor from "./SettlementAuditor";
-import NibbsSettings from "./NibbsSettings";
-import UserManagement from "./UserManagement";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
-import { type MasterBank } from "@/lib/master";
+import { MasterProvider } from "./providers/MasterProvider";
+import { AuditProvider } from "./providers/AuditProvider";
+import type { MasterBank } from "@/lib/master";
 import type { AuthUser } from "@/types/user";
 
-type ViewId = "audit" | "settings" | "users";
-
 interface NavItem {
-	id: ViewId | string;
+	href?: string;
 	label: string;
 	icon: string;
 	soon?: boolean;
@@ -21,51 +19,36 @@ interface NavItem {
 interface Props {
 	user: AuthUser;
 	initialMaster: MasterBank[];
+	children: ReactNode;
 }
 
 const REPORTS: NavItem[] = [
-	{ id: "audit", label: "Settlement Audit", icon: "🧾" },
-	{ id: "lien", label: "Lien Safe", icon: "🔒", soon: true },
-	{ id: "bucket", label: "Fraud Bucket", icon: "🪣", soon: true },
+	{ href: "/", label: "Settlement Audit", icon: "🧾" },
+	{ label: "Lien Safe", icon: "🔒", soon: true },
+	{ label: "Fraud Bucket", icon: "🪣", soon: true },
 ];
 
-export default function AppShell({ user, initialMaster }: Props) {
+/**
+ * Persistent app shell: sidebar + user footer + sign out, rendered by the (app)
+ * layout so it stays mounted across route changes. Wraps the routed page in the
+ * Master + Audit providers, so bank data and in-progress audits survive
+ * navigation. Nav uses real links; the active item follows the URL.
+ */
+export default function AppChrome({ user, initialMaster, children }: Props) {
 	const router = useRouter();
-	const [view, setView] = useState<ViewId>("audit");
+	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
-	const [master, setMaster] = useState<MasterBank[]>(initialMaster);
-	const [masterVersion, setMasterVersion] = useState(0);
 	const [signingOut, setSigningOut] = useState(false);
 
 	const config: NavItem[] = [
-		{ id: "settings", label: "NIBBS Settings", icon: "⚙️" },
+		{ href: "/settings", label: "NIBBS Settings", icon: "⚙️" },
 		...(user.role === "admin"
-			? [{ id: "users", label: "User Management", icon: "👥" }]
+			? [{ href: "/users", label: "User Management", icon: "👥" }]
 			: []),
 	];
 
-	// Persist the whole master list to the DB; returns the stored rows or throws.
-	const updateMaster = async (list: MasterBank[]): Promise<MasterBank[]> => {
-		const res = await fetch("/api/banks", {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(list),
-		});
-		const data = await res.json();
-		if (!res.ok || !data.ok) throw new Error(data.error ?? "Couldn't save banks.");
-		setMaster(data.banks);
-		return data.banks;
-	};
-
-	const handleReset = async (): Promise<MasterBank[]> => {
-		const res = await fetch("/api/banks/reset", { method: "POST" });
-		const data = await res.json();
-		if (!res.ok || !data.ok) throw new Error(data.error ?? "Couldn't reset banks.");
-		setMaster(data.banks);
-		setMasterVersion((v) => v + 1); // remount settings with the fresh list
-		return data.banks;
-	};
+	const isActive = (href?: string) => (href === "/" ? pathname === "/" : !!href && pathname === href);
 
 	const signOut = async () => {
 		setSigningOut(true);
@@ -75,11 +58,6 @@ export default function AppShell({ user, initialMaster }: Props) {
 			router.replace("/login");
 			router.refresh();
 		}
-	};
-
-	const go = (id: ViewId) => {
-		setView(id);
-		setMobileOpen(false);
 	};
 
 	const initials = `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
@@ -95,32 +73,25 @@ export default function AppShell({ user, initialMaster }: Props) {
 			)}
 			<nav className="space-y-1">
 				{items.map((item) => {
-					const active = item.id === view && !item.soon;
-					return (
-						<button
-							key={item.id}
-							disabled={item.soon}
-							title={mini ? item.label + (item.soon ? " (soon)" : "") : undefined}
-							onClick={() => !item.soon && go(item.id as ViewId)}
-							className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${
-								mini ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"
-							} ${
-								active
-									? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
-									: item.soon
-										? "cursor-not-allowed text-muted/60"
-										: "text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-							}`}
-						>
+					const active = isActive(item.href);
+					const cls = `flex w-full items-center rounded-lg text-sm font-medium transition-colors ${
+						mini ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"
+					} ${
+						active
+							? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
+							: item.soon
+								? "cursor-not-allowed text-muted/60"
+								: "text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+					}`;
+					const inner = (
+						<>
 							<span className="text-base" aria-hidden>
 								{item.icon}
 							</span>
 							{!mini && (
 								<>
 									<span className="flex-1 text-left">{item.label}</span>
-									{active && (
-										<span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-									)}
+									{active && <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
 									{item.soon && (
 										<span className="rounded-full bg-black/5 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted dark:bg-white/10">
 											Soon
@@ -128,7 +99,31 @@ export default function AppShell({ user, initialMaster }: Props) {
 									)}
 								</>
 							)}
-						</button>
+						</>
+					);
+
+					if (item.soon || !item.href) {
+						return (
+							<button
+								key={item.label}
+								disabled
+								title={mini ? `${item.label} (soon)` : undefined}
+								className={cls}
+							>
+								{inner}
+							</button>
+						);
+					}
+					return (
+						<Link
+							key={item.label}
+							href={item.href}
+							onClick={() => setMobileOpen(false)}
+							title={mini ? item.label : undefined}
+							className={cls}
+						>
+							{inner}
+						</Link>
 					);
 				})}
 			</nav>
@@ -215,59 +210,47 @@ export default function AppShell({ user, initialMaster }: Props) {
 	);
 
 	return (
-		<div className="flex min-h-full">
-			{/* Desktop sidebar (collapsible to icons) */}
-			<aside
-				className={`no-print sticky top-0 hidden h-screen shrink-0 border-r border-border bg-surface/70 backdrop-blur transition-[width] duration-200 ease-in-out md:block ${
-					collapsed ? "w-16" : "w-64"
-				}`}
-			>
-				{renderSidebar(collapsed, true)}
-			</aside>
-
-			{/* Mobile drawer (always full) */}
-			{mobileOpen && (
-				<div className="no-print fixed inset-0 z-40 md:hidden">
-					<div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-					<aside className="absolute left-0 top-0 h-full w-64 border-r border-border bg-surface shadow-xl">
-						{renderSidebar(false, false)}
-					</aside>
-				</div>
-			)}
-
-			{/* Content column */}
-			<div className="min-w-0 flex-1">
-				{/* Mobile top bar */}
-				<div className="no-print flex items-center gap-3 border-b border-border bg-surface/70 px-4 py-3 backdrop-blur md:hidden">
-					<button
-						onClick={() => setMobileOpen(true)}
-						className="rounded-lg border border-border px-3 py-1.5 text-lg leading-none"
-						aria-label="Open menu"
+		<MasterProvider initialMaster={initialMaster}>
+			<AuditProvider>
+				<div className="flex min-h-full">
+					{/* Desktop sidebar (collapsible to icons) */}
+					<aside
+						className={`no-print sticky top-0 hidden h-screen shrink-0 border-r border-border bg-surface/70 backdrop-blur transition-[width] duration-200 ease-in-out md:block ${
+							collapsed ? "w-16" : "w-64"
+						}`}
 					>
-						☰
-					</button>
-					<span className="text-sm font-bold text-foreground">NIBBS Reports</span>
-					<ThemeToggle mini className="ml-auto border border-border" />
-				</div>
+						{renderSidebar(collapsed, true)}
+					</aside>
 
-				{/* Views (kept mounted to preserve in-progress work) */}
-				<div className={view === "audit" ? "block" : "hidden"}>
-					<SettlementAuditor master={master} />
-				</div>
-				<div className={view === "settings" ? "block" : "hidden"}>
-					<NibbsSettings
-						key={masterVersion}
-						master={master}
-						onSave={updateMaster}
-						onReset={handleReset}
-					/>
-				</div>
-				{user.role === "admin" && (
-					<div className={view === "users" ? "block" : "hidden"}>
-						<UserManagement currentUserId={user.id} />
+					{/* Mobile drawer (always full) */}
+					{mobileOpen && (
+						<div className="no-print fixed inset-0 z-40 md:hidden">
+							<div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+							<aside className="absolute left-0 top-0 h-full w-64 border-r border-border bg-surface shadow-xl">
+								{renderSidebar(false, false)}
+							</aside>
+						</div>
+					)}
+
+					{/* Content column */}
+					<div className="min-w-0 flex-1">
+						{/* Mobile top bar */}
+						<div className="no-print flex items-center gap-3 border-b border-border bg-surface/70 px-4 py-3 backdrop-blur md:hidden">
+							<button
+								onClick={() => setMobileOpen(true)}
+								className="rounded-lg border border-border px-3 py-1.5 text-lg leading-none"
+								aria-label="Open menu"
+							>
+								☰
+							</button>
+							<span className="text-sm font-bold text-foreground">NIBBS Reports</span>
+							<ThemeToggle mini className="ml-auto border border-border" />
+						</div>
+
+						{children}
 					</div>
-				)}
-			</div>
-		</div>
+				</div>
+			</AuditProvider>
+		</MasterProvider>
 	);
 }
