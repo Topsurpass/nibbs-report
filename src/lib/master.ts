@@ -1,7 +1,10 @@
 // Master reference data: the bank list plus each bank's posted Collateral.
-// Seeded from NIBBS_CHECKER.xlsx Sheet1 (A3:C26 — Bank code, Bank name, Collateral)
-// and thereafter editable in-app and persisted to localStorage. This is the
-// data the uploaded HTML/TXT files do NOT carry, so it is maintained here.
+// Seeded from NIBBS_CHECKER.xlsx Sheet1 (A3:C26 — Bank code, Bank name, Collateral).
+//
+// This data is NOT carried by the uploaded HTML/TXT files, so it is maintained
+// separately. It now lives in Neon Postgres (table `nibbs_banks`, see
+// src/services/banks/repository.ts); the list below is the seed/default used to
+// initialize a fresh database and to power "Reset to defaults".
 
 export interface MasterBank {
   /** 10-digit NIBBS bank/settlement code — the join key across all files. */
@@ -11,8 +14,6 @@ export interface MasterBank {
   /** Posted collateral in Naira. */
   collateral: number;
 }
-
-export const MASTER_STORAGE_KEY = "nibbs.master.v1";
 
 export const DEFAULT_MASTER: MasterBank[] = [
   { code: "4000470158", name: "Access Bank plc", collateral: 11_950_000_000 },
@@ -44,50 +45,4 @@ export const DEFAULT_MASTER: MasterBank[] = [
 /** The "<Name> - <code>" string, matching the HTML bank cell / Sheet1 column B. */
 export function bankLabel(b: Pick<MasterBank, "name" | "code">): string {
   return `${b.name} - ${b.code}`;
-}
-
-function isValid(list: unknown): list is MasterBank[] {
-  return (
-    Array.isArray(list) &&
-    list.every(
-      (b) =>
-        b &&
-        typeof b.code === "string" &&
-        typeof b.name === "string" &&
-        typeof b.collateral === "number" &&
-        Number.isFinite(b.collateral),
-    )
-  );
-}
-
-/** Load the master from localStorage, falling back to the seed defaults. */
-export function loadMaster(): MasterBank[] {
-  if (typeof window === "undefined") return clone(DEFAULT_MASTER);
-  try {
-    const raw = window.localStorage.getItem(MASTER_STORAGE_KEY);
-    if (!raw) return clone(DEFAULT_MASTER);
-    const parsed = JSON.parse(raw);
-    if (isValid(parsed)) return parsed;
-  } catch {
-    // ignore malformed storage and fall back
-  }
-  return clone(DEFAULT_MASTER);
-}
-
-/** Persist the master to localStorage. */
-export function saveMaster(list: MasterBank[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(list));
-}
-
-/** Reset stored master back to the seed defaults. */
-export function resetMaster(): MasterBank[] {
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(MASTER_STORAGE_KEY);
-  }
-  return clone(DEFAULT_MASTER);
-}
-
-function clone(list: MasterBank[]): MasterBank[] {
-  return list.map((b) => ({ ...b }));
 }
