@@ -24,6 +24,7 @@ interface Props {
 
 const REPORTS: NavItem[] = [
 	{ href: "/", label: "Settlement Audit", icon: "🧾" },
+	{ href: "/daily-reports", label: "Daily Schedule", icon: "📋" },
 	{ label: "Lien Safe", icon: "🔒", soon: true },
 	{ label: "Fraud Bucket", icon: "🪣", soon: true },
 ];
@@ -48,7 +49,11 @@ export default function AppChrome({ user, initialMaster, children }: Props) {
 			: []),
 	];
 
-	const isActive = (href?: string) => (href === "/" ? pathname === "/" : !!href && pathname === href);
+	const isActive = (href?: string) => {
+		if (!href) return false;
+		if (href === "/") return pathname === "/";
+		return pathname === href || pathname.startsWith(`${href}/`);
+	};
 
 	const signOut = async () => {
 		setSigningOut(true);

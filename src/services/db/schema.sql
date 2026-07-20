@@ -82,3 +82,20 @@ insert into nibbs_banks (code, name, collateral) values
   ('4000020120', 'WEMA', 25000000),
   ('4000540179', 'Zenith Bank Plc.', 50000000)
 on conflict (code) do nothing;
+
+-- Daily Schedule (shift-handover) reports. The full document is stored as JSONB;
+-- the top-level columns exist so the list view sorts/filters without parsing it.
+create table if not exists nibbs_schedule_reports (
+  id                 uuid primary key default gen_random_uuid(),
+  report_date        date not null,
+  handover_type      text not null,
+  outgoing_officers  text not null default '',
+  incoming_officers  text not null default '',
+  data               jsonb not null,
+  created_by         uuid references nibbs_users(id) on delete set null,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index if not exists nibbs_schedule_reports_date_idx
+  on nibbs_schedule_reports (report_date desc, created_at desc);
