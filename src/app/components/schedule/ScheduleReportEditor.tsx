@@ -39,6 +39,10 @@ const rid = () =>
 
 const fullName = (u: DirectoryUser) => `${u.firstName} ${u.lastName}`.trim();
 
+/** Editable default body for the send-report email, greeting the recipient. */
+const defaultScheduleMessage = (firstName: string) =>
+	`Dear ${firstName || "team"},\n\nKindly find attached daily schedule report.`;
+
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "cover", label: "Cover page" },
 	{ id: "summary", label: "Report Summary" },
@@ -737,9 +741,20 @@ function SendModal({
 	const [toUserId, setToUserId] = useState(users[0]?.id ?? "");
 	const [ccAll, setCcAll] = useState(false);
 	const [ccIds, setCcIds] = useState<Set<string>>(new Set());
-	const [message, setMessage] = useState("");
+	const [message, setMessage] = useState(() => defaultScheduleMessage(users[0]?.firstName ?? ""));
+	const [messageEdited, setMessageEdited] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+
+	// Change the recipient: refresh the greeting to match, unless the user has
+	// already customized the message.
+	const onSelectRecipient = (id: string) => {
+		setToUserId(id);
+		if (!messageEdited) {
+			const u = users.find((x) => x.id === id);
+			setMessage(defaultScheduleMessage(u?.firstName ?? ""));
+		}
+	};
 
 	const toggleCc = (id: string) => {
 		setCcIds((prev) => {
@@ -797,7 +812,7 @@ function SendModal({
 				<div className="space-y-4">
 					<div>
 						<label className="mb-1 block text-sm font-medium text-foreground">To</label>
-						<select className={inputCls} value={toUserId} onChange={(e) => setToUserId(e.target.value)}>
+						<select className={inputCls} value={toUserId} onChange={(e) => onSelectRecipient(e.target.value)}>
 							{users.map((u) => (
 								<option key={u.id} value={u.id}>
 									{fullName(u)} ({u.email})
@@ -831,8 +846,15 @@ function SendModal({
 					)}
 
 					<div>
-						<label className="mb-1 block text-sm font-medium text-foreground">Message (optional)</label>
-						<textarea className={`${inputCls} h-20`} value={message} onChange={(e) => setMessage(e.target.value)} />
+						<label className="mb-1 block text-sm font-medium text-foreground">Message</label>
+						<textarea
+							className={`${inputCls} h-28`}
+							value={message}
+							onChange={(e) => {
+								setMessage(e.target.value);
+								setMessageEdited(true);
+							}}
+						/>
 					</div>
 				</div>
 

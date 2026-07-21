@@ -77,26 +77,25 @@ export async function POST(request: Request, ctx: Ctx) {
 				const subject = `Daily Schedule Report — ${coverDate(c.date)} (${c.handoverType})`;
 				const note = parsed.data.message?.trim();
 				const textLines = [
-					`Daily Schedule Report attached.`,
+					note || `Kindly find attached daily schedule report.`,
 					"",
 					`Date:      ${coverDate(c.date)}`,
 					`Handover:  ${c.handoverType}`,
 					`Outgoing:  ${c.outgoingOfficers.join(", ") || "—"}`,
 					`Incoming:  ${c.incomingOfficers.join(", ") || "—"}`,
 					"",
-					note ? `Message:\n${note}\n` : "",
-					`Sent by ${sender} via NIBBS Settlement Auditor.`,
+					`Sent by ${sender} via Auto Auditor.`,
 				];
 				const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;">
-      <h2 style="margin:0 0 8px;font-size:18px;">Daily Schedule Report</h2>
+      ${note ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(note)}</p>` : ""}
+      <h2 style="margin:0 0 8px;font-size:16px;">Daily Schedule Report</h2>
       <table style="border-collapse:collapse;font-size:14px;">
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Date</td><td>${escapeHtml(coverDate(c.date))}</td></tr>
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Handover</td><td>${escapeHtml(c.handoverType)}</td></tr>
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Outgoing</td><td>${escapeHtml(c.outgoingOfficers.join(", ") || "—")}</td></tr>
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Incoming</td><td>${escapeHtml(c.incomingOfficers.join(", ") || "—")}</td></tr>
       </table>
-      ${note ? `<p style="margin:14px 0 0;font-size:14px;white-space:pre-wrap;">${escapeHtml(note)}</p>` : ""}
-      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">The full report is attached as ${escapeHtml(filename)}.<br/>Sent by ${escapeHtml(sender)} via NIBBS Settlement Auditor.</p>
+      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">The full report is attached as ${escapeHtml(filename)}.<br/>Sent by ${escapeHtml(sender)} via Auto Auditor.</p>
     </body></html>`;
 
 				const sent = await sendScheduleReport({
