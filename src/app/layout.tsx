@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { themeInitScript } from "@/lib/theme";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Geist is loaded from the self-hosted `geist` package (bundled .woff2 files),
+// not `next/font/google`. That avoids the build/dev-time Google Fonts fetch that
+// turbopack can't resolve offline/behind a proxy (the
+// "@vercel/turbopack-next/internal/font/google/font" error). Same CSS variables
+// (--font-geist-sans / --font-geist-mono) that globals.css already references.
 
 export const metadata: Metadata = {
   title: "NIBBS Settlement Auditor",
@@ -28,7 +25,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
