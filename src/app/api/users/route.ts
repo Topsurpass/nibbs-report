@@ -8,6 +8,7 @@ import {
 } from "@/services/auth/users-repository";
 import { generatePassword, hashPassword } from "@/services/auth/passwords";
 import { sendCredentialsEmail } from "@/services/email/mailer";
+import { getAppBaseUrl } from "@/lib/appUrl";
 
 export const runtime = "nodejs";
 
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
 			mustChangePassword: true,
 		});
 
-		const loginUrl = `${new URL(request.url).origin}/login`;
+		const loginUrl = `${getAppBaseUrl(request)}/login`;
 		const sent = await sendCredentialsEmail(
 			{ firstName: user.firstName, email: user.email },
 			password,

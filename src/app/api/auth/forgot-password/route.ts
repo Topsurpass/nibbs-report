@@ -3,6 +3,7 @@ import { forgotPasswordSchema } from "@/lib/validators/auth";
 import { getUserByEmail } from "@/services/auth/users-repository";
 import { createPasswordReset } from "@/services/auth/password-resets";
 import { sendPasswordResetLinkEmail } from "@/services/email/mailer";
+import { getAppBaseUrl } from "@/lib/appUrl";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 		return Response.json({ ok: false, error: "Enter a valid email." }, { status: 400 });
 	}
 
-	const origin = new URL(request.url).origin;
+	const origin = getAppBaseUrl(request);
 
 	try {
 		const user = await getUserByEmail(parsed.data.email);

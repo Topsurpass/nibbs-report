@@ -10,6 +10,7 @@ import {
 import { generatePassword, hashPassword } from "@/services/auth/passwords";
 import { sendPasswordResetEmail } from "@/services/email/mailer";
 import { updateRoleSchema } from "@/lib/validators/user";
+import { getAppBaseUrl } from "@/lib/appUrl";
 
 export const runtime = "nodejs";
 
@@ -110,7 +111,7 @@ export async function POST(request: Request, ctx: Ctx) {
 		const password = generatePassword();
 		await resetUserPassword(id, await hashPassword(password));
 
-		const loginUrl = `${new URL(request.url).origin}/login`;
+		const loginUrl = `${getAppBaseUrl(request)}/login`;
 		const sent = await sendPasswordResetEmail(
 			{ firstName: target.firstName, email: target.email },
 			password,
