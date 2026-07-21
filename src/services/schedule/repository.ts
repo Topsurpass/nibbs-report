@@ -90,12 +90,14 @@ export async function createReport(
 ): Promise<StoredReport> {
 	const sql = requireSql();
 	const c = report.cover;
+	const outgoing = (c.outgoingOfficers ?? []).join(", ");
+	const incoming = (c.incomingOfficers ?? []).join(", ");
 	const rows = (await withRetry(
 		() => sql`
 			insert into nibbs_schedule_reports
 				(report_date, handover_type, outgoing_officers, incoming_officers, data, created_by)
 			values
-				(${c.date}, ${c.handoverType}, ${c.outgoingOfficers}, ${c.incomingOfficers},
+				(${c.date}, ${c.handoverType}, ${outgoing}, ${incoming},
 				 ${JSON.stringify(report)}::jsonb, ${userId})
 			returning id, report_date::text as report_date, handover_type,
 			          outgoing_officers, incoming_officers, data, created_at, updated_at
@@ -110,13 +112,15 @@ export async function updateReport(
 ): Promise<StoredReport | null> {
 	const sql = requireSql();
 	const c = report.cover;
+	const outgoing = (c.outgoingOfficers ?? []).join(", ");
+	const incoming = (c.incomingOfficers ?? []).join(", ");
 	const rows = (await withRetry(
 		() => sql`
 			update nibbs_schedule_reports
 			set report_date = ${c.date},
 			    handover_type = ${c.handoverType},
-			    outgoing_officers = ${c.outgoingOfficers},
-			    incoming_officers = ${c.incomingOfficers},
+			    outgoing_officers = ${outgoing},
+			    incoming_officers = ${incoming},
 			    data = ${JSON.stringify(report)}::jsonb,
 			    updated_at = now()
 			where id = ${id}

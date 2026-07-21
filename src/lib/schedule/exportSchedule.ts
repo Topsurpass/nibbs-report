@@ -1,11 +1,10 @@
-import * as XLSX from "xlsx";
 import type { HandoverType, ScheduleReport } from "./template";
 
 /**
- * Renders a ScheduleReport back into the 4-tab Excel workbook it came from.
- * `buildScheduleSheets` is pure (arrays-of-arrays + merge ranges) so it is
- * unit-testable without SheetJS; `buildScheduleWorkbook` assembles the sheets
- * and `downloadScheduleExcel` writes the file in the browser.
+ * Pure content model for the 4-tab schedule workbook: arrays-of-arrays plus the
+ * merge ranges. Kept free of any Excel library so it is unit-testable; the
+ * styled workbook is assembled from this by `src/lib/schedule/excel.ts` (exceljs,
+ * server-side).
  */
 
 type Cell = string | number;
@@ -43,6 +42,8 @@ export function shiftSlug(handoverType: HandoverType | string): string {
 	return handoverType.replace(/\s+to\s+/i, "_").replace(/\s+/g, "_");
 }
 
+const officers = (list: string[]): string => (list ?? []).filter(Boolean).join(", ");
+
 export function buildScheduleSheets(report: ScheduleReport): SheetData {
 	const { cover, summary, fraudAlerts, recommendations } = report;
 
@@ -51,8 +52,8 @@ export function buildScheduleSheets(report: ScheduleReport): SheetData {
 		["Department", cover.department, ""],
 		["Handover Type", `☐ ${cover.handoverType}`, "Specify the shift transition type."],
 		["Date", coverDate(cover.date), "The date of the handover."],
-		["Outgoing Officer(s)", cover.outgoingOfficers, "Name(s) of the team member(s) ending the shift."],
-		["Incoming Officer(s)", cover.incomingOfficers, "Name(s) of the team member(s) starting the shift."],
+		["Outgoing Officer(s)", officers(cover.outgoingOfficers), "Name(s) of the team member(s) ending the shift."],
+		["Incoming Officer(s)", officers(cover.incomingOfficers), "Name(s) of the team member(s) starting the shift."],
 		["Time of Handover", cover.timeOfHandover, "Exact time the handover took place."],
 		["Outgoing Officer’s Signature", "", "Signature of the officer ending the shift."],
 		["Incoming Officer’s Signature", "", "Signature of the officer beginning the shift."],
@@ -89,14 +90,7 @@ export function buildScheduleSheets(report: ScheduleReport): SheetData {
 	const fraudAoa: Cell[][] = [
 		["", "", "Use this to log any fraud incidents detected.", "", "", ""],
 		["Time Logged", "Case Reference/ID", "Description", "Status", "Escalated To", "Remarks"],
-		...fraudAlerts.map((a) => [
-			a.timeLogged,
-			a.caseRef,
-			a.description,
-			a.status,
-			a.escalatedTo,
-			a.remarks,
-		]),
+		...fraudAlerts.map((a) => [a.timeLogged, a.caseRef, a.description, a.status, a.escalatedTo, a.remarks]),
 	];
 
 	// --- Recommendations ---
@@ -106,45 +100,11 @@ export function buildScheduleSheets(report: ScheduleReport): SheetData {
 		...recommendations.map((rec, i) => [i + 1, rec.text]),
 	];
 
-	return {
-		cover: coverAoa,
-		summary: { aoa: summaryAoa, merges },
-		fraud: fraudAoa,
-		recs: recsAoa,
-	};
-}
-
-export function buildScheduleWorkbook(report: ScheduleReport): XLSX.WorkBook {
-	const data = buildScheduleSheets(report);
-	const wb = XLSX.utils.book_new();
-
-	const coverWs = XLSX.utils.aoa_to_sheet(data.cover);
-	coverWs["!cols"] = [{ wch: 28 }, { wch: 32 }, { wch: 48 }];
-	XLSX.utils.book_append_sheet(wb, coverWs, SHEET_NAMES.cover);
-
-	const summaryWs = XLSX.utils.aoa_to_sheet(data.summary.aoa);
-	summaryWs["!cols"] = [{ wch: 22 }, { wch: 18 }, { wch: 40 }, { wch: 40 }, { wch: 32 }];
-	summaryWs["!merges"] = data.summary.merges.map((m) => XLSX.utils.decode_range(m));
-	XLSX.utils.book_append_sheet(wb, summaryWs, SHEET_NAMES.summary);
-
-	const fraudWs = XLSX.utils.aoa_to_sheet(data.fraud);
-	fraudWs["!cols"] = [{ wch: 14 }, { wch: 20 }, { wch: 32 }, { wch: 14 }, { wch: 16 }, { wch: 20 }];
-	XLSX.utils.book_append_sheet(wb, fraudWs, SHEET_NAMES.fraud);
-
-	const recsWs = XLSX.utils.aoa_to_sheet(data.recs);
-	recsWs["!cols"] = [{ wch: 6 }, { wch: 60 }];
-	XLSX.utils.book_append_sheet(wb, recsWs, SHEET_NAMES.recs);
-
-	return wb;
+	return { cover: coverAoa, summary: { aoa: summaryAoa, merges }, fraud: fraudAoa, recs: recsAoa };
 }
 
 export function scheduleFileName(report: ScheduleReport): string {
 	return `DAILY_SCHEDULE_REPORT_${ddmmyyyy(report.cover.date)}_${shiftSlug(
 		report.cover.handoverType,
 	)}.xlsx`;
-}
-
-/** Build and download the workbook (browser). */
-export function downloadScheduleExcel(report: ScheduleReport): void {
-	XLSX.writeFile(buildScheduleWorkbook(report), scheduleFileName(report));
 }

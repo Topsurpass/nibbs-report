@@ -37,8 +37,8 @@ export const coverSchema = z.object({
 	date: z
 		.string()
 		.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-	outgoingOfficers: z.string(),
-	incomingOfficers: z.string(),
+	outgoingOfficers: z.array(z.string()).min(1, "Add at least one outgoing officer"),
+	incomingOfficers: z.array(z.string()),
 	timeOfHandover: z.string(),
 });
 

@@ -147,6 +147,44 @@ async function send(
 	}
 }
 
+export interface ScheduleEmailInput {
+	to: string;
+	cc?: string[];
+	subject: string;
+	text: string;
+	html: string;
+	filename: string;
+	buffer: Buffer;
+}
+
+/**
+ * Send a daily schedule report to a recipient (optionally CC'ing others), with
+ * the styled `.xlsx` attached. Same skip-when-unconfigured posture as the other
+ * senders — never throws to the caller.
+ */
+export async function sendScheduleReport(input: ScheduleEmailInput): Promise<SendResult> {
+	const { user, pass } = getCredentials();
+	if (!user || !pass) {
+		console.warn("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — schedule report not emailed.");
+		return { ok: false, skipped: true };
+	}
+	try {
+		await makeTransport(user, pass).sendMail({
+			from: `"NIBBS Settlement Auditor" <${user}>`,
+			to: input.to,
+			cc: input.cc && input.cc.length ? input.cc : undefined,
+			subject: input.subject,
+			text: input.text,
+			html: input.html,
+			attachments: [{ filename: input.filename, content: input.buffer }],
+		});
+		return { ok: true };
+	} catch (err) {
+		console.error("[email] failed to send schedule report", err);
+		return { ok: false, error: err instanceof Error ? err.message : "send failed" };
+	}
+}
+
 function firstName(name: string): string {
 	return name.trim().split(/\s+/)[0] || "there";
 }

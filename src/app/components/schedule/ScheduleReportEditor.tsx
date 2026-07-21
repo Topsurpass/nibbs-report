@@ -1,32 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+	CATEGORY_PRESETS,
 	HANDOVER_TYPES,
-	STATUS_PRESETS,
+	STATUS_OPTIONS,
 	type FraudAlert,
 	type HandoverType,
-	type Recommendation,
 	type ScheduleReport,
 	type SummaryCategory,
 	type SummaryRow,
 } from "@/lib/schedule/template";
-import { downloadScheduleExcel } from "@/lib/schedule/exportSchedule";
+import { scheduleFileName } from "@/lib/schedule/exportSchedule";
 
 type TabId = "cover" | "summary" | "fraud" | "recs";
+
+export interface DirectoryUser {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+}
 
 interface Props {
 	mode: "new" | "edit";
 	initial: ScheduleReport;
 	reportId?: string;
+	users: DirectoryUser[];
+	currentUserName?: string;
 }
 
 const rid = () =>
 	typeof crypto !== "undefined" && crypto.randomUUID
 		? crypto.randomUUID()
 		: Math.random().toString(36).slice(2);
+
+const fullName = (u: DirectoryUser) => `${u.firstName} ${u.lastName}`.trim();
 
 const TABS: { id: TabId; label: string }[] = [
 	{ id: "cover", label: "Cover page" },
@@ -38,8 +49,6 @@ const TABS: { id: TabId; label: string }[] = [
 const inputCls =
 	"w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40";
 
-// Module-level so inputs keep focus across re-renders (an inner component would
-// be a new type each render and remount its children).
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
 		<div>
@@ -49,25 +58,46 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 	);
 }
 
-export default function ScheduleReportEditor({ mode, initial, reportId }: Props) {
+export default function ScheduleReportEditor({ mode, initial, reportId, users, currentUserName }: Props) {
 	const router = useRouter();
 	const [report, setReport] = useState<ScheduleReport>(initial);
 	const [tab, setTab] = useState<TabId>("cover");
 	const [dirty, setDirty] = useState(mode === "new");
 	const [saving, setSaving] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const [savedFlag, setSavedFlag] = useState(false);
+	const [showSend, setShowSend] = useState(false);
 
-	// ---- immutable updates ----
+	const officerNames = useMemo(() => {
+		const seen = new Set<string>();
+		const names: string[] = [];
+		for (const u of users) {
+			const n = fullName(u);
+			if (n && !seen.has(n)) {
+				seen.add(n);
+				names.push(n);
+			}
+		}
+		return names;
+	}, [users]);
+
 	const touch = () => {
 		setDirty(true);
 		setSavedFlag(false);
 	};
+
+	// ---- cover ----
 	const setCover = (patch: Partial<ScheduleReport["cover"]>) => {
 		setReport((r) => ({ ...r, cover: { ...r.cover, ...patch } }));
 		touch();
 	};
+	const setOfficers = (kind: "outgoingOfficers" | "incomingOfficers", list: string[]) =>
+		setCover({ [kind]: list } as Partial<ScheduleReport["cover"]>);
+
+	// ---- summary ----
 	const mapCats = (fn: (c: SummaryCategory) => SummaryCategory) => {
 		setReport((r) => ({ ...r, summary: r.summary.map(fn) }));
 		touch();
@@ -76,35 +106,35 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 		mapCats((c) => (c.id === catId ? { ...c, ...patch } : c));
 	const setRow = (catId: string, rowId: string, patch: Partial<SummaryRow>) =>
 		mapCats((c) =>
-			c.id === catId
-				? { ...c, rows: c.rows.map((rw) => (rw.id === rowId ? { ...rw, ...patch } : rw)) }
-				: c,
+			c.id === catId ? { ...c, rows: c.rows.map((rw) => (rw.id === rowId ? { ...rw, ...patch } : rw)) } : c,
 		);
 	const addRow = (catId: string) =>
 		mapCats((c) =>
-			c.id === catId
-				? { ...c, rows: [...c.rows, { id: rid(), detail: "", findings: "", status: "Nil" }] }
-				: c,
+			c.id === catId ? { ...c, rows: [...c.rows, { id: rid(), detail: "", findings: "", status: "Nil" }] } : c,
 		);
 	const removeRow = (catId: string, rowId: string) =>
 		mapCats((c) => (c.id === catId ? { ...c, rows: c.rows.filter((rw) => rw.id !== rowId) } : c));
-	const addCategory = () => {
-		setReport((r) => ({
-			...r,
-			summary: [...r.summary, { id: rid(), task: "NEW TASK", description: "", rows: [] }],
-		}));
-		touch();
-	};
 	const removeCategory = (catId: string) => {
 		setReport((r) => ({ ...r, summary: r.summary.filter((c) => c.id !== catId) }));
 		touch();
 	};
+	const addCategory = (presetKey: string) => {
+		let cat: SummaryCategory;
+		if (presetKey === "custom") {
+			cat = { id: rid(), task: "NEW TASK", description: "", rows: [] };
+		} else {
+			const preset = CATEGORY_PRESETS.find((p) => p.key === presetKey);
+			if (!preset) return;
+			const base = preset.make();
+			cat = { ...base, id: rid(), rows: base.rows.map((rw) => ({ ...rw, id: rid() })) };
+		}
+		setReport((r) => ({ ...r, summary: [...r.summary, cat] }));
+		touch();
+	};
 
+	// ---- fraud + recs ----
 	const setAlert = (id: string, patch: Partial<FraudAlert>) => {
-		setReport((r) => ({
-			...r,
-			fraudAlerts: r.fraudAlerts.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-		}));
+		setReport((r) => ({ ...r, fraudAlerts: r.fraudAlerts.map((a) => (a.id === id ? { ...a, ...patch } : a)) }));
 		touch();
 	};
 	const addAlert = () => {
@@ -121,12 +151,8 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 		setReport((r) => ({ ...r, fraudAlerts: r.fraudAlerts.filter((a) => a.id !== id) }));
 		touch();
 	};
-
 	const setRec = (id: string, text: string) => {
-		setReport((r) => ({
-			...r,
-			recommendations: r.recommendations.map((x) => (x.id === id ? { ...x, text } : x)),
-		}));
+		setReport((r) => ({ ...r, recommendations: r.recommendations.map((x) => (x.id === id ? { ...x, text } : x)) }));
 		touch();
 	};
 	const addRec = () => {
@@ -139,12 +165,18 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 	};
 
 	// ---- persistence ----
-	const save = async () => {
+	/** Save; returns the report id on success, or null on failure. */
+	const save = async (): Promise<string | null> => {
 		setError(null);
 		if (!report.cover.date) {
 			setError("Set the handover date on the Cover page.");
 			setTab("cover");
-			return;
+			return null;
+		}
+		if (report.cover.outgoingOfficers.filter(Boolean).length === 0) {
+			setError("Add at least one outgoing officer on the Cover page.");
+			setTab("cover");
+			return null;
 		}
 		setSaving(true);
 		try {
@@ -159,7 +191,7 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 			const data = await res.json();
 			if (!res.ok || !data.ok) {
 				setError(data.error ?? "Couldn't save the report.");
-				return;
+				return null;
 			}
 			setDirty(false);
 			setSavedFlag(true);
@@ -167,8 +199,10 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 				router.replace(`/daily-reports/${data.report.id}`);
 				router.refresh();
 			}
+			return data.report.id as string;
 		} catch {
 			setError("Network error. Try again.");
+			return null;
 		} finally {
 			setSaving(false);
 		}
@@ -195,14 +229,51 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 		}
 	};
 
+	const exportXlsx = async () => {
+		setError(null);
+		setExporting(true);
+		try {
+			const res = await fetch("/api/schedule-reports/export", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(report),
+			});
+			if (!res.ok) {
+				const d = await res.json().catch(() => null);
+				setError(d?.error ?? "Export failed.");
+				return;
+			}
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = scheduleFileName(report);
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch {
+			setError("Export failed.");
+		} finally {
+			setExporting(false);
+		}
+	};
+
+	const openSend = async () => {
+		setError(null);
+		setNotice(null);
+		let id = reportId;
+		if (mode === "new" || dirty) {
+			const saved = await save();
+			if (!saved) return;
+			id = saved;
+		}
+		if (!id) return;
+		setShowSend(true);
+	};
+
 	return (
 		<div>
-			<datalist id="status-presets">
-				{STATUS_PRESETS.map((s) => (
-					<option key={s} value={s} />
-				))}
-			</datalist>
-
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-8 sm:px-10">
 					<Link href="/daily-reports" className="text-xs text-white/70 hover:text-white">
@@ -217,7 +288,6 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 				</div>
 			</header>
 
-			{/* Action bar */}
 			<div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-border bg-surface/90 px-6 py-3 backdrop-blur sm:px-10">
 				<div className="flex flex-wrap gap-1">
 					{TABS.map((t) => (
@@ -236,10 +306,18 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 				</div>
 				<div className="ml-auto flex flex-wrap items-center gap-2">
 					<button
-						onClick={() => downloadScheduleExcel(report)}
-						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+						onClick={exportXlsx}
+						disabled={exporting}
+						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
 					>
-						⬇ Export .xlsx
+						{exporting ? "Building…" : "⬇ Export .xlsx"}
+					</button>
+					<button
+						onClick={openSend}
+						disabled={saving}
+						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
+					>
+						✉ Send
 					</button>
 					{mode === "edit" && (
 						<button
@@ -262,15 +340,19 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 
 			<div className="px-6 py-6 sm:px-10">
 				{error && (
-					<div
-						role="alert"
-						className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-					>
+					<div role="alert" className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
 						{error}
 					</div>
 				)}
+				{notice && (
+					<div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm text-teal-700 dark:text-teal-300">
+						{notice}
+					</div>
+				)}
 
-				{tab === "cover" && <CoverTab report={report} setCover={setCover} />}
+				{tab === "cover" && (
+					<CoverTab report={report} setCover={setCover} setOfficers={setOfficers} officerNames={officerNames} currentUserName={currentUserName} />
+				)}
 				{tab === "summary" && (
 					<SummaryTab
 						report={report}
@@ -282,37 +364,106 @@ export default function ScheduleReportEditor({ mode, initial, reportId }: Props)
 						removeCategory={removeCategory}
 					/>
 				)}
-				{tab === "fraud" && (
-					<FraudTab report={report} setAlert={setAlert} addAlert={addAlert} removeAlert={removeAlert} />
-				)}
-				{tab === "recs" && (
-					<RecsTab report={report} setRec={setRec} addRec={addRec} removeRec={removeRec} />
-				)}
+				{tab === "fraud" && <FraudTab report={report} setAlert={setAlert} addAlert={addAlert} removeAlert={removeAlert} />}
+				{tab === "recs" && <RecsTab report={report} setRec={setRec} addRec={addRec} removeRec={removeRec} />}
 			</div>
+
+			{showSend && reportId && (
+				<SendModal
+					reportId={reportId}
+					users={users}
+					onClose={() => setShowSend(false)}
+					onSent={(msg) => {
+						setShowSend(false);
+						setNotice(msg);
+					}}
+				/>
+			)}
 		</div>
 	);
 }
 
 /* ---------------- Cover tab ---------------- */
+function OfficerPicker({
+	label,
+	values,
+	options,
+	onChange,
+}: {
+	label: string;
+	values: string[];
+	options: string[];
+	onChange: (list: string[]) => void;
+}) {
+	const set = (i: number, v: string) => onChange(values.map((x, idx) => (idx === i ? v : x)));
+	const add = () => onChange([...values, ""]);
+	const remove = (i: number) => onChange(values.filter((_, idx) => idx !== i));
+	const rows = values.length ? values : [""];
+	return (
+		<Field label={label}>
+			<div className="space-y-2">
+				{rows.map((val, i) => {
+					const opts = val && !options.includes(val) ? [val, ...options] : options;
+					return (
+						<div key={i} className="flex items-center gap-2">
+							<select
+								className={inputCls}
+								value={val}
+								onChange={(e) => {
+									if (values.length === 0) onChange([e.target.value]);
+									else set(i, e.target.value);
+								}}
+							>
+								<option value="">Select officer…</option>
+								{opts.map((o) => (
+									<option key={o} value={o}>
+										{o}
+									</option>
+								))}
+							</select>
+							{values.length > 1 && (
+								<button
+									onClick={() => remove(i)}
+									className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+									title="Remove officer"
+								>
+									✕
+								</button>
+							)}
+						</div>
+					);
+				})}
+				<button onClick={add} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
+					+ Add officer
+				</button>
+			</div>
+		</Field>
+	);
+}
+
 function CoverTab({
 	report,
 	setCover,
+	setOfficers,
+	officerNames,
+	currentUserName,
 }: {
 	report: ScheduleReport;
 	setCover: (patch: Partial<ScheduleReport["cover"]>) => void;
+	setOfficers: (kind: "outgoingOfficers" | "incomingOfficers", list: string[]) => void;
+	officerNames: string[];
+	currentUserName?: string;
 }) {
 	const c = report.cover;
+	// Ensure the signed-in officer is always an option even if not in the directory.
+	const outgoingOpts = currentUserName && !officerNames.includes(currentUserName) ? [currentUserName, ...officerNames] : officerNames;
 	return (
 		<div className="max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
 			<Field label="Department">
 				<input className={inputCls} value={c.department} onChange={(e) => setCover({ department: e.target.value })} />
 			</Field>
 			<Field label="Handover Type">
-				<select
-					className={inputCls}
-					value={c.handoverType}
-					onChange={(e) => setCover({ handoverType: e.target.value as HandoverType })}
-				>
+				<select className={inputCls} value={c.handoverType} onChange={(e) => setCover({ handoverType: e.target.value as HandoverType })}>
 					{HANDOVER_TYPES.map((h) => (
 						<option key={h} value={h}>
 							{h}
@@ -325,30 +476,34 @@ function CoverTab({
 					<input type="date" className={inputCls} value={c.date} onChange={(e) => setCover({ date: e.target.value })} />
 				</Field>
 				<Field label="Time of Handover">
-					<input
-						className={inputCls}
-						placeholder="e.g. 8:30pm"
-						value={c.timeOfHandover}
-						onChange={(e) => setCover({ timeOfHandover: e.target.value })}
-					/>
+					<input className={inputCls} placeholder="e.g. 8:30pm" value={c.timeOfHandover} onChange={(e) => setCover({ timeOfHandover: e.target.value })} />
 				</Field>
 			</div>
 			<div className="grid gap-4 sm:grid-cols-2">
-				<Field label="Outgoing Officer(s)">
-					<input className={inputCls} value={c.outgoingOfficers} onChange={(e) => setCover({ outgoingOfficers: e.target.value })} />
-				</Field>
-				<Field label="Incoming Officer(s)">
-					<input className={inputCls} value={c.incomingOfficers} onChange={(e) => setCover({ incomingOfficers: e.target.value })} />
-				</Field>
+				<OfficerPicker label="Outgoing Officer(s)" values={c.outgoingOfficers} options={outgoingOpts} onChange={(list) => setOfficers("outgoingOfficers", list)} />
+				<OfficerPicker label="Incoming Officer(s)" values={c.incomingOfficers} options={officerNames} onChange={(list) => setOfficers("incomingOfficers", list)} />
 			</div>
 			<p className="text-xs text-muted">
-				Signature lines are added as blank rows in the exported Excel for officers to sign.
+				Officers are chosen from the user list. Signature lines are added as blank rows in the exported Excel.
 			</p>
 		</div>
 	);
 }
 
 /* ---------------- Report Summary tab ---------------- */
+function StatusSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+	const opts = (STATUS_OPTIONS as readonly string[]).includes(value) ? STATUS_OPTIONS : [value, ...STATUS_OPTIONS];
+	return (
+		<select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
+			{opts.map((o) => (
+				<option key={o} value={o}>
+					{o}
+				</option>
+			))}
+		</select>
+	);
+}
+
 function SummaryTab({
 	report,
 	setCategory,
@@ -363,7 +518,7 @@ function SummaryTab({
 	setRow: (catId: string, rowId: string, patch: Partial<SummaryRow>) => void;
 	addRow: (catId: string) => void;
 	removeRow: (catId: string, rowId: string) => void;
-	addCategory: () => void;
+	addCategory: (presetKey: string) => void;
 	removeCategory: (catId: string) => void;
 }) {
 	return (
@@ -382,11 +537,7 @@ function SummaryTab({
 							onChange={(e) => setCategory(cat.id, { description: e.target.value })}
 							className="min-w-[200px] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
 						/>
-						<button
-							onClick={() => removeCategory(cat.id)}
-							className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-							title="Remove category"
-						>
+						<button onClick={() => removeCategory(cat.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove category">
 							Remove category
 						</button>
 					</div>
@@ -410,19 +561,10 @@ function SummaryTab({
 											<input className={inputCls} value={row.findings} onChange={(e) => setRow(cat.id, row.id, { findings: e.target.value })} />
 										</td>
 										<td className="px-3 py-1.5">
-											<input
-												className={inputCls}
-												list="status-presets"
-												value={row.status}
-												onChange={(e) => setRow(cat.id, row.id, { status: e.target.value })}
-											/>
+											<StatusSelect value={row.status} onChange={(v) => setRow(cat.id, row.id, { status: v })} />
 										</td>
 										<td className="px-2 py-1.5 text-center">
-											<button
-												onClick={() => removeRow(cat.id, row.id)}
-												className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-												title="Remove row"
-											>
+											<button onClick={() => removeRow(cat.id, row.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove row">
 												✕
 											</button>
 										</td>
@@ -432,21 +574,32 @@ function SummaryTab({
 						</table>
 					</div>
 					<div className="border-t border-border px-4 py-2">
-						<button
-							onClick={() => addRow(cat.id)}
-							className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300"
-						>
+						<button onClick={() => addRow(cat.id)} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
 							+ Add row
 						</button>
 					</div>
 				</div>
 			))}
-			<button
-				onClick={addCategory}
-				className="rounded-lg border border-dashed border-border px-4 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5"
-			>
-				+ Add category
-			</button>
+
+			<div className="flex items-center gap-2">
+				<label className="text-sm font-medium text-foreground">Add category:</label>
+				<select
+					value=""
+					onChange={(e) => {
+						if (e.target.value) addCategory(e.target.value);
+						e.target.value = "";
+					}}
+					className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+				>
+					<option value="">Choose…</option>
+					{CATEGORY_PRESETS.map((p) => (
+						<option key={p.key} value={p.key}>
+							{p.label}
+						</option>
+					))}
+					<option value="custom">Custom (blank)</option>
+				</select>
+			</div>
 		</div>
 	);
 }
@@ -496,11 +649,7 @@ function FraudTab({
 										</td>
 									))}
 									<td className="px-2 py-1.5 text-center">
-										<button
-											onClick={() => removeAlert(a.id)}
-											className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-											title="Remove row"
-										>
+										<button onClick={() => removeAlert(a.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove row">
 											✕
 										</button>
 									</td>
@@ -517,10 +666,7 @@ function FraudTab({
 					</table>
 				</div>
 				<div className="border-t border-border px-4 py-2">
-					<button
-						onClick={addAlert}
-						className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300"
-					>
+					<button onClick={addAlert} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
 						+ Add incident
 					</button>
 				</div>
@@ -543,32 +689,142 @@ function RecsTab({
 }) {
 	return (
 		<div className="max-w-2xl space-y-3">
-			<p className="text-sm text-muted">
-				Suggestions or priority actions for the incoming shift.
-			</p>
+			<p className="text-sm text-muted">Suggestions or priority actions for the incoming shift.</p>
 			<div className="space-y-2 rounded-2xl border border-border bg-surface p-4 shadow-sm">
 				{report.recommendations.map((rec, i) => (
 					<div key={rec.id} className="flex items-center gap-2">
 						<span className="tnum w-6 text-right text-sm text-muted">{i + 1}.</span>
 						<input className={inputCls} value={rec.text} onChange={(e) => setRec(rec.id, e.target.value)} />
-						<button
-							onClick={() => removeRec(rec.id)}
-							className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-							title="Remove"
-						>
+						<button onClick={() => removeRec(rec.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove">
 							✕
 						</button>
 					</div>
 				))}
-				{report.recommendations.length === 0 && (
-					<p className="py-4 text-center text-sm text-muted">No recommendations yet.</p>
-				)}
-				<button
-					onClick={addRec}
-					className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300"
-				>
+				{report.recommendations.length === 0 && <p className="py-4 text-center text-sm text-muted">No recommendations yet.</p>}
+				<button onClick={addRec} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
 					+ Add recommendation
 				</button>
+			</div>
+		</div>
+	);
+}
+
+/* ---------------- Send modal ---------------- */
+function SendModal({
+	reportId,
+	users,
+	onClose,
+	onSent,
+}: {
+	reportId: string;
+	users: DirectoryUser[];
+	onClose: () => void;
+	onSent: (msg: string) => void;
+}) {
+	const [toUserId, setToUserId] = useState(users[0]?.id ?? "");
+	const [ccAll, setCcAll] = useState(false);
+	const [ccIds, setCcIds] = useState<Set<string>>(new Set());
+	const [message, setMessage] = useState("");
+	const [sending, setSending] = useState(false);
+	const [err, setErr] = useState<string | null>(null);
+
+	const toggleCc = (id: string) => {
+		setCcIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
+
+	const send = async () => {
+		if (!toUserId) {
+			setErr("Pick a recipient.");
+			return;
+		}
+		setSending(true);
+		setErr(null);
+		try {
+			const body: Record<string, unknown> = { toUserId, message };
+			if (ccAll) body.ccAll = true;
+			else body.ccUserIds = [...ccIds].filter((id) => id !== toUserId);
+			const res = await fetch(`/api/schedule-reports/${reportId}/send`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			const data = await res.json();
+			if (!res.ok || !data.ok) {
+				setErr(data.error ?? "Couldn't send the report.");
+				return;
+			}
+			onSent(`Report sent to ${data.to}${data.ccCount ? ` (+${data.ccCount} cc)` : ""}.`);
+		} catch {
+			setErr("Network error. Try again.");
+		} finally {
+			setSending(false);
+		}
+	};
+
+	return (
+		<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
+			<div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
+				<h2 className="text-base font-semibold text-foreground">Send report</h2>
+				<p className="mb-4 text-xs text-muted">The styled .xlsx is attached to the email.</p>
+
+				{err && <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
+
+				<div className="space-y-4">
+					<div>
+						<label className="mb-1 block text-sm font-medium text-foreground">To</label>
+						<select className={inputCls} value={toUserId} onChange={(e) => setToUserId(e.target.value)}>
+							{users.map((u) => (
+								<option key={u.id} value={u.id}>
+									{fullName(u)} ({u.email})
+								</option>
+							))}
+						</select>
+					</div>
+
+					<label className="flex items-center gap-2 text-sm text-foreground">
+						<input type="checkbox" checked={ccAll} onChange={(e) => setCcAll(e.target.checked)} />
+						Copy all other users
+					</label>
+
+					{!ccAll && (
+						<div>
+							<label className="mb-1 block text-sm font-medium text-foreground">CC (optional)</label>
+							<div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+								{users
+									.filter((u) => u.id !== toUserId)
+									.map((u) => (
+										<label key={u.id} className="flex items-center gap-2 text-sm text-muted">
+											<input type="checkbox" checked={ccIds.has(u.id)} onChange={() => toggleCc(u.id)} />
+											{fullName(u)}
+										</label>
+									))}
+								{users.filter((u) => u.id !== toUserId).length === 0 && (
+									<p className="text-xs text-muted">No other users.</p>
+								)}
+							</div>
+						</div>
+					)}
+
+					<div>
+						<label className="mb-1 block text-sm font-medium text-foreground">Message (optional)</label>
+						<textarea className={`${inputCls} h-20`} value={message} onChange={(e) => setMessage(e.target.value)} />
+					</div>
+				</div>
+
+				<div className="mt-5 flex justify-end gap-2">
+					<button onClick={onClose} className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5">
+						Cancel
+					</button>
+					<button onClick={send} disabled={sending} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+						{sending ? "Sending…" : "Send report"}
+					</button>
+				</div>
 			</div>
 		</div>
 	);

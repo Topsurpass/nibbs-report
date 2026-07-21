@@ -16,25 +16,18 @@ export const HANDOVER_TYPES: HandoverType[] = [
 	"Night to Morning",
 ];
 
-/** Common Status values, offered as combobox presets (free text still allowed). */
-export const STATUS_PRESETS = [
-	"Nil",
-	"Okay",
-	"No Issue",
-	"Treated",
-	"Pending",
-	"Recorded, wallet(s) blocked",
-	"Approval gotten, wallet(s) unblocked",
-	"Reasons provided",
-];
+/** The fixed Status choices (a dropdown in the editor). */
+export const STATUS_OPTIONS = ["Nil", "Okay", "Pending", "Treated"] as const;
+export const DEFAULT_STATUS = "Nil";
 
 export interface CoverPage {
 	department: string;
 	handoverType: HandoverType;
 	/** YYYY-MM-DD */
 	date: string;
-	outgoingOfficers: string;
-	incomingOfficers: string;
+	/** Officer names, chosen from the user directory. First = the signed-in user. */
+	outgoingOfficers: string[];
+	incomingOfficers: string[];
 	/** Free text, e.g. "8:30pm". */
 	timeOfHandover: string;
 }
@@ -96,24 +89,59 @@ const row = (detail: string, findings = "", status = "Nil"): SummaryRow => ({
 	status,
 });
 
-/** The standard Report Summary structure (matches the sample workbook). */
+function monitoring(): SummaryCategory {
+	return {
+		id: "monitoring",
+		task: "MONITORING",
+		description: "None",
+		rows: [
+			row("Mobile Transfer", "0"),
+			row("VTU", "0"),
+			row("Payment", "0"),
+			row("Pocketmoni", "0"),
+			row("CorporatePay", "0"),
+			row("SwitchIT", "0"),
+			row("Payoutlet", "0"),
+		],
+	};
+}
+function fraudComplaints(): SummaryCategory {
+	return {
+		id: "fraud-complaints",
+		task: "Fraud Complaints",
+		description: "None",
+		rows: [row("Email", "", "Nil"), row("Phone call", "", "Nil")],
+	};
+}
+function nibss(): SummaryCategory {
+	return {
+		id: "nibss",
+		task: "NIBSS",
+		description: "None",
+		rows: [row("NIBSS", "", "Treated")],
+	};
+}
+
+/** The default Report Summary: MONITORING, Fraud Complaints, NIBSS. */
 export function defaultSummary(): SummaryCategory[] {
-	return [
-		{
-			id: "monitoring",
-			task: "MONITORING",
-			description: "None",
-			rows: [
-				row("Mobile Transfer", "0"),
-				row("VTU", "0"),
-				row("Payment", "0"),
-				row("Pocketmoni", "0"),
-				row("CorporatePay", "0"),
-				row("SwitchIT", "0"),
-				row("Payoutlet", "0"),
-			],
-		},
-		{
+	return [monitoring(), fraudComplaints(), nibss()];
+}
+
+/**
+ * Extra standard categories offered one-click under "Add category" (statuses
+ * kept within STATUS_OPTIONS; the old descriptive statuses live in findings).
+ */
+export interface CategoryPreset {
+	key: string;
+	label: string;
+	make: () => SummaryCategory;
+}
+
+export const CATEGORY_PRESETS: CategoryPreset[] = [
+	{
+		key: "tools-health",
+		label: "Tools Health",
+		make: () => ({
 			id: "tools-health",
 			task: "Tools Health",
 			description: "None",
@@ -123,29 +151,25 @@ export function defaultSummary(): SummaryCategory[] {
 				row("PowerBI", "No Issue", "Okay"),
 				row("3CX", "No Issue", "Okay"),
 			],
-		},
-		{
+		}),
+	},
+	{
+		key: "fraud-register-update",
+		label: "Fraud Register Update",
+		make: () => ({
 			id: "fraud-register-update",
 			task: "FRAUD REGISTER UPDATE",
 			description: "None",
 			rows: [
-				row("Addition", "0", "Recorded, wallet(s) blocked"),
-				row("Subtraction", "0", "Approval gotten, wallet(s) unblocked"),
+				row("Addition", "0 — wallet(s) blocked", "Treated"),
+				row("Subtraction", "0 — wallet(s) unblocked", "Treated"),
 			],
-		},
-		{
-			id: "fraud-complaints",
-			task: "Fraud Complaints",
-			description: "None",
-			rows: [row("Email", "", "Nil"), row("Phone call", "", "Nil")],
-		},
-		{
-			id: "nibss",
-			task: "NIBSS",
-			description: "None",
-			rows: [row("NIBSS", "", "Treated")],
-		},
-		{
+		}),
+	},
+	{
+		key: "other-requests",
+		label: "Other Requests",
+		make: () => ({
 			id: "other-requests",
 			task: "Other Requests",
 			description:
@@ -155,9 +179,9 @@ export function defaultSummary(): SummaryCategory[] {
 				row("UNLIEN REQUEST", "", "Nil"),
 				row("UNBLOCK REQUEST", "", "Nil"),
 			],
-		},
-	];
-}
+		}),
+	},
+];
 
 /** One "no incidents" row, matching the sample's None/Nil default. */
 export function defaultFraudAlerts(): FraudAlert[] {
@@ -191,12 +215,26 @@ export function blankReport(opts: {
 			department: DEFAULT_DEPARTMENT,
 			handoverType: "Afternoon to Night",
 			date: opts.date,
-			outgoingOfficers: opts.outgoingOfficers ?? "",
-			incomingOfficers: "",
+			outgoingOfficers: opts.outgoingOfficers ? [opts.outgoingOfficers] : [],
+			incomingOfficers: [],
 			timeOfHandover: "",
 		},
 		summary: defaultSummary(),
 		fraudAlerts: defaultFraudAlerts(),
 		recommendations: defaultRecommendations(),
+	};
+}
+
+/** Coerce a stored/legacy document into the current shape (officers as arrays). */
+export function normalizeReport(raw: ScheduleReport): ScheduleReport {
+	const toArr = (v: unknown): string[] =>
+		Array.isArray(v) ? v.filter((x) => typeof x === "string") : typeof v === "string" && v.trim() ? [v] : [];
+	return {
+		...raw,
+		cover: {
+			...raw.cover,
+			outgoingOfficers: toArr(raw.cover?.outgoingOfficers),
+			incomingOfficers: toArr(raw.cover?.incomingOfficers),
+		},
 	};
 }
