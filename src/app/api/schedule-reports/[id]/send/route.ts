@@ -88,7 +88,7 @@ export async function POST(request: Request, ctx: Ctx) {
 				];
 				const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;">
       ${note ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(note)}</p>` : ""}
-      <h2 style="margin:0 0 8px;font-size:16px;">Daily Schedule Report</h2>
+      <h2 style="margin:0 0 8px;font-size:14px;">Report Summary</h2>
       <table style="border-collapse:collapse;font-size:14px;">
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Date</td><td>${escapeHtml(coverDate(c.date))}</td></tr>
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Handover</td><td>${escapeHtml(c.handoverType)}</td></tr>

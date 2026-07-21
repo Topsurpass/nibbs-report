@@ -51,8 +51,20 @@ export async function sendCredentialsEmail(
 	return send(
 		recipient.email,
 		"Auto Auditor account",
-		renderCredentialText(recipient.firstName, recipient.email, password, loginUrl, false),
-		renderCredentialHtml(recipient.firstName, recipient.email, password, loginUrl, false),
+		renderCredentialText(
+			recipient.firstName,
+			recipient.email,
+			password,
+			loginUrl,
+			false,
+		),
+		renderCredentialHtml(
+			recipient.firstName,
+			recipient.email,
+			password,
+			loginUrl,
+			false,
+		),
 	);
 }
 
@@ -65,8 +77,20 @@ export async function sendPasswordResetEmail(
 	return send(
 		recipient.email,
 		"Your Auto Auditor password was reset",
-		renderCredentialText(recipient.firstName, recipient.email, password, loginUrl, true),
-		renderCredentialHtml(recipient.firstName, recipient.email, password, loginUrl, true),
+		renderCredentialText(
+			recipient.firstName,
+			recipient.email,
+			password,
+			loginUrl,
+			true,
+		),
+		renderCredentialHtml(
+			recipient.firstName,
+			recipient.email,
+			password,
+			loginUrl,
+			true,
+		),
 	);
 }
 
@@ -116,7 +140,12 @@ export async function sendPasswordResetLinkEmail(
     </body>
   </html>`;
 
-	return send(recipient.email, "Reset your Auto Auditor password", text, html);
+	return send(
+		recipient.email,
+		"Reset your Auto Auditor password",
+		text,
+		html,
+	);
 }
 
 async function send(
@@ -143,7 +172,10 @@ async function send(
 		return { ok: true };
 	} catch (err) {
 		console.error("[email] failed to send credential email", err);
-		return { ok: false, error: err instanceof Error ? err.message : "send failed" };
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : "send failed",
+		};
 	}
 }
 
@@ -162,10 +194,14 @@ export interface ScheduleEmailInput {
  * the styled `.xlsx` attached. Same skip-when-unconfigured posture as the other
  * senders — never throws to the caller.
  */
-export async function sendScheduleReport(input: ScheduleEmailInput): Promise<SendResult> {
+export async function sendScheduleReport(
+	input: ScheduleEmailInput,
+): Promise<SendResult> {
 	const { user, pass } = getCredentials();
 	if (!user || !pass) {
-		console.warn("[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — schedule report not emailed.");
+		console.warn(
+			"[email] GMAIL_USER / GMAIL_APP_PASSWORD not set — schedule report not emailed.",
+		);
 		return { ok: false, skipped: true };
 	}
 	try {
@@ -181,7 +217,10 @@ export async function sendScheduleReport(input: ScheduleEmailInput): Promise<Sen
 		return { ok: true };
 	} catch (err) {
 		console.error("[email] failed to send schedule report", err);
-		return { ok: false, error: err instanceof Error ? err.message : "send failed" };
+		return {
+			ok: false,
+			error: err instanceof Error ? err.message : "send failed",
+		};
 	}
 }
 
