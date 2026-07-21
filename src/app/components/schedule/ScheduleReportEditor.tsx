@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -70,6 +70,11 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 	const [notice, setNotice] = useState<string | null>(null);
 	const [savedFlag, setSavedFlag] = useState(false);
 	const [showSend, setShowSend] = useState(false);
+
+	// Tracked in refs so async flows (save-then-send) read the live values without
+	// stale closures. `persisted` flips true once a new report has an id.
+	const idRef = useRef<string | undefined>(reportId);
+	const persistedRef = useRef(mode === "edit");
 
 	const officerNames = useMemo(() => {
 		const seen = new Set<string>();
@@ -165,8 +170,8 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 	};
 
 	// ---- persistence ----
-	/** Save; returns the report id on success, or null on failure. */
-	const save = async (): Promise<string | null> => {
+	/** Save (POST when new, PUT once persisted). Returns the id, or null. */
+	const saveReport = async (navigate: boolean): Promise<string | null> => {
 		setError(null);
 		if (!report.cover.date) {
 			setError("Set the handover date on the Cover page.");
@@ -180,10 +185,11 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 		}
 		setSaving(true);
 		try {
+			const isNew = !persistedRef.current;
 			const res = await fetch(
-				mode === "new" ? "/api/schedule-reports" : `/api/schedule-reports/${reportId}`,
+				isNew ? "/api/schedule-reports" : `/api/schedule-reports/${idRef.current}`,
 				{
-					method: mode === "new" ? "POST" : "PUT",
+					method: isNew ? "POST" : "PUT",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(report),
 				},
@@ -193,19 +199,28 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 				setError(data.error ?? "Couldn't save the report.");
 				return null;
 			}
+			const id = data.report.id as string;
+			idRef.current = id;
+			persistedRef.current = true;
 			setDirty(false);
 			setSavedFlag(true);
-			if (mode === "new") {
-				router.replace(`/daily-reports/${data.report.id}`);
+			if (isNew && navigate) {
+				router.replace(`/daily-reports/${id}`);
 				router.refresh();
 			}
-			return data.report.id as string;
+			return id;
 		} catch {
 			setError("Network error. Try again.");
 			return null;
 		} finally {
 			setSaving(false);
 		}
+	};
+
+	/** Ensure the report is persisted (for send/export by id); returns the id. */
+	const ensureSaved = async (): Promise<string | null> => {
+		if (persistedRef.current && !dirty) return idRef.current ?? null;
+		return saveReport(false); // no navigation, so the send modal survives
 	};
 
 	const remove = async () => {
@@ -259,17 +274,10 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 		}
 	};
 
-	const openSend = async () => {
+	const openSend = () => {
 		setError(null);
 		setNotice(null);
-		let id = reportId;
-		if (mode === "new" || dirty) {
-			const saved = await save();
-			if (!saved) return;
-			id = saved;
-		}
-		if (!id) return;
-		setShowSend(true);
+		setShowSend(true); // instant; the report is saved inside the modal on send
 	};
 
 	return (
@@ -329,8 +337,8 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 						</button>
 					)}
 					<button
-						onClick={save}
-						disabled={saving || (!dirty && mode === "edit")}
+						onClick={() => saveReport(true)}
+						disabled={saving || (!dirty && persistedRef.current)}
 						className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
 					>
 						{saving ? "Saving…" : dirty ? "Save" : savedFlag ? "✓ Saved" : "Saved"}
@@ -368,14 +376,19 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 				{tab === "recs" && <RecsTab report={report} setRec={setRec} addRec={addRec} removeRec={removeRec} />}
 			</div>
 
-			{showSend && reportId && (
+			{showSend && (
 				<SendModal
-					reportId={reportId}
 					users={users}
+					ensureSaved={ensureSaved}
 					onClose={() => setShowSend(false)}
 					onSent={(msg) => {
 						setShowSend(false);
 						setNotice(msg);
+						// A brand-new report is now persisted; point the URL at it.
+						if (mode === "new" && idRef.current) {
+							router.replace(`/daily-reports/${idRef.current}`);
+							router.refresh();
+						}
 					}}
 				/>
 			)}
@@ -711,13 +724,13 @@ function RecsTab({
 
 /* ---------------- Send modal ---------------- */
 function SendModal({
-	reportId,
 	users,
+	ensureSaved,
 	onClose,
 	onSent,
 }: {
-	reportId: string;
 	users: DirectoryUser[];
+	ensureSaved: () => Promise<string | null>;
 	onClose: () => void;
 	onSent: (msg: string) => void;
 }) {
@@ -745,10 +758,16 @@ function SendModal({
 		setSending(true);
 		setErr(null);
 		try {
+			// Persist the report first (if new/dirty) so it can be sent by id.
+			const id = await ensureSaved();
+			if (!id) {
+				setErr("Couldn't save the report before sending.");
+				return;
+			}
 			const body: Record<string, unknown> = { toUserId, message };
 			if (ccAll) body.ccAll = true;
-			else body.ccUserIds = [...ccIds].filter((id) => id !== toUserId);
-			const res = await fetch(`/api/schedule-reports/${reportId}/send`, {
+			else body.ccUserIds = [...ccIds].filter((cid) => cid !== toUserId);
+			const res = await fetch(`/api/schedule-reports/${id}/send`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
