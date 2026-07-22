@@ -15,7 +15,12 @@ import {
 	type SummaryRow,
 } from "@/lib/schedule/template";
 import { scheduleFileName } from "@/lib/schedule/exportSchedule";
-import { getBreachRows, clearBreachRows, mergeRows } from "@/stores/nibbsBreachBuffer";
+import {
+	getBreachRows,
+	clearBreachRows,
+	mergeRows,
+	pendingBreachDates,
+} from "@/stores/nibbsBreachBuffer";
 
 type TabId = "cover" | "summary" | "fraud" | "recs";
 
@@ -82,36 +87,45 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 	const idRef = useRef<string | undefined>(reportId);
 	const persistedRef = useRef(mode === "edit");
 
-	// On open, drain any NIBSS breach rows the Settlement Auditor queued for this
-	// report's date into the "nibss" summary category, then clear the buffer so a
-	// re-mount can't duplicate them. This runs in an effect (not a useState
-	// initializer) on purpose: the buffer lives in localStorage, which is empty
-	// during SSR — merging at init would cause a hydration mismatch. Setting state
-	// from a client-only external store on mount is the intended pattern here.
+	// Drain any NIBSS breach rows the Settlement Auditor queued for the report's
+	// current date into the "nibss" summary category. Re-runs when the cover date
+	// changes, so rows still land when the audit was for a different day than the
+	// report opened on (just set the handover date to match). Idempotent: rows
+	// dedupe, and each date is drained once per session so a manually removed row
+	// doesn't reappear. The buffer is cleared on save — not here — so a re-render,
+	// StrictMode double-invoke, or navigation can't lose queued rows. Runs in an
+	// effect (not a useState initializer) because localStorage is empty during SSR.
+	const drainedDatesRef = useRef<Set<string>>(new Set());
+	const [otherPendingDates, setOtherPendingDates] = useState<string[]>([]);
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
-		const date = initial.cover.date;
-		const buffered = getBreachRows(date);
-		if (buffered.length === 0) return;
+		const date = report.cover.date;
 
-		setReport((r) => {
-			const hasNibss = r.summary.some((c) => c.id === "nibss");
-			const summary = hasNibss
-				? r.summary.map((c) =>
-						c.id === "nibss" ? { ...c, rows: mergeRows(c.rows, buffered) } : c,
-					)
-				: [...r.summary, { ...nibss(), rows: mergeRows(nibss().rows, buffered) }];
-			return { ...r, summary };
-		});
-		setDirty(true);
-		setSavedFlag(false);
-		setNotice(
-			`Added ${buffered.length} NIBBS breach row${buffered.length === 1 ? "" : "s"} from the Settlement Auditor.`,
-		);
-		clearBreachRows(date);
-		// Mount-once: keyed on the report's initial date.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+		if (date && !drainedDatesRef.current.has(date)) {
+			const buffered = getBreachRows(date);
+			if (buffered.length > 0) {
+				drainedDatesRef.current.add(date);
+				setReport((r) => {
+					const hasNibss = r.summary.some((c) => c.id === "nibss");
+					const summary = hasNibss
+						? r.summary.map((c) =>
+								c.id === "nibss" ? { ...c, rows: mergeRows(c.rows, buffered) } : c,
+							)
+						: [...r.summary, { ...nibss(), rows: mergeRows(nibss().rows, buffered) }];
+					return { ...r, summary };
+				});
+				setDirty(true);
+				setSavedFlag(false);
+				setNotice(
+					`Added ${buffered.length} NIBBS breach row${buffered.length === 1 ? "" : "s"} from the Settlement Auditor.`,
+				);
+			}
+		}
+
+		// Surface breach rows queued for a *different* date so the analyst knows to
+		// set the handover date to match.
+		setOtherPendingDates(pendingBreachDates().filter((d) => d !== date));
+	}, [report.cover.date]);
 	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const officerNames = useMemo(() => {
@@ -242,6 +256,10 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 			persistedRef.current = true;
 			setDirty(false);
 			setSavedFlag(true);
+			// The queued breach rows are now persisted in the report; drop the buffer
+			// for this date so it won't re-merge into a future report.
+			clearBreachRows(report.cover.date);
+			setOtherPendingDates(pendingBreachDates().filter((d) => d !== report.cover.date));
 			if (isNew && navigate) {
 				router.replace(`/daily-reports/${id}`);
 				router.refresh();
@@ -393,6 +411,24 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 				{notice && (
 					<div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm text-teal-700 dark:text-teal-300">
 						{notice}
+					</div>
+				)}
+				{otherPendingDates.length > 0 && (
+					<div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+						<span>
+							Breach rows are waiting from the Settlement Auditor for{" "}
+							{otherPendingDates.join(", ")}. Set the handover date to match to add them.
+						</span>
+						{otherPendingDates.map((d) => (
+							<button
+								key={d}
+								type="button"
+								onClick={() => setCover({ date: d })}
+								className="rounded border border-amber-500/50 px-2 py-0.5 text-xs font-semibold hover:bg-amber-500/20"
+							>
+								Use {d}
+							</button>
+						))}
 					</div>
 				)}
 

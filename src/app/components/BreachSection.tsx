@@ -103,7 +103,7 @@ export default function BreachSection({
 							className="rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
 						>
 							{queued !== null
-								? `✓ Queued ${queued} row${queued === 1 ? "" : "s"}`
+								? `✓ Queued for ${reportDate.toLocaleDateString("en-GB")} report`
 								: `＋ Add to daily report${sessionLabel ? ` · ${sessionLabel}` : ""}`}
 						</button>
 					)}

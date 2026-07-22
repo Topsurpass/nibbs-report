@@ -59,7 +59,7 @@ export function addBreachRows(date: string, rows: SummaryRow[]): number {
 	return merged.length;
 }
 
-/** Clear the buffer for a date (after the editor has drained it). */
+/** Clear the buffer for a date (after the report has been saved). */
 export function clearBreachRows(date: string): void {
 	if (!canUseStorage()) return;
 	try {
@@ -67,4 +67,21 @@ export function clearBreachRows(date: string): void {
 	} catch {
 		/* ignore */
 	}
+}
+
+/** Dates (YYYY-MM-DD) that currently have queued breach rows, sorted ascending. */
+export function pendingBreachDates(): string[] {
+	if (!canUseStorage()) return [];
+	const dates: string[] = [];
+	try {
+		for (let i = 0; i < window.localStorage.length; i++) {
+			const key = window.localStorage.key(i);
+			if (!key || !key.startsWith(PREFIX)) continue;
+			const date = key.slice(PREFIX.length);
+			if (getBreachRows(date).length > 0) dates.push(date);
+		}
+	} catch {
+		return [];
+	}
+	return dates.sort();
 }
