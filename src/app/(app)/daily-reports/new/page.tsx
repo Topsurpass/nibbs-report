@@ -30,7 +30,8 @@ export default async function NewDailyReportPage({
 
 	let initial: ScheduleReport;
 	if (duplicate === "latest") {
-		const latest = await getLatestReport();
+		// Duplicate the caller's own last shift (admins: the latest overall).
+		const latest = await getLatestReport({ userId: user.id, role: user.role });
 		initial = latest
 			? // Carry findings forward, but start a fresh day and clear the time.
 				normalizeReport({ ...latest.data, cover: { ...latest.data.cover, date: todayISO(), timeOfHandover: "" } })

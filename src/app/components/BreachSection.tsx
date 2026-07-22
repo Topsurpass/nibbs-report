@@ -13,6 +13,14 @@ interface Props {
 	breaches: BreachRecord[];
 	reportDate: Date;
 	onChange: (index: number, patch: Partial<BreachRecord>) => void;
+	/** Resolved session label, e.g. "11am NIBBS" (undefined when unresolved). */
+	sessionLabel?: string;
+	/** Whether breaches can be pushed to the daily report (session resolved). */
+	canAddToReport?: boolean;
+	/** Tooltip explaining why the add is disabled. */
+	addHint?: string;
+	/** Queue the breached banks onto the day's report; returns the queued count. */
+	onAddToReport?: () => number;
 }
 
 const STATUS_OPTIONS = ["UNACCEPTABLE", "UNDER REVIEW", "ACCEPTED", "RESOLVED"];
@@ -21,8 +29,20 @@ export default function BreachSection({
 	breaches,
 	reportDate,
 	onChange,
+	sessionLabel,
+	canAddToReport,
+	addHint,
+	onAddToReport,
 }: Props) {
 	const [copied, setCopied] = useState(false);
+	const [queued, setQueued] = useState<number | null>(null);
+
+	const addToReport = () => {
+		if (!onAddToReport) return;
+		const count = onAddToReport();
+		setQueued(count);
+		setTimeout(() => setQueued(null), 2500);
+	};
 
 	const copyTable = async () => {
 		const { html, tsv } = buildBreachClipboard(breaches);
@@ -75,6 +95,18 @@ export default function BreachSection({
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
+					{onAddToReport && (
+						<button
+							onClick={addToReport}
+							disabled={!canAddToReport}
+							title={canAddToReport ? undefined : addHint}
+							className="rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
+						>
+							{queued !== null
+								? `✓ Queued ${queued} row${queued === 1 ? "" : "s"}`
+								: `＋ Add to daily report${sessionLabel ? ` · ${sessionLabel}` : ""}`}
+						</button>
+					)}
 					<button
 						onClick={copyTable}
 						className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-500"

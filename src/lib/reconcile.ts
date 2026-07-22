@@ -5,11 +5,12 @@
 //   Q = C + H  (Collateral + net position)          → < 0 is a collateral breach
 // Plus the HTML net-settlement-sum = 0 check and file naming/date checks.
 
-import { centsEqual, toCents } from "./format";
+import { centsEqual, toCents } from "./format.ts";
 import type { FrameParseResult } from "./parseHtml";
 import type { TxtParseResult, FilenameCheck, TxtFormatIssue } from "./parseTxt";
-import { txtDatesMatchReport } from "./parseTxt";
+import { txtDatesMatchReport } from "./parseTxt.ts";
 import type { MasterBank } from "./master";
+import { resolveSession, sessionRowLabel, type SessionResolution } from "./session/nibbsSession.ts";
 
 export type CheckStatus = "pass" | "fail" | "warn";
 
@@ -75,6 +76,8 @@ export interface ReconResult {
   };
   /** Strict eTranzact format deviations (empty when the file conforms). */
   formatIssues: TxtFormatIssue[];
+  /** NIBBS settlement session inferred from the uploaded filenames. */
+  session: SessionResolution;
   hasFailures: boolean;
 }
 
@@ -88,10 +91,12 @@ export interface ReconInput {
   master: MasterBank[];
   reportDate: Date;
   filenameCheck: FilenameCheck;
+  /** The uploaded HTML filename, used to derive the settlement session (A/B/C/D). */
+  htmlFileName?: string;
 }
 
 export function reconcile(input: ReconInput): ReconResult {
-  const { frame, txt, master, reportDate, filenameCheck } = input;
+  const { frame, txt, master, reportDate, filenameCheck, htmlFileName } = input;
 
   const masterByCode = new Map(master.map((m) => [m.code, m]));
   const frameByCode = new Map(frame.rows.map((r) => [r.code, r]));
@@ -325,12 +330,25 @@ export function reconcile(input: ReconInput): ReconResult {
         : `${collateralBreaches} bank(s) breach collateral — see escalation section.`,
   });
 
+  // Check 8 — NIBBS session agreement between the two filenames.
+  const session = resolveSession(htmlFileName, filenameCheck.sequence);
+  const bothPresent = session.htmlLabel !== undefined && session.txtLabel !== undefined;
+  checks.push({
+    id: "nibbs-session",
+    label: "NIBBS session (HTML letter ↔ eTranzact _n)",
+    status: session.match ? "pass" : bothPresent ? "fail" : "warn",
+    detail: session.match
+      ? `${sessionRowLabel(session.label!)} (HTML ${session.htmlLabel} = eTranzact ${session.txtLabel})`
+      : session.error ?? "Session could not be determined.",
+  });
+
   const hasFailures = checks.some((c) => c.status === "fail");
 
   return {
     rows,
     checks,
     breaches,
+    session,
     totals: {
       frameNetSum: frame.netSum,
       smartdetSum,

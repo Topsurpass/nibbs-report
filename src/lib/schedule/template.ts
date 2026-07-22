@@ -113,7 +113,8 @@ function fraudComplaints(): SummaryCategory {
 		rows: [row("Email", "", "Nil"), row("Phone call", "", "Nil")],
 	};
 }
-function nibss(): SummaryCategory {
+/** The NIBSS summary category — id "nibss" is the anchor breach rows merge into. */
+export function nibss(): SummaryCategory {
 	return {
 		id: "nibss",
 		task: "NIBSS",

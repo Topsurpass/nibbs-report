@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
 	CATEGORY_PRESETS,
 	HANDOVER_TYPES,
 	STATUS_OPTIONS,
+	nibss,
 	type FraudAlert,
 	type HandoverType,
 	type ScheduleReport,
@@ -14,6 +15,7 @@ import {
 	type SummaryRow,
 } from "@/lib/schedule/template";
 import { scheduleFileName } from "@/lib/schedule/exportSchedule";
+import { getBreachRows, clearBreachRows, mergeRows } from "@/stores/nibbsBreachBuffer";
 
 type TabId = "cover" | "summary" | "fraud" | "recs";
 
@@ -79,6 +81,38 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 	// stale closures. `persisted` flips true once a new report has an id.
 	const idRef = useRef<string | undefined>(reportId);
 	const persistedRef = useRef(mode === "edit");
+
+	// On open, drain any NIBSS breach rows the Settlement Auditor queued for this
+	// report's date into the "nibss" summary category, then clear the buffer so a
+	// re-mount can't duplicate them. This runs in an effect (not a useState
+	// initializer) on purpose: the buffer lives in localStorage, which is empty
+	// during SSR — merging at init would cause a hydration mismatch. Setting state
+	// from a client-only external store on mount is the intended pattern here.
+	/* eslint-disable react-hooks/set-state-in-effect */
+	useEffect(() => {
+		const date = initial.cover.date;
+		const buffered = getBreachRows(date);
+		if (buffered.length === 0) return;
+
+		setReport((r) => {
+			const hasNibss = r.summary.some((c) => c.id === "nibss");
+			const summary = hasNibss
+				? r.summary.map((c) =>
+						c.id === "nibss" ? { ...c, rows: mergeRows(c.rows, buffered) } : c,
+					)
+				: [...r.summary, { ...nibss(), rows: mergeRows(nibss().rows, buffered) }];
+			return { ...r, summary };
+		});
+		setDirty(true);
+		setSavedFlag(false);
+		setNotice(
+			`Added ${buffered.length} NIBBS breach row${buffered.length === 1 ? "" : "s"} from the Settlement Auditor.`,
+		);
+		clearBreachRows(date);
+		// Mount-once: keyed on the report's initial date.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const officerNames = useMemo(() => {
 		const seen = new Set<string>();

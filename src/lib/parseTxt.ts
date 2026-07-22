@@ -3,7 +3,7 @@
 //   702 | YYYY/MM/DD | 10-digit code | signed zero-padded amount
 // e.g. "702\t2026/07/15\t4000470158\t-00000063656071194.99"
 
-import { parseTxtAmount, parseDdmmyyyy, parseSlashDate, sameDay, toDdmmyyyy } from "./format";
+import { parseTxtAmount, parseDdmmyyyy, parseSlashDate, sameDay, toDdmmyyyy } from "./format.ts";
 
 export interface SmartdetRow {
   typeCode: string; // "702"

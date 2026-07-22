@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Fetch one report (full document). */
+/** Fetch one report (full document) — the creator or an admin. */
 export async function GET(_request: Request, ctx: Ctx) {
 	const auth = await requireUser();
 	if ("response" in auth) return auth.response;
@@ -20,6 +20,10 @@ export async function GET(_request: Request, ctx: Ctx) {
 	try {
 		const report = await getReport(id);
 		if (!report) return Response.json({ ok: false, error: "Report not found." }, { status: 404 });
+		const owner = await getReportOwner(id);
+		if (auth.user.role !== "admin" && owner !== auth.user.id) {
+			return Response.json({ ok: false, error: "Report not found." }, { status: 404 });
+		}
 		return Response.json({ ok: true, report });
 	} catch (err) {
 		console.error("[schedule] get failed", err);
@@ -27,12 +31,29 @@ export async function GET(_request: Request, ctx: Ctx) {
 	}
 }
 
-/** Update a report. Any signed-in user. */
+/** Update a report — the creator or an admin. */
 export async function PUT(request: Request, ctx: Ctx) {
 	const auth = await requireUser();
 	if ("response" in auth) return auth.response;
 
 	const { id } = await ctx.params;
+
+	try {
+		const owner = await getReportOwner(id);
+		if (owner === null) {
+			const exists = await getReport(id);
+			if (!exists) return Response.json({ ok: false, error: "Report not found." }, { status: 404 });
+		}
+		if (auth.user.role !== "admin" && owner !== auth.user.id) {
+			return Response.json(
+				{ ok: false, error: "Only the creator or an admin can edit this report." },
+				{ status: 403 },
+			);
+		}
+	} catch (err) {
+		console.error("[schedule] ownership check failed", err);
+		return Response.json({ ok: false, error: "Couldn't save the report. Try again." }, { status: 503 });
+	}
 
 	let payload: unknown;
 	try {

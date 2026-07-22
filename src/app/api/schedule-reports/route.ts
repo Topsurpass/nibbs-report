@@ -4,13 +4,13 @@ import { createReport, listReports } from "@/services/schedule/repository";
 
 export const runtime = "nodejs";
 
-/** List all daily schedule reports (newest first). Any signed-in user. */
+/** List daily schedule reports (newest first). Analysts see their own; admins all. */
 export async function GET() {
 	const auth = await requireUser();
 	if ("response" in auth) return auth.response;
 
 	try {
-		const reports = await listReports();
+		const reports = await listReports({ userId: auth.user.id, role: auth.user.role });
 		return Response.json({ ok: true, reports });
 	} catch (err) {
 		console.error("[schedule] list failed", err);

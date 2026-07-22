@@ -1,6 +1,9 @@
 import { requireSql } from "@/services/db/client";
 import { withRetry } from "@/services/db/retry";
 import type { ScheduleReport, ScheduleReportListItem } from "@/lib/schedule/template";
+import { ownerFilter, type ReportScope } from "./scope.ts";
+
+export { ownerFilter, type ReportScope };
 
 /**
  * Persistence for daily schedule (handover) reports. The full document lives in
@@ -46,15 +49,24 @@ function toStored(r: FullRow): StoredReport {
 // a timezone-shifted JS Date, so all reads cast it to text (the literal
 // "YYYY-MM-DD" that was stored).
 
-export async function listReports(): Promise<ScheduleReportListItem[]> {
+export async function listReports(scope?: ReportScope): Promise<ScheduleReportListItem[]> {
 	const sql = requireSql();
-	const rows = (await withRetry(
-		() => sql`
-			select id, report_date::text as report_date, handover_type,
-			       outgoing_officers, incoming_officers, created_at
-			from nibbs_schedule_reports
-			order by report_date desc, created_at desc
-		`,
+	const owner = ownerFilter(scope);
+	const rows = (await withRetry(() =>
+		owner
+			? sql`
+				select id, report_date::text as report_date, handover_type,
+				       outgoing_officers, incoming_officers, created_at
+				from nibbs_schedule_reports
+				where created_by = ${owner}
+				order by report_date desc, created_at desc
+			`
+			: sql`
+				select id, report_date::text as report_date, handover_type,
+				       outgoing_officers, incoming_officers, created_at
+				from nibbs_schedule_reports
+				order by report_date desc, created_at desc
+			`,
 	)) as ListRow[];
 	return rows.map(toListItem);
 }
@@ -71,15 +83,24 @@ export async function getReport(id: string): Promise<StoredReport | null> {
 	return rows[0] ? toStored(rows[0]) : null;
 }
 
-export async function getLatestReport(): Promise<StoredReport | null> {
+export async function getLatestReport(scope?: ReportScope): Promise<StoredReport | null> {
 	const sql = requireSql();
-	const rows = (await withRetry(
-		() => sql`
-			select id, report_date::text as report_date, handover_type, outgoing_officers,
-			       incoming_officers, data, created_at, updated_at
-			from nibbs_schedule_reports
-			order by report_date desc, created_at desc limit 1
-		`,
+	const owner = ownerFilter(scope);
+	const rows = (await withRetry(() =>
+		owner
+			? sql`
+				select id, report_date::text as report_date, handover_type, outgoing_officers,
+				       incoming_officers, data, created_at, updated_at
+				from nibbs_schedule_reports
+				where created_by = ${owner}
+				order by report_date desc, created_at desc limit 1
+			`
+			: sql`
+				select id, report_date::text as report_date, handover_type, outgoing_officers,
+				       incoming_officers, data, created_at, updated_at
+				from nibbs_schedule_reports
+				order by report_date desc, created_at desc limit 1
+			`,
 	)) as FullRow[];
 	return rows[0] ? toStored(rows[0]) : null;
 }

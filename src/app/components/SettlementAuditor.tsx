@@ -9,6 +9,9 @@ import { validateTxtFilename } from "@/lib/parseTxt";
 import { reconcile, type BreachRecord } from "@/lib/reconcile";
 import { downloadExcel } from "@/lib/exportReport";
 import { formatNaira } from "@/lib/format";
+import { buildNibbsBreachRows } from "@/lib/schedule/nibbsBreachRows";
+import { addBreachRows } from "@/stores/nibbsBreachBuffer";
+import { sessionRowLabel } from "@/lib/session/nibbsSession";
 import { useMaster } from "./providers/MasterProvider";
 import { useAudit } from "./providers/AuditProvider";
 
@@ -42,8 +45,15 @@ export default function SettlementAuditor() {
 		if (!armed || !frame || !txt || !txtFile || !reportDate) return null;
 		const rd = toDate(reportDate);
 		const filenameCheck = validateTxtFilename(txtFile.name, rd);
-		return reconcile({ frame, txt, master, reportDate: rd, filenameCheck });
-	}, [armed, frame, txt, txtFile, reportDate, master]);
+		return reconcile({
+			frame,
+			txt,
+			master,
+			reportDate: rd,
+			filenameCheck,
+			htmlFileName: htmlFile?.name,
+		});
+	}, [armed, frame, txt, txtFile, htmlFile, reportDate, master]);
 
 	const breaches = useMemo<BreachRecord[]>(() => {
 		if (!result) return [];
@@ -82,6 +92,14 @@ export default function SettlementAuditor() {
 	const updateBreach = (i: number, patch: Partial<BreachRecord>) => {
 		const key = breachKey(breaches[i]);
 		setBreachEdits((e) => ({ ...e, [key]: { ...e[key], ...patch } }));
+	};
+
+	// Queue the breached banks as NIBSS rows for the day's schedule report. The
+	// editor drains this buffer (keyed by report date) on open.
+	const addBreachesToDailyReport = (): number => {
+		const label = result?.session.label;
+		if (!label) return 0;
+		return addBreachRows(reportDate, buildNibbsBreachRows(breaches, label));
 	};
 
 	return (
@@ -276,6 +294,14 @@ export default function SettlementAuditor() {
 							breaches={breaches}
 							reportDate={toDate(reportDate)}
 							onChange={updateBreach}
+							sessionLabel={
+								result.session.label
+									? sessionRowLabel(result.session.label)
+									: undefined
+							}
+							canAddToReport={!!result.session.label}
+							addHint={result.session.error}
+							onAddToReport={addBreachesToDailyReport}
 						/>
 					</>
 				)}
