@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import FileDropzone from "./FileDropzone";
 import CheckSummary from "./CheckSummary";
 import ReconciliationTable from "./ReconciliationTable";
@@ -9,9 +9,8 @@ import { validateTxtFilename } from "@/lib/parseTxt";
 import { reconcile, type BreachRecord } from "@/lib/reconcile";
 import { downloadExcel } from "@/lib/exportReport";
 import { formatNaira } from "@/lib/format";
-import { buildNibbsBreachRows } from "@/lib/schedule/nibbsBreachRows";
-import { addBreachRows } from "@/stores/nibbsBreachBuffer";
 import { sessionRowLabel } from "@/lib/session/nibbsSession";
+import type { AddToReportResult } from "./BreachSection";
 import { useMaster } from "./providers/MasterProvider";
 import { useAudit } from "./providers/AuditProvider";
 
@@ -94,12 +93,43 @@ export default function SettlementAuditor() {
 		setBreachEdits((e) => ({ ...e, [key]: { ...e[key], ...patch } }));
 	};
 
-	// Queue the breached banks as NIBSS rows for the day's schedule report. The
-	// editor drains this buffer (keyed by report date) on open.
-	const addBreachesToDailyReport = (): number => {
+	// One-time cleanup: earlier builds parked breach rows in localStorage. The flow
+	// is server-side now, so purge any leftover buffers so nothing goes stale.
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		try {
+			for (let i = window.localStorage.length - 1; i >= 0; i--) {
+				const k = window.localStorage.key(i);
+				if (k && k.startsWith("nibbs:breach-buffer:")) window.localStorage.removeItem(k);
+			}
+		} catch {
+			/* ignore */
+		}
+	}, []);
+
+	// Push the breached banks onto the day's daily report. The server creates that
+	// day's report if the analyst has none yet, otherwise appends to it.
+	const addBreachesToDailyReport = async (): Promise<AddToReportResult> => {
 		const label = result?.session.label;
-		if (!label) return 0;
-		return addBreachRows(reportDate, buildNibbsBreachRows(breaches, label));
+		if (!label) return { error: "No settlement session resolved." };
+		try {
+			const res = await fetch("/api/schedule-reports/nibbs-breaches", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					date: reportDate,
+					session: label,
+					breaches: breaches.map((b) => ({ code: b.code, name: b.name })),
+				}),
+			});
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok || !data.ok) {
+				return { error: data.error ?? "Couldn't add to the daily report." };
+			}
+			return { reportId: data.reportId, added: data.added, created: data.created };
+		} catch {
+			return { error: "Network error. Try again." };
+		}
 	};
 
 	return (

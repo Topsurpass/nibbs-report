@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { BreachRecord } from "@/lib/reconcile";
 import { formatNaira } from "@/lib/format";
 import {
@@ -8,6 +9,11 @@ import {
 	buildBreachClipboard,
 	downloadBreachExcel,
 } from "@/lib/exportReport";
+
+/** Outcome of pushing breaches onto the daily report. */
+export type AddToReportResult =
+	| { reportId: string; added: number; created: boolean }
+	| { error: string };
 
 interface Props {
 	breaches: BreachRecord[];
@@ -19,8 +25,8 @@ interface Props {
 	canAddToReport?: boolean;
 	/** Tooltip explaining why the add is disabled. */
 	addHint?: string;
-	/** Queue the breached banks onto the day's report; returns the queued count. */
-	onAddToReport?: () => number;
+	/** Create/append the day's daily report with these breaches. */
+	onAddToReport?: () => Promise<AddToReportResult>;
 }
 
 const STATUS_OPTIONS = ["UNACCEPTABLE", "UNDER REVIEW", "ACCEPTED", "RESOLVED"];
@@ -35,13 +41,27 @@ export default function BreachSection({
 	onAddToReport,
 }: Props) {
 	const [copied, setCopied] = useState(false);
-	const [queued, setQueued] = useState<number | null>(null);
+	const [adding, setAdding] = useState(false);
+	const [added, setAdded] = useState<{ reportId: string; added: number; created: boolean } | null>(
+		null,
+	);
+	const [addError, setAddError] = useState<string | null>(null);
 
-	const addToReport = () => {
-		if (!onAddToReport) return;
-		const count = onAddToReport();
-		setQueued(count);
-		setTimeout(() => setQueued(null), 2500);
+	const addToReport = async () => {
+		if (!onAddToReport || adding) return;
+		setAdding(true);
+		setAddError(null);
+		try {
+			const res = await onAddToReport();
+			if ("error" in res) {
+				setAddError(res.error);
+				setAdded(null);
+			} else {
+				setAdded(res);
+			}
+		} finally {
+			setAdding(false);
+		}
 	};
 
 	const copyTable = async () => {
@@ -98,12 +118,12 @@ export default function BreachSection({
 					{onAddToReport && (
 						<button
 							onClick={addToReport}
-							disabled={!canAddToReport}
+							disabled={!canAddToReport || adding}
 							title={canAddToReport ? undefined : addHint}
 							className="rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
 						>
-							{queued !== null
-								? `✓ Queued for ${reportDate.toLocaleDateString("en-GB")} report`
+							{adding
+								? "Adding…"
 								: `＋ Add to daily report${sessionLabel ? ` · ${sessionLabel}` : ""}`}
 						</button>
 					)}
@@ -123,6 +143,29 @@ export default function BreachSection({
 					</button>
 				</div>
 			</div>
+
+			{(added || addError) && (
+				<div className="no-print px-5 pt-3 text-sm">
+					{addError && (
+						<span className="text-red-700 dark:text-red-300">{addError}</span>
+					)}
+					{added && (
+						<span className="text-emerald-700 dark:text-emerald-300">
+							{added.added > 0
+								? `✓ Added ${added.added} row${added.added === 1 ? "" : "s"} to the ${
+										added.created ? "new " : ""
+									}${reportDate.toLocaleDateString("en-GB")} daily report`
+								: `Already on the ${reportDate.toLocaleDateString("en-GB")} daily report`}{" "}
+							<Link
+								href={`/daily-reports/${added.reportId}`}
+								className="font-semibold underline underline-offset-2 hover:no-underline"
+							>
+								Open report →
+							</Link>
+						</span>
+					)}
+				</div>
+			)}
 
 			<p className="no-print px-5 pt-3 text-[11px] text-muted">
 				Tip: “Copy table” copies a formatted grid — paste it directly

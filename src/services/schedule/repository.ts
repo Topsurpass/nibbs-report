@@ -105,6 +105,27 @@ export async function getLatestReport(scope?: ReportScope): Promise<StoredReport
 	return rows[0] ? toStored(rows[0]) : null;
 }
 
+/**
+ * The caller's most recent report for a given date — the "ongoing" report that
+ * breach rows append to (null when they have none for that day yet).
+ */
+export async function getReportForDate(
+	date: string,
+	userId: string,
+): Promise<StoredReport | null> {
+	const sql = requireSql();
+	const rows = (await withRetry(
+		() => sql`
+			select id, report_date::text as report_date, handover_type, outgoing_officers,
+			       incoming_officers, data, created_at, updated_at
+			from nibbs_schedule_reports
+			where report_date = ${date} and created_by = ${userId}
+			order by created_at desc limit 1
+		`,
+	)) as FullRow[];
+	return rows[0] ? toStored(rows[0]) : null;
+}
+
 export async function createReport(
 	report: ScheduleReport,
 	userId: string,

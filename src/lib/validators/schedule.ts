@@ -1,6 +1,20 @@
 import { z } from "zod";
+import { SESSION_LABELS } from "../session/nibbsSession.ts";
 
 /** Contract for a daily schedule report document (create/update API + editor). */
+
+/**
+ * Request to push breached banks from the Settlement Auditor onto the day's daily
+ * report (create-or-append). `session` maps to the NIBSS row detail (e.g. "11am").
+ */
+export const nibbsBreachAppendSchema = z.object({
+	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+	session: z.enum(SESSION_LABELS),
+	breaches: z
+		.array(z.object({ code: z.string().min(1), name: z.string().min(1) }))
+		.min(1, "No breached banks to add"),
+});
+
 
 const summaryRowSchema = z.object({
 	id: z.string().min(1),
