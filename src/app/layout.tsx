@@ -12,7 +12,7 @@ import { themeInitScript } from "@/lib/theme";
 // (--font-geist-sans / --font-geist-mono) that globals.css already references.
 
 export const metadata: Metadata = {
-  title: "NIBBS Settlement Auditor",
+  title: "Audit Toolkit",
   description:
     "Automated verification of NIBBS net-settlement files before submission — reconciliation and breach escalation.",
 };

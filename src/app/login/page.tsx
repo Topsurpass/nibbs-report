@@ -16,7 +16,7 @@ export default async function LoginPage() {
 						🏦
 					</div>
 					<h1 className="mt-3 text-lg font-bold text-foreground">
-						NIBBS Settlement Auditor
+						Audit Toolkit
 					</h1>
 					<p className="text-sm text-muted">Sign in to continue</p>
 				</div>

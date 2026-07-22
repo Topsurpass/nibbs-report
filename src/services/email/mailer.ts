@@ -50,7 +50,7 @@ export async function sendCredentialsEmail(
 ): Promise<SendResult> {
 	return send(
 		recipient.email,
-		"Auto Auditor account",
+		"Audit Toolkit account",
 		renderCredentialText(
 			recipient.firstName,
 			recipient.email,
@@ -76,7 +76,7 @@ export async function sendPasswordResetEmail(
 ): Promise<SendResult> {
 	return send(
 		recipient.email,
-		"Your Auto Auditor password was reset",
+		"Your Audit Toolkit password was reset",
 		renderCredentialText(
 			recipient.firstName,
 			recipient.email,
@@ -103,13 +103,13 @@ export async function sendPasswordResetLinkEmail(
 	const text = [
 		`Hi ${name},`,
 		"",
-		"We received a request to reset your Auto Auditor password. Open the link below to choose a new one. It expires in 1 hour and can be used once.",
+		"We received a request to reset your Audit Toolkit password. Open the link below to choose a new one. It expires in 1 hour and can be used once.",
 		"",
 		`Reset your password: ${resetUrl}`,
 		"",
 		"If you didn't request this, you can ignore this email — your password won't change.",
 		"",
-		"— Auto Auditor",
+		"— Audit Toolkit",
 	].join("\n");
 
 	const html = `<!doctype html>
@@ -118,7 +118,7 @@ export async function sendPasswordResetLinkEmail(
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="background:linear-gradient(135deg,#0d9488,#4f46e5);padding:18px 24px;">
-            <span style="color:#ffffff;font-size:16px;font-weight:800;letter-spacing:-0.01em;">Auto Auditor</span>
+            <span style="color:#ffffff;font-size:16px;font-weight:800;letter-spacing:-0.01em;">Audit Toolkit</span>
           </td>
         </tr>
         <tr>
@@ -142,7 +142,7 @@ export async function sendPasswordResetLinkEmail(
 
 	return send(
 		recipient.email,
-		"Reset your Auto Auditor password",
+		"Reset your Audit Toolkit password",
 		text,
 		html,
 	);
@@ -163,7 +163,7 @@ async function send(
 	}
 	try {
 		await makeTransport(user, pass).sendMail({
-			from: `"Auto Auditor" <${user}>`,
+			from: `"Audit Toolkit" <${user}>`,
 			to,
 			subject,
 			text,
@@ -206,7 +206,7 @@ export async function sendScheduleReport(
 	}
 	try {
 		await makeTransport(user, pass).sendMail({
-			from: `"Auto Auditor" <${user}>`,
+			from: `"Audit Toolkit" <${user}>`,
 			to: input.to,
 			cc: input.cc && input.cc.length ? input.cc : undefined,
 			subject: input.subject,
@@ -239,8 +239,8 @@ function renderCredentialText(
 		`Hi ${firstName(name)},`,
 		"",
 		isReset
-			? "An admin reset your Auto Auditor password. Use the temporary password below to sign in, then set a new one."
-			: "An admin created your Auto Auditor account. Use the temporary password below to sign in, then set your own password.",
+			? "An admin reset your Audit Toolkit password. Use the temporary password below to sign in, then set a new one."
+			: "An admin created your Audit Toolkit account. Use the temporary password below to sign in, then set your own password.",
 		"",
 		`Sign in:   ${loginUrl}`,
 		`Email:     ${email}`,
@@ -248,7 +248,7 @@ function renderCredentialText(
 		"",
 		"You'll be asked to choose a new password immediately after signing in.",
 		"",
-		"— Auto Auditor",
+		"— Audit Toolkit",
 	].join("\n");
 }
 
@@ -271,7 +271,7 @@ function renderCredentialHtml(
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="background:linear-gradient(135deg,#0d9488,#4f46e5);padding:18px 24px;">
-            <span style="color:#ffffff;font-size:16px;font-weight:800;letter-spacing:-0.01em;">Auto Auditor</span>
+            <span style="color:#ffffff;font-size:16px;font-weight:800;letter-spacing:-0.01em;">Audit Toolkit</span>
           </td>
         </tr>
         <tr>

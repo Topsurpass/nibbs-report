@@ -50,7 +50,7 @@ function addAoa(ws: ExcelJS.Worksheet, aoa: Cell[][]) {
 export function buildScheduleWorkbook(report: ScheduleReport): ExcelJS.Workbook {
 	const data = buildScheduleSheets(report);
 	const wb = new ExcelJS.Workbook();
-	wb.creator = "NIBBS Settlement Auditor";
+	wb.creator = "Audit Toolkit";
 
 	// ---- Cover page ----
 	const cover = wb.addWorksheet(SHEET_NAMES.cover, { properties: { defaultRowHeight: 18 } });

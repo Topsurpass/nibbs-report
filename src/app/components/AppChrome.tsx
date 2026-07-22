@@ -183,7 +183,7 @@ export default function AppChrome({ user, initialMaster, children }: Props) {
 				{!mini && (
 					<div className="min-w-0">
 						<p className="truncate text-sm font-bold leading-tight text-foreground">
-							NIBBS Reports
+							Audit Toolkit
 						</p>
 						<p className="text-[11px] text-muted">Settlement toolkit</p>
 					</div>
@@ -248,7 +248,7 @@ export default function AppChrome({ user, initialMaster, children }: Props) {
 							>
 								☰
 							</button>
-							<span className="text-sm font-bold text-foreground">NIBBS Reports</span>
+							<span className="text-sm font-bold text-foreground">Audit Toolkit</span>
 							<ThemeToggle mini className="ml-auto border border-border" />
 						</div>
 

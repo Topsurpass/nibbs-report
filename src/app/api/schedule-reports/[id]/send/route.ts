@@ -84,7 +84,7 @@ export async function POST(request: Request, ctx: Ctx) {
 					`Outgoing:  ${c.outgoingOfficers.join(", ") || "—"}`,
 					`Incoming:  ${c.incomingOfficers.join(", ") || "—"}`,
 					"",
-					`Sent by ${sender} via Auto Auditor.`,
+					`Sent by ${sender} via Audit Toolkit.`,
 				];
 				const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;">
       ${note ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(note)}</p>` : ""}
@@ -95,7 +95,7 @@ export async function POST(request: Request, ctx: Ctx) {
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Outgoing</td><td>${escapeHtml(c.outgoingOfficers.join(", ") || "—")}</td></tr>
         <tr><td style="padding:2px 12px 2px 0;color:#6b7280;">Incoming</td><td>${escapeHtml(c.incomingOfficers.join(", ") || "—")}</td></tr>
       </table>
-      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">The full report is attached as ${escapeHtml(filename)}.<br/>Sent by ${escapeHtml(sender)} via Auto Auditor.</p>
+      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">The full report is attached as ${escapeHtml(filename)}.<br/>Sent by ${escapeHtml(sender)} via Audit Toolkit.</p>
     </body></html>`;
 
 				const sent = await sendScheduleReport({
