@@ -96,6 +96,11 @@ function report(): ScheduleReport {
 	return blankReport({ date: "2026-07-22", outgoingOfficers: "Ada A" });
 }
 
+test("default NIBSS category starts with no rows", () => {
+	const cat = report().summary.find((c) => c.id === "nibss")!;
+	assert.deepEqual(cat.rows, []);
+});
+
 test("appends breach rows into the existing nibss category", () => {
 	const rows = buildNibbsBreachRows([breach("4000470158", "Access Bank")], "11am");
 	const { report: out, added } = applyNibbsBreachRows(report(), rows);
