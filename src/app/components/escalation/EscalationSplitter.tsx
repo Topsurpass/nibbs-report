@@ -6,10 +6,21 @@ import BankGroupTable from "./BankGroupTable";
 import ColumnPicker from "./ColumnPicker";
 import UnmappedBanner from "./UnmappedBanner";
 import { detectColumns } from "@/lib/escalation/detectColumns";
-import { groupByBank, unmappedCodes, verifyRowAccounting } from "@/lib/escalation/groupByBank";
-import { mergeDirectory, type NipOverride } from "@/lib/escalation/nipDirectory";
+import {
+	groupByBank,
+	unmappedCodes,
+	verifyRowAccounting,
+} from "@/lib/escalation/groupByBank";
+import {
+	mergeDirectory,
+	type NipOverride,
+} from "@/lib/escalation/nipDirectory";
 import { formatAmount } from "@/lib/escalation/parseRows";
-import { readSpool, SpoolReadError, type Spool } from "@/lib/escalation/readSpool";
+import {
+	readSpool,
+	SpoolReadError,
+	type Spool,
+} from "@/lib/escalation/readSpool";
 import type { BankGroup, CodeMode } from "@/lib/escalation/types";
 
 /**
@@ -34,7 +45,9 @@ interface Preview {
 }
 
 /** Remembered column choices, keyed by the file's column signature. */
-function loadRemembered(signature: string): { columns: string[]; includeBankName: boolean } | null {
+function loadRemembered(
+	signature: string,
+): { columns: string[]; includeBankName: boolean } | null {
 	try {
 		const raw = window.localStorage.getItem(STORAGE_KEY);
 		if (!raw) return null;
@@ -104,20 +117,34 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 			setFile(picked);
 			try {
 				const spool = readSpool(await picked.arrayBuffer());
-				const columns = detectColumns(spool.rows, spool.headers, directory);
+				const columns = detectColumns(
+					spool.rows,
+					spool.headers,
+					directory,
+				);
 
 				const remembered = loadRemembered(spool.headers.join("|"));
 				setSelected(
 					remembered
-						? spool.headers.filter((h) => remembered.columns.includes(h))
+						? spool.headers.filter((h) =>
+								remembered.columns.includes(h),
+							)
 						: [...spool.headers],
 				);
-				setIncludeBankName(remembered ? remembered.includeBankName : true);
+				setIncludeBankName(
+					remembered ? remembered.includeBankName : true,
+				);
 
 				setPreview({
 					spool,
-					codeColumn: columns.code?.column ?? columns.candidates[0]?.column ?? "",
-					codeMode: columns.code?.mode ?? columns.candidates[0]?.mode ?? "direct",
+					codeColumn:
+						columns.code?.column ??
+						columns.candidates[0]?.column ??
+						"",
+					codeMode:
+						columns.code?.mode ??
+						columns.candidates[0]?.mode ??
+						"direct",
 				});
 				if (!columns.code) {
 					setError(
@@ -153,13 +180,20 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ code, name }),
 		});
-		const body = (await res.json()) as { ok: boolean; error?: string; override?: NipOverride };
+		const body = (await res.json()) as {
+			ok: boolean;
+			error?: string;
+			override?: NipOverride;
+		};
 		if (!res.ok || !body.ok || !body.override) {
 			throw new Error(body.error ?? "Couldn't save that mapping.");
 		}
 		const saved = body.override;
 		// Re-grouping is driven by `directory`, so the table re-labels itself.
-		setOverrides((list) => [...list.filter((o) => o.code !== saved.code), saved]);
+		setOverrides((list) => [
+			...list.filter((o) => o.code !== saved.code),
+			saved,
+		]);
 	}, []);
 
 	const download = useCallback(
@@ -183,10 +217,17 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 					}),
 				);
 
-				const res = await fetch("/api/escalations/split", { method: "POST", body: form });
+				const res = await fetch("/api/escalations/split", {
+					method: "POST",
+					body: form,
+				});
 				if (!res.ok) {
-					const body = (await res.json().catch(() => null)) as { error?: string } | null;
-					throw new Error(body?.error ?? "Couldn't build the escalation files.");
+					const body = (await res.json().catch(() => null)) as {
+						error?: string;
+					} | null;
+					throw new Error(
+						body?.error ?? "Couldn't build the escalation files.",
+					);
 				}
 
 				const blob = await res.blob();
@@ -204,7 +245,9 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 				a.remove();
 				URL.revokeObjectURL(url);
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Download failed.");
+				setError(
+					err instanceof Error ? err.message : "Download failed.",
+				);
 			} finally {
 				setDownloading(null);
 			}
@@ -214,7 +257,9 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 
 	const toggle = (header: string) =>
 		setSelected((list) =>
-			list.includes(header) ? list.filter((h) => h !== header) : [...list, header],
+			list.includes(header)
+				? list.filter((h) => h !== header)
+				: [...list, header],
 		);
 
 	const result = analysis?.result;
@@ -223,187 +268,267 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 	const candidates = analysis?.columns.candidates ?? [];
 
 	return (
-		<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-			<header className="mb-6">
-				<h1 className="text-2xl font-bold text-foreground">Fraud Escalation</h1>
-				<p className="mt-1 text-sm text-muted">
-					Drop a spooled transaction file and get one escalation workbook per beneficiary
-					bank, ready to send for lien placement.
-				</p>
+		<div className="">
+			<header className="hero-gradient text-white">
+				<div className="px-6 py-9 sm:px-10">
+					<div className="flex flex-wrap items-end justify-between gap-4">
+						<div>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+								Escalation
+							</p>
+							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+								Generate excel file for bank beneficiaries
+							</h1>
+							<p className="mt-2 max-w-xl text-sm text-white/80">
+								Drop a spooled transaction file and get one
+								escalation workbook per beneficiary bank, ready
+								to send for lien placement.
+							</p>
+						</div>
+					</div>
+				</div>
 			</header>
 
-			<FileDropzone
-				title="Spooled fraudulent transactions"
-				subtitle="The export from the database — .xlsx, .xls or .csv"
-				accept=".xlsx,.xls,.csv"
-				file={file}
-				accent="teal"
-				summary={
-					reading
-						? "Reading…"
-						: preview
-							? `${preview.spool.rows.length.toLocaleString()} rows · sheet "${preview.spool.sheetName}"`
-							: undefined
-				}
-				error={error || undefined}
-				onSelect={(picked) => void onSelect(picked)}
-			/>
+			<div className="space-y-6 px-6 py-8 sm:px-10">
+				<FileDropzone
+					title="Spooled fraudulent transactions"
+					subtitle="The export from the database — .xlsx, .xls or .csv"
+					accept=".xlsx,.xls,.csv"
+					file={file}
+					accent="teal"
+					summary={
+						reading
+							? "Reading…"
+							: preview
+								? `${preview.spool.rows.length.toLocaleString()} rows · sheet "${preview.spool.sheetName}"`
+								: undefined
+					}
+					error={error || undefined}
+					onSelect={(picked) => void onSelect(picked)}
+				/>
 
-			{preview && result && (
-				<div className="mt-6 space-y-6">
-					{/* Bank-code column: always visible and always overridable. Getting
+				{preview && result && (
+					<div className="mt-6 space-y-6">
+						{/* Bank-code column: always visible and always overridable. Getting
 					    this wrong escalates to the sending bank instead of the receiving
 					    one, so it is never a silent decision. */}
-					<section className="rounded-2xl border border-border bg-surface p-5">
-						<div className="flex flex-wrap items-end gap-4">
-							<div className="min-w-60 flex-1">
-								<label
-									htmlFor="code-column"
-									className="block text-sm font-semibold text-foreground"
-								>
-									Beneficiary bank-code column
+						<section className="rounded-2xl border border-border bg-surface p-5">
+							<div className="flex flex-wrap items-end gap-4">
+								<div className="min-w-60 flex-1">
+									<label
+										htmlFor="code-column"
+										className="block text-sm font-semibold text-foreground"
+									>
+										Beneficiary bank-code column
+									</label>
+									<select
+										id="code-column"
+										value={preview.codeColumn}
+										onChange={(e) => {
+											const column = e.target.value;
+											const match = candidates.find(
+												(c) => c.column === column,
+											);
+											setPreview((p) =>
+												p
+													? {
+															...p,
+															codeColumn: column,
+															codeMode:
+																match?.mode ??
+																"direct",
+														}
+													: p,
+											);
+										}}
+										className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none"
+									>
+										{candidates.length === 0 && (
+											<option value="">
+												No candidate found
+											</option>
+										)}
+										{candidates.map((c) => (
+											<option
+												key={c.column}
+												value={c.column}
+											>
+												{c.column} —{" "}
+												{c.mode === "direct"
+													? "code"
+													: "13-char prefix"}
+												,{" "}
+												{Math.round(c.matchRate * 100)}%
+												matched
+											</option>
+										))}
+									</select>
+									<p className="mt-1.5 text-xs text-muted">
+										Confirm this is the{" "}
+										<strong>beneficiary</strong> column, not
+										the sender.
+									</p>
+								</div>
+
+								<label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-foreground">
+									<input
+										type="checkbox"
+										checked={successfulOnly}
+										onChange={() =>
+											setSuccessfulOnly((v) => !v)
+										}
+										className="h-4 w-4 accent-indigo-600"
+									/>
+									Successful only
+									{result.filteredOut > 0 && (
+										<span className="text-xs text-muted">
+											(
+											{result.filteredOut.toLocaleString()}{" "}
+											hidden)
+										</span>
+									)}
 								</label>
-								<select
-									id="code-column"
-									value={preview.codeColumn}
-									onChange={(e) => {
-										const column = e.target.value;
-										const match = candidates.find((c) => c.column === column);
-										setPreview((p) =>
-											p ? { ...p, codeColumn: column, codeMode: match?.mode ?? "direct" } : p,
-										);
-									}}
-									className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none"
-								>
-									{candidates.length === 0 && <option value="">No candidate found</option>}
-									{candidates.map((c) => (
-										<option key={c.column} value={c.column}>
-											{c.column} — {c.mode === "direct" ? "code" : "13-char prefix"},{" "}
-											{Math.round(c.matchRate * 100)}% matched
-										</option>
-									))}
-								</select>
-								<p className="mt-1.5 text-xs text-muted">
-									Confirm this is the <strong>beneficiary</strong> column, not the sender.
-								</p>
 							</div>
 
-							<label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-foreground">
-								<input
-									type="checkbox"
-									checked={successfulOnly}
-									onChange={() => setSuccessfulOnly((v) => !v)}
-									className="h-4 w-4 accent-indigo-600"
-								/>
-								Successful only
-								{result.filteredOut > 0 && (
-									<span className="text-xs text-muted">
-										({result.filteredOut.toLocaleString()} hidden)
-									</span>
-								)}
-							</label>
-						</div>
-
-						{/* Row accounting, on screen: every uploaded row is visibly
+							{/* Row accounting, on screen: every uploaded row is visibly
 						    somewhere, so nothing can go missing unnoticed. */}
-						<dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
-							<div>
-								<dt className="text-xs text-muted">Rows in file</dt>
-								<dd className="font-semibold tabular-nums text-foreground">
-									{result.inputRows.toLocaleString()}
-								</dd>
-							</div>
-							<div>
-								<dt className="text-xs text-muted">Banks</dt>
-								<dd className="font-semibold tabular-nums text-foreground">
-									{result.groups.length}
-								</dd>
-							</div>
-							<div>
-								<dt className="text-xs text-muted">No bank code</dt>
-								<dd
-									className={`font-semibold tabular-nums ${
-										result.noCode.length > 0 ? "text-amber-600 dark:text-amber-300" : "text-foreground"
-									}`}
-								>
-									{result.noCode.length.toLocaleString()}
-								</dd>
-							</div>
-							<div>
-								<dt className="text-xs text-muted">Total value</dt>
-								<dd className="font-semibold tabular-nums text-foreground">
-									{formatAmount(result.grandTotal)}
-								</dd>
-							</div>
-						</dl>
+							<dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
+								<div>
+									<dt className="text-xs text-muted">
+										Rows in file
+									</dt>
+									<dd className="font-semibold tabular-nums text-foreground">
+										{result.inputRows.toLocaleString()}
+									</dd>
+								</div>
+								<div>
+									<dt className="text-xs text-muted">
+										Banks
+									</dt>
+									<dd className="font-semibold tabular-nums text-foreground">
+										{result.groups.length}
+									</dd>
+								</div>
+								<div>
+									<dt className="text-xs text-muted">
+										No bank code
+									</dt>
+									<dd
+										className={`font-semibold tabular-nums ${
+											result.noCode.length > 0
+												? "text-amber-600 dark:text-amber-300"
+												: "text-foreground"
+										}`}
+									>
+										{result.noCode.length.toLocaleString()}
+									</dd>
+								</div>
+								<div>
+									<dt className="text-xs text-muted">
+										Total value
+									</dt>
+									<dd className="font-semibold tabular-nums text-foreground">
+										{formatAmount(result.grandTotal)}
+									</dd>
+								</div>
+							</dl>
 
-						{!analysis?.balanced && (
-							<p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-300">
-								Row accounting does not balance — do not send these files. Report this file.
-							</p>
-						)}
-						{result.noCode.length > 0 && (
-							<p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-								{result.noCode.length.toLocaleString()} row
-								{result.noCode.length === 1 ? " has" : "s have"} no readable bank code and{" "}
-								{result.noCode.length === 1 ? "is" : "are"} not in any file. Check the column
-								above.
-							</p>
-						)}
-					</section>
+							{!analysis?.balanced && (
+								<p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-300">
+									Row accounting does not balance — do not
+									send these files. Report this file.
+								</p>
+							)}
+							{result.noCode.length > 0 && (
+								<p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+									{result.noCode.length.toLocaleString()} row
+									{result.noCode.length === 1
+										? " has"
+										: "s have"}{" "}
+									no readable bank code and{" "}
+									{result.noCode.length === 1 ? "is" : "are"}{" "}
+									not in any file. Check the column above.
+								</p>
+							)}
+						</section>
 
-					<UnmappedBanner groups={unmapped} onSave={saveOverride} />
-
-					<ColumnPicker
-						headers={preview.spool.headers}
-						selected={selected}
-						includeBankName={includeBankName}
-						onToggle={toggle}
-						onToggleBankName={() => setIncludeBankName((v) => !v)}
-						onSelectAll={() => {
-							setSelected([...preview.spool.headers]);
-							setIncludeBankName(true);
-						}}
-						onSelectNone={() => {
-							setSelected([]);
-							setIncludeBankName(false);
-						}}
-					/>
-
-					<section>
-						<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-							<h2 className="text-sm font-semibold text-foreground">
-								Beneficiary banks ({result.groups.length})
-							</h2>
-							<div className="flex flex-wrap gap-2">
-								<button
-									type="button"
-									onClick={() => void download("combined", "combined")}
-									disabled={nothingSelected || downloading !== null}
-									className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-								>
-									{downloading === "combined" ? "Building…" : "Combined workbook"}
-								</button>
-								<button
-									type="button"
-									onClick={() => void download("zip", "zip")}
-									disabled={nothingSelected || downloading !== null}
-									className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-								>
-									{downloading === "zip" ? "Building…" : "Download all (.zip)"}
-								</button>
-							</div>
-						</div>
-
-						<BankGroupTable
-							groups={result.groups}
-							grandTotal={result.grandTotal}
-							downloading={downloading}
-							onDownload={(group: BankGroup) => void download(group.code, group.code)}
+						<UnmappedBanner
+							groups={unmapped}
+							onSave={saveOverride}
 						/>
-					</section>
-				</div>
-			)}
+
+						<ColumnPicker
+							headers={preview.spool.headers}
+							selected={selected}
+							includeBankName={includeBankName}
+							onToggle={toggle}
+							onToggleBankName={() =>
+								setIncludeBankName((v) => !v)
+							}
+							onSelectAll={() => {
+								setSelected([...preview.spool.headers]);
+								setIncludeBankName(true);
+							}}
+							onSelectNone={() => {
+								setSelected([]);
+								setIncludeBankName(false);
+							}}
+						/>
+
+						<section>
+							<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+								<h2 className="text-sm font-semibold text-foreground">
+									Beneficiary banks ({result.groups.length})
+								</h2>
+								<div className="flex flex-wrap gap-2">
+									<button
+										type="button"
+										onClick={() =>
+											void download(
+												"combined",
+												"combined",
+											)
+										}
+										disabled={
+											nothingSelected ||
+											downloading !== null
+										}
+										className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
+									>
+										{downloading === "combined"
+											? "Building…"
+											: "Combined workbook"}
+									</button>
+									<button
+										type="button"
+										onClick={() =>
+											void download("zip", "zip")
+										}
+										disabled={
+											nothingSelected ||
+											downloading !== null
+										}
+										className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+									>
+										{downloading === "zip"
+											? "Building…"
+											: "Download all (.zip)"}
+									</button>
+								</div>
+							</div>
+
+							<BankGroupTable
+								groups={result.groups}
+								grandTotal={result.grandTotal}
+								downloading={downloading}
+								onDownload={(group: BankGroup) =>
+									void download(group.code, group.code)
+								}
+							/>
+						</section>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }
