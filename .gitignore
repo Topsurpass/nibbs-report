@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Fraud spools / escalation workbooks — contain live customer PII
+# (names, NUBAN account numbers, BVNs). Never commit these.
+/fraudulent*.xls
+/fraudulent*.xlsx
+/fraud_escalation*.xls
+/fraud_escalation*.xlsx
+/escalation-input/

@@ -99,3 +99,16 @@ create table if not exists nibbs_schedule_reports (
 
 create index if not exists nibbs_schedule_reports_date_idx
   on nibbs_schedule_reports (report_date desc, created_at desc);
+
+-- Operator additions/corrections to the bundled NIP institution directory used
+-- by the fraud-escalation splitter. `code` is the 3-character NIP institution
+-- code (e.g. C62 / NOMBA FS) — a DIFFERENT code space from the 10-digit
+-- settlement codes in `nibbs_banks`. These rows are merged OVER the generated
+-- snapshot in src/lib/escalation/nipBankCodes.ts at read time, so an analyst can
+-- name a code NIBSS added after that snapshot without waiting for a deploy.
+create table if not exists nibbs_nip_bank_codes (
+  code        text primary key,
+  name        text not null,
+  created_by  uuid references nibbs_users(id) on delete set null,
+  updated_at  timestamptz not null default now()
+);

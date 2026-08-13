@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "eval:escalation": "node --experimental-strip-types scripts/eval-escalation.mjs",
+    "gen:nip-codes": "node scripts/gen-nip-codes.mjs",
     "db:create": "node scripts/db-create.mjs",
     "db:push": "node scripts/db-push.mjs",
     "seed:admin": "node scripts/seed-admin.mjs"
@@ -17,6 +19,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "exceljs": "^4.4.0",
     "geist": "^1.7.2",
+    "jszip": "^3.10.1",
     "next": "16.2.10",
     "nodemailer": "^9.0.3",
     "react": "19.2.4",
