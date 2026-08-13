@@ -22,6 +22,9 @@ import {
 	type Spool,
 } from "@/lib/escalation/readSpool";
 import type { BankGroup, CodeMode } from "@/lib/escalation/types";
+import TourModal from "@/app/components/onboarding/TourModal";
+import { ESCALATION_TOUR, ESCALATION_TOUR_STEPS } from "./escalationTour";
+import { useTour } from "@/hooks/useTour";
 
 /**
  * Drop a spooled fraud export, get one escalation file per beneficiary bank.
@@ -86,6 +89,8 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 	const [includeBankName, setIncludeBankName] = useState(true);
 	const [successfulOnly, setSuccessfulOnly] = useState(false);
 	const [downloading, setDownloading] = useState<string | null>(null);
+
+	const tour = useTour(ESCALATION_TOUR);
 
 	const directory = useMemo(() => mergeDirectory(overrides), [overrides]);
 
@@ -269,6 +274,13 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 
 	return (
 		<div className="">
+			<TourModal
+				open={tour.open}
+				title="Fraud Escalation"
+				steps={ESCALATION_TOUR_STEPS}
+				onDone={tour.complete}
+			/>
+
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-9 sm:px-10">
 					<div className="flex flex-wrap items-end justify-between gap-4">
@@ -285,6 +297,19 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 								to send for lien placement.
 							</p>
 						</div>
+
+						{/* Replay: the tour auto-shows once, but it has to stay
+						    reachable afterwards or it may as well not exist. */}
+						<button
+							type="button"
+							onClick={tour.replay}
+							className="no-print shrink-0 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+						>
+							<span className="mr-1.5" aria-hidden>
+								🧭
+							</span>
+							Show me around
+						</button>
 					</div>
 				</div>
 			</header>
