@@ -274,7 +274,7 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 					<div className="flex flex-wrap items-end justify-between gap-4">
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-								Escalation
+								Bank Escalation
 							</p>
 							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
 								Generate excel file for bank beneficiaries
