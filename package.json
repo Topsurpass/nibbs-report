@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "eval:escalation": "node --experimental-strip-types scripts/eval-escalation.mjs",
+    "eval:attendance": "node scripts/eval-attendance.mjs",
     "gen:nip-codes": "node scripts/gen-nip-codes.mjs",
     "db:create": "node scripts/db-create.mjs",
     "db:push": "node scripts/db-push.mjs",

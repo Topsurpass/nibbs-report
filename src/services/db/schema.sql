@@ -112,3 +112,33 @@ create table if not exists nibbs_nip_bank_codes (
   created_by  uuid references nibbs_users(id) on delete set null,
   updated_at  timestamptz not null default now()
 );
+
+-- Night-duty attendance register. One row per analyst per night worked.
+--
+-- `night_date` is the Africa/Lagos date the shift STARTED, not the date of the
+-- timestamp: the window runs 20:30 → 08:30, so a 02:00 sign-in belongs to the
+-- previous evening. src/lib/attendance/nightWindow.ts owns that mapping and is
+-- the only place it is computed.
+--
+-- The unique constraint is the real guard against double sign-in — two taps
+-- racing each other cannot both win, regardless of what the route handler does.
+create table if not exists nibbs_night_attendance (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null references nibbs_users(id) on delete cascade,
+  night_date     date not null,
+  signed_in_at   timestamptz not null,
+  signed_out_at  timestamptz,                 -- null while the shift is open
+  source         text not null default 'self'
+                 check (source in ('self', 'admin')),
+  note           text,                        -- why an admin added or changed it
+  recorded_by    uuid references nibbs_users(id) on delete set null,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (user_id, night_date)
+);
+
+create index if not exists nibbs_night_attendance_night_idx
+  on nibbs_night_attendance (night_date desc);
+
+create index if not exists nibbs_night_attendance_user_idx
+  on nibbs_night_attendance (user_id, night_date desc);

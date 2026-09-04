@@ -26,6 +26,7 @@ const REPORTS: NavItem[] = [
 	{ href: "/", label: "Settlement Audit", icon: "🧾" },
 	{ href: "/daily-reports", label: "Daily Schedule", icon: "📋" },
 	{ href: "/escalations", label: "Fraud Escalation", icon: "🚨" },
+	{ href: "/attendance", label: "Night Duty", icon: "🌙" },
 	{ label: "Lien Safe", icon: "🔒", soon: true },
 	{ label: "Fraud Bucket", icon: "🪣", soon: true },
 ];
