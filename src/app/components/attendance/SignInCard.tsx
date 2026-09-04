@@ -143,7 +143,7 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 				: "bg-slate-400";
 
 	return (
-		<section className="overflow-hidden rounded-2xl border border-border bg-surface">
+		<section className="overflow-hidden rounded-2xl border border-border bg-surface space-y-6 m-6">
 			<div className="hero-gradient px-6 py-5 text-white">
 				<div className="flex flex-wrap items-center justify-between gap-4">
 					<div className="min-w-0">
@@ -153,25 +153,34 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 						<p className="mt-1 text-3xl font-bold tabular-nums leading-none">
 							{formatLagosTime(now)}
 						</p>
-						<p className="mt-1 text-xs text-white/70">Africa/Lagos</p>
+						<p className="mt-1 text-xs text-white/70">
+							Africa/Lagos
+						</p>
 					</div>
 					<div className="text-right">
 						<p className="text-sm font-semibold">
 							<span
 								className={`mr-2 inline-block h-2 w-2 rounded-full align-middle ${
-									status.tone === "shut" ? "bg-white/50" : "bg-white"
+									status.tone === "shut"
+										? "bg-white/50"
+										: "bg-white"
 								}`}
 								aria-hidden
 							/>
 							{status.heading}
 						</p>
-						<p className="mt-0.5 text-xs text-white/75">{status.detail}</p>
+						<p className="mt-0.5 text-xs text-white/75">
+							{status.detail}
+						</p>
 					</div>
 				</div>
 			</div>
 
 			<div className="flex flex-wrap items-center gap-3 px-6 py-5">
-				<span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+				<span
+					className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`}
+					aria-hidden
+				/>
 
 				{canSignIn && !entry && (
 					<button
@@ -197,18 +206,21 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 
 				{!canSignIn && !canSignOut && !signedOutAlready && (
 					<p className="text-sm text-muted">
-						The register opens at 20:30 and closes at 08:30. Nothing else on this page is
-						affected.
+						The register opens at 20:30 and closes at 08:30. Nothing
+						else on this page is affected.
 					</p>
 				)}
 
 				{signedOutAlready && (
-					<p className="text-sm text-muted">Tonight is recorded. Nothing left to do.</p>
+					<p className="text-sm text-muted">
+						Tonight is recorded. Nothing left to do.
+					</p>
 				)}
 
 				{openShift && !canSignOut && (
 					<p className="text-sm text-amber-600 dark:text-amber-400">
-						The sign-out window has passed. Ask an admin to close this night.
+						The sign-out window has passed. Ask an admin to close
+						this night.
 					</p>
 				)}
 			</div>
@@ -217,7 +229,9 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 				<div
 					role="status"
 					className={`border-t border-border px-6 py-3 text-sm ${
-						error ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+						error
+							? "text-red-600 dark:text-red-400"
+							: "text-emerald-600 dark:text-emerald-400"
 					}`}
 				>
 					{error ?? flash}

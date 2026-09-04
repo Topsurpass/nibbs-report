@@ -121,6 +121,19 @@ ok("21:00 lands on the night's own evening",
 ok("07:15 lands on the MORNING AFTER",
    addBody.entry?.signedOutAt === `${shift(night,1)}T06:15:00.000Z`, addBody.entry?.signedOutAt);
 
+// The dialog prefills exactly this shift, so it must be accepted and must come
+// back as a clean twelve hours.
+const defaults = await call("/api/attendance/entries", {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId: who.analyst.id, nightDate: shift(night, 1), signedIn: "20:30", signedOut: "08:30" }),
+}, "admin");
+const defBody = await defaults.json();
+ok("the prefilled 20:30 → 08:30 shift is accepted", defaults.status === 200 && defBody.ok, JSON.stringify(defBody));
+ok("...and it spans exactly 12 hours",
+   defBody.entry && (Date.parse(defBody.entry.signedOutAt) - Date.parse(defBody.entry.signedInAt)) === 12 * 3600000,
+   `${defBody.entry?.signedInAt} → ${defBody.entry?.signedOutAt}`);
+await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${shift(night, 1)}`, { method: "DELETE" }, "admin");
+
 const bad = await call("/api/attendance/entries", {
   method: "POST", headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ userId: who.analyst.id, nightDate: night, signedIn: "13:00" }),

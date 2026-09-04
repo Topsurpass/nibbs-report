@@ -37,7 +37,12 @@ interface Props {
 	onSaved: () => void;
 }
 
+/**
+ * A full night, prefilled. Almost every correction is a standard 20:30 → 08:30
+ * shift, so the admin adjusts the exception rather than typing the norm.
+ */
 const DEFAULT_IN = "20:30";
+const DEFAULT_OUT = "08:30";
 
 export default function AdminEntryDialog({
 	open,
@@ -64,7 +69,7 @@ export default function AdminEntryDialog({
 			userId: people[0]?.id ?? "",
 			nightDate,
 			signedIn: DEFAULT_IN,
-			signedOut: "",
+			signedOut: DEFAULT_OUT,
 			note: "",
 		},
 	});
@@ -84,7 +89,10 @@ export default function AdminEntryDialog({
 			userId,
 			nightDate: night,
 			signedIn: row ? formatLagosTime(new Date(row.signedInAt)) : DEFAULT_IN,
-			signedOut: row?.signedOutAt ? formatLagosTime(new Date(row.signedOutAt)) : "",
+			// An existing row shows what is actually on the register: an open night
+			// stays blank rather than being prefilled with a sign-out that never
+			// happened. Only a brand-new entry gets the standard shift.
+			signedOut: row ? (row.signedOutAt ? formatLagosTime(new Date(row.signedOutAt)) : "") : DEFAULT_OUT,
 			note: row?.note ?? "",
 		};
 	};
@@ -243,8 +251,9 @@ export default function AdminEntryDialog({
 						</div>
 					</div>
 					<p className="-mt-1 text-xs text-muted">
-						Leave sign-out empty to record the night as still open. Hours stay unknown rather
-						than counting as zero.
+						Prefilled with a standard 20:30 → 08:30 shift — adjust either time if it was
+						different. Clear sign-out to record the night as still open, which leaves the
+						hours unknown rather than counting them as zero.
 					</p>
 
 					<div>
