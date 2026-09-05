@@ -45,12 +45,19 @@ change if that ever stops being true.
 | `exportAttendance.ts` | Content model for the workbook and the JPEG. Pure. |
 | `excel.ts` | exceljs painter. Server only — decides looks, never content. |
 | `types.ts` | Wire shapes. |
+| `../paginate.ts` | Generic page clamping. Pure, and not attendance-specific. |
 | `../../services/attendance/repository.ts` | Rows in, rows out. No clock logic. |
 | `../../services/attendance/service.ts` | Scope rule: analysts see themselves. |
 | `../../app/components/attendance/paintSummary.ts` | Canvas JPEG painter. |
 
 The workbook, the JPEG and the on-screen totals all read `summarizeMonth`, so the
 three cannot report different numbers.
+
+The Every-night list pages by **night**, never by row, so a night worked by six
+analysts is never split across a page break. On the team register those analysts
+are grouped under their night (`groupNights`), because the question that view
+answers is "how many were on last night" and a flat list makes it a counting
+exercise.
 
 ## Gotchas worth knowing before you change anything
 

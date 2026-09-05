@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
 	entryMinutes,
+	groupNights,
 	indexByNight,
 	personName,
 	sortEntries,
@@ -135,4 +136,45 @@ test("indexByNight groups every entry under its own night", () => {
 	assert.equal(byNight.get("2026-09-04")?.length, 2);
 	assert.equal(byNight.get("2026-09-05")?.length, 1);
 	assert.equal(byNight.get("2026-09-06"), undefined);
+});
+
+test("groupNights blocks a night's analysts together, newest night first", () => {
+	const groups = groupNights([
+		entry("u1", "2026-09-04"),
+		entry("u1", "2026-09-06"),
+		entry("u2", "2026-09-04"),
+		entry("u3", "2026-09-04"),
+		entry("u2", "2026-09-05"),
+	]);
+
+	assert.deepEqual(groups.map((g) => g.nightDate), ["2026-09-06", "2026-09-05", "2026-09-04"]);
+	assert.deepEqual(groups.map((g) => g.entries.length), [1, 1, 3]);
+});
+
+test("within a night, the earliest sign-in comes first", () => {
+	const late = entry("u1", "2026-09-04", { signedInAt: "2026-09-04T22:00:00.000Z" });
+	const early = entry("u2", "2026-09-04", { signedInAt: "2026-09-04T19:31:00.000Z" });
+	const middle = entry("u3", "2026-09-04", { signedInAt: "2026-09-04T20:10:00.000Z" });
+
+	const [group] = groupNights([late, early, middle]);
+	assert.deepEqual(group.entries.map((e) => e.userId), ["u2", "u3", "u1"]);
+});
+
+test("groupNights keeps every entry exactly once and mutates nothing", () => {
+	const input = [
+		entry("u1", "2026-09-04"),
+		entry("u2", "2026-09-04"),
+		entry("u1", "2026-09-05"),
+	];
+	const snapshot = input.map((e) => e.id);
+	const groups = groupNights(input);
+
+	const flattened = groups.flatMap((g) => g.entries.map((e) => e.id));
+	assert.equal(flattened.length, input.length);
+	assert.deepEqual(new Set(flattened), new Set(snapshot));
+	assert.deepEqual(input.map((e) => e.id), snapshot);
+});
+
+test("groupNights on an empty month is an empty list, not a crash", () => {
+	assert.deepEqual(groupNights([]), []);
 });

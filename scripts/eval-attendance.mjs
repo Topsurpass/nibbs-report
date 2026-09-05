@@ -191,6 +191,53 @@ ok("admin can remove a night", del2.status === 200 && del2Body.removed === true)
 const after = await (await call(`/api/attendance?month=${month}&scope=all`, {}, "admin")).json();
 ok("...and it is gone", !after.entries.some((e) => e.nightDate === night && e.userId === who.analyst.id));
 
+console.log("\nG. the Every-night list pages, and groups a shared night");
+// Runs last, on a clean slate: a leftover row from a crashed run would throw the
+// page counts off, and the assertions below are exact.
+await sql`delete from nibbs_night_attendance where user_id in (${who.analyst.id}, ${who.admin.id})`;
+// 12 nights for the analyst, plus a second analyst on one of them.
+const seeded = [];
+for (let d = 1; d <= 12; d++) {
+  const n = `${month}-${String(d).padStart(2, "0")}`;
+  seeded.push(n);
+  await call("/api/attendance/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: who.analyst.id, nightDate: n, signedIn: "20:30", signedOut: "08:30" }),
+  }, "admin");
+}
+const shared = `${month}-12`;
+await call("/api/attendance/entries", {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId: who.admin.id, nightDate: shared, signedIn: "21:00", signedOut: "07:00" }),
+}, "admin");
+
+const html = await (await call("/attendance")).text();
+// React SSR separates adjacent text nodes with <!-- -->, so collapse markup to
+// single spaces before matching prose.
+const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+ok("the list is paged, not one long scroll", /Page 1 of 2/.test(text));
+ok("...and it says which nights are on screen", /Nights 1 [–-] 8 of 12/.test(text), text.match(/Nights[^.]{0,30}/)?.[0]);
+
+// Dates as element TEXT belong to the list. The calendar only puts them in
+// aria-labels and renders bare day numbers, so this counts the list alone.
+const shown = [...html.matchAll(/>(\d{4}-\d{2}-\d{2})</g)].map((m) => m[1]);
+ok("exactly one page of nights is rendered", shown.length === 8, `${shown.length}: ${shown.join(",")}`);
+ok("the newest nights come first, oldest pushed to page 2",
+   shown[0] === `${month}-12` && !shown.includes(`${month}-01`), shown.join(","));
+
+const team = await (await call(`/api/attendance?month=${month}&scope=all`, {}, "admin")).json();
+const onShared = team.entries.filter((e) => e.nightDate === shared);
+ok("two analysts share the same night in the data", onShared.length === 2, `${onShared.length}`);
+ok("both belong to the same night key, so they group under one heading",
+   new Set(onShared.map((e) => e.nightDate)).size === 1);
+
+for (const n of seeded) {
+  await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${n}`, { method: "DELETE" }, "admin");
+}
+await call(`/api/attendance/entries?userId=${who.admin.id}&nightDate=${shared}`, { method: "DELETE" }, "admin");
+
+
+
 // ---- clean up --------------------------------------------------------------
 for (const k of Object.keys(who)) {
   await sql`delete from nibbs_users where id = ${who[k].id}`;

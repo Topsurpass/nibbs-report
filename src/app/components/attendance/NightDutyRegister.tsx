@@ -370,6 +370,7 @@ export default function NightDutyRegister({
 								? (night, userId) => openDialog(night, userId)
 								: undefined
 						}
+						resetKey={viewKey}
 					/>
 				</div>
 			</section>

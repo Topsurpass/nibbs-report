@@ -32,6 +32,29 @@ export function indexByNight(entries: AttendanceEntry[]): Map<NightDate, Attenda
 	return byNight;
 }
 
+export interface NightGroup {
+	nightDate: NightDate;
+	/** Everyone who worked that night, earliest sign-in first. */
+	entries: AttendanceEntry[];
+}
+
+/**
+ * Nights as blocks, newest first, with everyone who worked each one together.
+ *
+ * The team register is read to answer "how many were on last night", and a flat
+ * list of rows makes that a counting exercise. Grouping puts the answer in the
+ * heading. Within a night, earliest sign-in first — the order people arrived.
+ */
+export function groupNights(entries: AttendanceEntry[]): NightGroup[] {
+	const byNight = indexByNight(entries);
+	return [...byNight.entries()]
+		.sort((a, b) => b[0].localeCompare(a[0]))
+		.map(([nightDate, rows]) => ({
+			nightDate,
+			entries: [...rows].sort((a, b) => a.signedInAt.localeCompare(b.signedInAt)),
+		}));
+}
+
 /** Minutes worked on one entry, or null when it was never signed out of. */
 export function entryMinutes(entry: AttendanceEntry): number | null {
 	return durationMinutes(
