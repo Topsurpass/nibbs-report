@@ -12,6 +12,7 @@ import {
 	sortEntries,
 	summarizeMonth,
 	totalsOf,
+	withNights,
 } from "./summary.ts";
 import type { AttendanceEntry, AttendancePerson } from "./types.ts";
 
@@ -94,8 +95,11 @@ const NIGHTS_HEADER = [
 
 export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	const { month, people, entries, scope, generatedAt } = input;
-	const summaries = summarizeMonth(people, entries);
-	const totals = totalsOf(summaries);
+	// Totals stay over the whole roster so the TOTAL row can still say "3 of 11
+	// signed in"; only the listed rows are narrowed to the people who worked.
+	const roster = summarizeMonth(people, entries);
+	const summaries = withNights(roster);
+	const totals = totalsOf(roster);
 	const label = formatMonth(month);
 	const who = scope === "all" ? "All analysts" : personName(people[0] ?? fallbackPerson());
 	const title = `Night Duty Attendance — ${label}`;
@@ -120,6 +124,10 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 			formatDuration(s.totalMinutes),
 			formatDuration(s.averageMinutes),
 		]);
+	}
+
+	if (summaries.length === 0) {
+		summaryAoa.push([`No analyst signed in during ${label}.`, "", "", "", "", "", ""]);
 	}
 
 	summaryAoa.push([
@@ -200,6 +208,8 @@ export interface ImageModel {
 	title: string;
 	subtitle: string;
 	footer: string;
+	/** Drawn in place of the body when nobody worked a night that month. */
+	emptyNote?: string;
 	columns: ImageColumn[];
 	rows: string[][];
 	totals: string[];
@@ -218,16 +228,25 @@ const IMAGE_COLUMNS: ImageColumn[] = [
  * The same numbers as the workbook's Summary sheet, trimmed to what fits in a
  * picture. Email and per-night averages are dropped: a JPEG is for pasting into
  * a chat, and a five-column table stays legible on a phone.
+ *
+ * Like the workbook, it lists only analysts with at least one night — the two
+ * documents are shared side by side and must not disagree about who is on them.
  */
 export function buildSummaryImage(input: ExportInput): ImageModel {
 	const { month, people, entries, scope, generatedAt } = input;
-	const summaries = summarizeMonth(people, entries);
-	const totals = totalsOf(summaries);
-	const who = scope === "all" ? "All analysts" : personName(people[0] ?? fallbackPerson());
+	const roster = summarizeMonth(people, entries);
+	const summaries = withNights(roster);
+	const totals = totalsOf(roster);
+	const who =
+		scope === "all"
+			? `${totals.active} of ${totals.people} analysts signed in`
+			: personName(people[0] ?? fallbackPerson());
 
 	return {
 		title: `Night Duty — ${formatMonth(month)}`,
 		subtitle: who,
+		emptyNote:
+			summaries.length === 0 ? `No analyst signed in during ${formatMonth(month)}.` : undefined,
 		footer: `Generated ${formatLagosStamp(generatedAt.toISOString())} Africa/Lagos · Audit Toolkit`,
 		columns: IMAGE_COLUMNS,
 		rows: summaries.map((s) => [

@@ -88,8 +88,43 @@ test("an empty month still produces a readable sheet", () => {
 	const model = build("all", [ada, bode], []);
 	const { aoa, headerRow } = model.nights;
 	assert.equal(aoa[headerRow][0], "No nights recorded in September 2026.");
-	// ...and the summary still lists both analysts with zeroes.
-	assert.equal(model.summary.aoa[model.summary.headerRow][2], 0);
+
+	// The summary has nobody to list, so it says so rather than printing two
+	// rows of zeroes, and every row still matches the column count.
+	const summary = model.summary;
+	assert.equal(summary.aoa[summary.headerRow][0], "No analyst signed in during September 2026.");
+	assert.equal(summary.aoa[(summary.totalsRow ?? 0) - 1][0], "TOTAL");
+	for (const row of summary.aoa.slice(summary.headerRow - 1)) {
+		assert.equal(row.length, summary.widths.length);
+	}
+
+	const image = buildSummaryImage({
+		month: "2026-09", people: [ada, bode], entries: [], scope: "all", generatedAt: GENERATED,
+	});
+	assert.equal(image.rows.length, 0);
+	assert.equal(image.emptyNote, "No analyst signed in during September 2026.");
+});
+
+test("exports skip analysts who did no nights, but still count them in the total", () => {
+	// Bode worked; Ada did not. Ada belongs on the roster, not in the file.
+	const onlyBode = [night("u2", "2026-09-04", 11)];
+	const summary = build("all", [ada, bode], onlyBode).summary;
+	const body = summary.aoa.slice(summary.headerRow, (summary.totalsRow ?? 0) - 1);
+
+	assert.equal(body.length, 1);
+	assert.equal(body[0][0], "Bode Ayo");
+	assert.ok(!body.some((row) => row[0] === "Ada Obi"));
+
+	// The denominator is still the whole team, so a reader can see who is missing.
+	assert.equal(summary.aoa[(summary.totalsRow ?? 0) - 1][1], "1 of 2 signed in");
+
+	const image = buildSummaryImage({
+		month: "2026-09", people: [ada, bode], entries: onlyBode, scope: "all",
+		generatedAt: GENERATED,
+	});
+	assert.deepEqual(image.rows.map((r) => r[0]), ["Bode Ayo"]);
+	assert.equal(image.subtitle, "1 of 2 analysts signed in");
+	assert.equal(image.emptyNote, undefined);
 });
 
 test("file names are scope-specific and shell-safe", () => {

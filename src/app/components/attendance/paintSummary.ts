@@ -79,7 +79,9 @@ function drawCell(
 
 /** Draws the summary and returns the canvas. */
 export function paintSummary(model: ImageModel): HTMLCanvasElement {
-	const bodyRows = model.rows.length;
+	// An empty month still gets one body row, so the note has somewhere to sit
+	// and the totals band never collides with the header.
+	const bodyRows = model.rows.length || (model.emptyNote ? 1 : 0);
 	const height = TITLE_H + HEADER_H + bodyRows * ROW_H + ROW_H + FOOTER_H;
 
 	const canvas = document.createElement("canvas");
@@ -136,6 +138,13 @@ export function paintSummary(model: ImageModel): HTMLCanvasElement {
 		ctx.stroke();
 		y += ROW_H;
 	});
+
+	if (model.rows.length === 0 && model.emptyNote) {
+		ctx.fillStyle = MUTED;
+		ctx.textAlign = "left";
+		ctx.fillText(fit(ctx, model.emptyNote, WIDTH - PAD * 2 - 24), PAD + 12, y + ROW_H / 2);
+		y += ROW_H;
+	}
 
 	// Totals.
 	ctx.fillStyle = TOTAL_BG;

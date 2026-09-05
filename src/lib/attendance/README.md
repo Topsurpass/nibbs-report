@@ -51,7 +51,12 @@ change if that ever stops being true.
 | `../../app/components/attendance/paintSummary.ts` | Canvas JPEG painter. |
 
 The workbook, the JPEG and the on-screen totals all read `summarizeMonth`, so the
-three cannot report different numbers.
+three cannot report different numbers. They differ only in who they *list*: the
+on-screen table is a roster view and keeps the zero-night rows (a name with 0 is
+the answer to "who has not done a night yet"), while both downloads run
+`withNights` first, because a file that gets attached to a mail is the record of
+who was on duty. The totals row keeps the roster denominator — `3 of 11 signed
+in` — so a reader can still see that somebody is missing.
 
 The Every-night list pages by **night**, never by row, so a night worked by six
 analysts is never split across a page break. On the team register those analysts
@@ -77,6 +82,11 @@ exercise.
   route turns that into an explicit 409 rather than a no-op reported as success,
   since a stale tab replaying a request must not look like it changed something.
   Admins are unaffected — they correct nights through `/api/attendance/entries`.
+- **Removing a night is a hard delete.** There is no soft-delete column, so the
+  UI asks first and names the analyst and the night in the confirm. The route
+  answers `{ ok: true, removed: false }` when the row was already gone, which is
+  a no-op and not an error: two admins clicking Remove on the same row must not
+  produce a failure.
 - **Open nights contribute no hours.** Counting them as zero would quietly
   understate somebody's month; they are reported separately as "still open".
 

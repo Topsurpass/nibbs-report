@@ -197,6 +197,21 @@ const bodyRows = summary.slice(summary.findIndex((r) => r[0] === "Analyst") + 1,
 const summed = bodyRows.reduce((n, r) => n + Number(r[2] ?? 0), 0);
 ok("the totals row equals the sum of the rows above it",
    Number(totalRow?.[2]) === summed, `total ${totalRow?.[2]} vs sum ${summed}`);
+// The file is the attendance record, not the staff list: everybody on it worked.
+const zeroRow = bodyRows.find((r) => Number(r[2] ?? 0) === 0);
+ok("no zero-night analyst is listed", zeroRow === undefined, JSON.stringify(zeroRow));
+ok("the seeded admin (no nights) is absent",
+   !bodyRows.some((r) => String(r[1] ?? "").includes("zz-attendance-admin")),
+   JSON.stringify(bodyRows.map((r) => r[1])));
+ok("the analyst who worked IS listed",
+   bodyRows.some((r) => String(r[1] ?? "") === who.analyst.email),
+   JSON.stringify(bodyRows.map((r) => r[1])));
+// Everyone stays in the denominator, so a reader can still see who is missing.
+ok("the totals row still counts the whole roster",
+   /^\d+ of \d+ signed in$/.test(String(totalRow?.[1] ?? "")) &&
+     Number(String(totalRow[1]).split(" of ")[1].split(" ")[0]) >= bodyRows.length + 1,
+   String(totalRow?.[1]));
+
 const nights = XLSX.utils.sheet_to_json(wb.Sheets.Nights, { header: 1 });
 const added = nights.find((r) => String(r[0] ?? "").startsWith(night));
 ok("the corrected night appears with its hours and note",
@@ -209,6 +224,9 @@ const del2Body = await del2.json();
 ok("admin can remove a night", del2.status === 200 && del2Body.removed === true);
 const after = await (await call(`/api/attendance?month=${month}&scope=all`, {}, "admin")).json();
 ok("...and it is gone", !after.entries.some((e) => e.nightDate === night && e.userId === who.analyst.id));
+// Two admins clicking Remove on the same row: the second is a no-op, not a 500.
+const del3 = await (await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${night}`, { method: "DELETE" }, "admin")).json();
+ok("removing it twice reports nothing was removed", del3.ok === true && del3.removed === false, JSON.stringify(del3));
 
 console.log("\nG. the Every-night list pages, and groups a shared night");
 // Runs last, on a clean slate: a leftover row from a crashed run would throw the

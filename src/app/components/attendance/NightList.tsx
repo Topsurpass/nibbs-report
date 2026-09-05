@@ -26,6 +26,10 @@ interface Props {
 	/** Show who worked the night. Redundant on a single analyst's own register. */
 	showAnalyst: boolean;
 	onEdit?: (nightDate: NightDate, userId: string) => void;
+	/** Admin-only. Removing a night is destructive, so it asks first. */
+	onRemove?: (entry: AttendanceEntry) => void;
+	/** The night currently being deleted, so its row can show progress. */
+	removingId?: string | null;
 	/** Changing this resets to page 1 — a new month must not open mid-list. */
 	resetKey: string;
 }
@@ -46,7 +50,15 @@ function DurationBadge({ minutes }: { minutes: number | null }) {
 	);
 }
 
-export default function NightList({ entries, people, showAnalyst, onEdit, resetKey }: Props) {
+export default function NightList({
+	entries,
+	people,
+	showAnalyst,
+	onEdit,
+	onRemove,
+	removingId,
+	resetKey,
+}: Props) {
 	const nameById = useMemo(
 		() => new Map(people.map((p) => [p.id, personName(p)])),
 		[people],
@@ -74,6 +86,11 @@ export default function NightList({ entries, people, showAnalyst, onEdit, resetK
 			</p>
 		);
 	}
+
+	const rowButton =
+		"rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/5";
+	const removeButton =
+		"rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400";
 
 	const control =
 		"rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5";
@@ -129,14 +146,28 @@ export default function NightList({ entries, people, showAnalyst, onEdit, resetK
 									</>
 								)}
 
-								{onEdit && !showAnalyst && (
-									<button
-										type="button"
-										onClick={() => onEdit(group.nightDate, group.entries[0].userId)}
-										className="ml-auto rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-									>
-										Edit
-									</button>
+								{!showAnalyst && (onEdit || onRemove) && (
+									<div className="ml-auto flex gap-2">
+										{onEdit && (
+											<button
+												type="button"
+												onClick={() => onEdit(group.nightDate, group.entries[0].userId)}
+												className={rowButton}
+											>
+												Edit
+											</button>
+										)}
+										{onRemove && (
+											<button
+												type="button"
+												onClick={() => onRemove(group.entries[0])}
+												disabled={removingId === group.entries[0].id}
+												className={removeButton}
+											>
+												{removingId === group.entries[0].id ? "Removing…" : "Remove"}
+											</button>
+										)}
+									</div>
 								)}
 							</div>
 
@@ -172,9 +203,24 @@ export default function NightList({ entries, people, showAnalyst, onEdit, resetK
 												<button
 													type="button"
 													onClick={() => onEdit(entry.nightDate, entry.userId)}
-													className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+													className={rowButton}
 												>
 													Edit
+												</button>
+											)}
+
+											{/* Wrong sign-in, a duplicate, or somebody testing the
+											    button: an admin takes the row off the register here
+											    rather than opening the dialog first. */}
+											{onRemove && (
+												<button
+													type="button"
+													onClick={() => onRemove(entry)}
+													disabled={removingId === entry.id}
+													aria-label={`Remove ${nameById.get(entry.userId) ?? "analyst"}'s night of ${entry.nightDate}`}
+													className={removeButton}
+												>
+													{removingId === entry.id ? "Removing…" : "Remove"}
 												</button>
 											)}
 										</li>

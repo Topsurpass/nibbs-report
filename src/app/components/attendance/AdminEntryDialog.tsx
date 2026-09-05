@@ -12,6 +12,7 @@ import {
 } from "@/lib/attendance/nightWindow";
 import { personName } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
+import { requestNightRemoval } from "./removeNight";
 
 /**
  * Admin correction for one night.
@@ -153,20 +154,25 @@ export default function AdminEntryDialog({
 
 	const removeNight = async () => {
 		if (!existing) return;
+		const who = people.find((p) => p.id === selectedUser);
+		// Deleting a night is not reversible from the UI, and the row it removes is
+		// somebody's attendance record. Name both before doing it.
+		if (
+			!window.confirm(
+				`Remove ${who ? personName(who) : "this analyst"}'s night of ${formatNightLabel(formNight)}? This cannot be undone.`,
+			)
+		) {
+			return;
+		}
+
 		setRemoving(true);
 		setServerError(null);
 		try {
-			const params = new URLSearchParams({ userId: selectedUser, nightDate: formNight });
-			const res = await fetch(`/api/attendance/entries?${params}`, { method: "DELETE" });
-			const data = (await res.json()) as { ok: boolean; error?: string };
-			if (!res.ok || !data.ok) {
-				setServerError(data.error ?? "Couldn't remove that night.");
-				return;
-			}
+			await requestNightRemoval(selectedUser, formNight);
 			onSaved();
 			onClose();
-		} catch {
-			setServerError("Network error. Check your connection and try again.");
+		} catch (err) {
+			setServerError(err instanceof Error ? err.message : "Couldn't remove that night.");
 		} finally {
 			setRemoving(false);
 		}

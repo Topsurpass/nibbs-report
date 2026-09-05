@@ -11,17 +11,19 @@ import NightList from "./NightList";
 import SignInCard from "./SignInCard";
 import { ATTENDANCE_TOUR, ATTENDANCE_TOUR_STEPS } from "./attendanceTour";
 import { downloadSummaryJpeg } from "./paintSummary";
+import { requestNightRemoval } from "./removeNight";
 import { buildSummaryImage } from "@/lib/attendance/exportAttendance";
 import {
 	addMonths,
 	currentMonth,
 	formatMonth,
+	formatNightLabel,
 	nightDateFor,
 	toLagos,
 	type MonthKey,
 	type NightDate,
 } from "@/lib/attendance/nightWindow";
-import { summarizeMonth } from "@/lib/attendance/summary";
+import { personName, summarizeMonth } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import type { AuthUser } from "@/types/user";
 
@@ -60,6 +62,8 @@ export default function NightDutyRegister({
 	const [month, setMonth] = useState<MonthKey>(initialMonth);
 	const [scope, setScope] = useState<Scope>("me");
 	const [imageError, setImageError] = useState<string | null>(null);
+	const [removeError, setRemoveError] = useState<string | null>(null);
+	const [removingId, setRemovingId] = useState<string | null>(null);
 
 	const [dialogNight, setDialogNight] = useState<NightDate | null>(null);
 	const [dialogUser, setDialogUser] = useState<string | undefined>(undefined);
@@ -151,6 +155,34 @@ export default function NightDutyRegister({
 			setImageError(err instanceof Error ? err.message : "Couldn't build the image.");
 		}
 	}, [month, people, entries, scope]);
+
+	/**
+	 * Take a night off the register.
+	 *
+	 * Admin-only and destructive, so it names the analyst and the night in the
+	 * confirm — an admin scanning a grouped list is one row away from deleting
+	 * the wrong person's shift.
+	 */
+	const removeNight = useCallback(
+		async (entry: AttendanceEntry) => {
+			const who = people.find((p) => p.id === entry.userId);
+			const label = `${who ? personName(who) : "this analyst"}'s night of ${formatNightLabel(entry.nightDate)}`;
+			if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
+
+			setRemoveError(null);
+			setRemovingId(entry.id);
+			try {
+				const removed = await requestNightRemoval(entry.userId, entry.nightDate);
+				if (!removed) setRemoveError("That night was already off the register.");
+				refresh();
+			} catch (err) {
+				setRemoveError(err instanceof Error ? err.message : "Couldn't remove that night.");
+			} finally {
+				setRemovingId(null);
+			}
+		},
+		[people, refresh],
+	);
 
 	const openDialog = (nightDate: NightDate, userId?: string) => {
 		setDialogNight(nightDate);
@@ -314,12 +346,12 @@ export default function NightDutyRegister({
 					</div>
 				</div>
 
-				{(error || imageError) && (
+				{(error || imageError || removeError) && (
 					<div
 						role="alert"
 						className="border-b border-border bg-red-500/10 px-5 py-3 text-sm text-red-700 dark:text-red-300"
 					>
-						{error ?? imageError}
+						{error ?? imageError ?? removeError}
 					</div>
 				)}
 
@@ -343,7 +375,8 @@ export default function NightDutyRegister({
 					</h2>
 					<p className="text-[11px] text-muted">
 						Hours count signed-out nights only — an open night is
-						unknown, not zero.
+						unknown, not zero. This table keeps everyone; the Excel and
+						image downloads list only analysts with at least one night.
 					</p>
 				</div>
 				<div className="px-5 py-4">
@@ -370,6 +403,8 @@ export default function NightDutyRegister({
 								? (night, userId) => openDialog(night, userId)
 								: undefined
 						}
+						onRemove={isAdmin ? removeNight : undefined}
+						removingId={removingId}
 						resetKey={viewKey}
 					/>
 				</div>

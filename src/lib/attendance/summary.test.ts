@@ -8,6 +8,7 @@ import {
 	sortEntries,
 	summarizeMonth,
 	totalsOf,
+	withNights,
 } from "./summary.ts";
 import type { AttendanceEntry, AttendancePerson } from "./types.ts";
 
@@ -177,4 +178,28 @@ test("groupNights keeps every entry exactly once and mutates nothing", () => {
 
 test("groupNights on an empty month is an empty list, not a crash", () => {
 	assert.deepEqual(groupNights([]), []);
+});
+
+test("withNights keeps only the people who actually worked", () => {
+	// Ada has a complete night, Bode only an open one, Chidi never signed in.
+	const rows = [complete("u1", "2026-09-01"), entry("u2", "2026-09-02")];
+	const summaries = summarizeMonth([ada, bode, chidi], rows);
+	const worked = withNights(summaries);
+
+	// The roster view keeps everyone; the export view keeps the attendance.
+	assert.equal(summaries.length, 3);
+	assert.deepEqual(worked.map((s) => s.person.id), ["u1", "u2"]);
+
+	// An open night is still a night: it must not be dropped just because its
+	// hours are unknown.
+	assert.equal(worked[1].nights, 1);
+	assert.equal(worked[1].openNights, 1);
+
+	// Filtering must not move any total.
+	assert.equal(
+		worked.reduce((n, s) => n + s.nights, 0),
+		summaries.reduce((n, s) => n + s.nights, 0),
+	);
+	assert.equal(withNights([]).length, 0);
+	assert.equal(withNights(summarizeMonth([ada, bode], [])).length, 0);
 });

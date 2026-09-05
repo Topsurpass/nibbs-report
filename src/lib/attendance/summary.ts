@@ -104,6 +104,20 @@ export function summarizeMonth(
 		.sort((a, b) => personName(a.person).localeCompare(personName(b.person)));
 }
 
+/**
+ * Only the people who actually worked a night.
+ *
+ * The on-screen table is a roster view and keeps the zero-night rows, because a
+ * name with 0 is the answer to "who has not done a night yet". A downloaded file
+ * is a different document: it gets attached to a mail as the record of who was
+ * on duty, and padding it with everyone who was not is noise that grows with the
+ * team. `summarizeMonth` still produces the full list, so `totalsOf` can keep
+ * reporting the roster denominator.
+ */
+export function withNights(summaries: PersonMonthSummary[]): PersonMonthSummary[] {
+	return summaries.filter((s) => s.nights > 0);
+}
+
 export interface MonthTotals {
 	people: number;
 	/** People with at least one night. */
