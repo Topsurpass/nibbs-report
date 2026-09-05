@@ -72,6 +72,11 @@ exercise.
 - **`instantForNight` splits at 20:30.** Within a night, `21:00` means that
   evening and `08:00` means the next morning. This is what makes an admin typing
   a time get the right calendar date.
+- **A signed-out night is locked to the analyst.** `signOut` only updates rows
+  `where signed_out_at is null`, so the database refuses the second write; the
+  route turns that into an explicit 409 rather than a no-op reported as success,
+  since a stale tab replaying a request must not look like it changed something.
+  Admins are unaffected — they correct nights through `/api/attendance/entries`.
 - **Open nights contribute no hours.** Counting them as zero would quietly
   understate somebody's month; they are reported separately as "still open".
 

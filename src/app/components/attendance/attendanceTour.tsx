@@ -84,6 +84,10 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					08:30, so a shift that runs long can still be closed.
 				</p>
 				<p className="mt-2 text-muted">
+					Once you sign out the night is <strong>locked</strong> — you cannot change it
+					yourself. Ask an admin if a time is wrong.
+				</p>
+				<p className="mt-2 text-muted">
 					Forget to sign out and the night still counts — it is listed as{" "}
 					<strong>still open</strong> and contributes no hours, rather than being counted as
 					zero.

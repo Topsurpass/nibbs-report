@@ -67,13 +67,20 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 					ok: boolean;
 					error?: string;
 					message?: string;
+					locked?: boolean;
 					entry?: AttendanceEntry;
 				};
-				if (!body.ok || !body.entry) {
+
+				// Adopt the row whenever the server sends one, refusal included. A tab
+				// left open since before a sign-out would otherwise keep offering a
+				// button for a night that is already closed.
+				if (body.entry) setHeld({ nightDate: body.entry.nightDate, entry: body.entry });
+
+				if (!body.ok) {
 					setError(body.error ?? "That didn't work. Try again.");
+					if (body.entry) onChanged();
 					return;
 				}
-				setHeld({ nightDate: body.entry.nightDate, entry: body.entry });
 				setFlash(body.message ?? null);
 				onChanged();
 			} catch {
@@ -212,8 +219,10 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 				)}
 
 				{signedOutAlready && (
-					<p className="text-sm text-muted">
-						Tonight is recorded. Nothing left to do.
+					<p className="flex items-center gap-1.5 text-sm text-muted">
+						<span aria-hidden>🔒</span>
+						This night is recorded and locked. Ask an admin if the times
+						need changing.
 					</p>
 				)}
 

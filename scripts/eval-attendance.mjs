@@ -98,8 +98,27 @@ if (expectedNight) {
   ok("a second tap is idempotent, not a duplicate", again.ok && again.created === false);
   const so = await (await call("/api/attendance/sign-out", { method: "POST" })).json();
   ok("sign-out closes the night", so.ok && so.entry?.signedOutAt);
-  const so2 = await (await call("/api/attendance/sign-out", { method: "POST" })).json();
-  ok("a second sign-out does not overwrite the first", so2.ok && so2.updated === false);
+  const closedAt = so.entry.signedOutAt;
+  const so2res = await call("/api/attendance/sign-out", { method: "POST" });
+  const so2 = await so2res.json();
+  ok("a second sign-out is refused, not silently ignored", so2res.status === 409 && so2.ok === false,
+     `${so2res.status} ${JSON.stringify(so2)}`);
+  ok("...and it says the night is locked", so2.locked === true && /admin/i.test(so2.error ?? ""), so2.error);
+  ok("...and the original sign-out time is untouched", so2.entry?.signedOutAt === closedAt);
+
+  const si3 = await (await call("/api/attendance/sign-in", { method: "POST" })).json();
+  ok("signing in again on a closed night changes nothing", si3.entry?.signedOutAt === closedAt);
+  ok("...and it is reported as locked", si3.locked === true, JSON.stringify(si3.message));
+
+  // The lock binds the analyst, not the admin: corrections must still be possible.
+  const fix = await call("/api/attendance/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: who.analyst.id, nightDate: expectedNight, signedIn: "20:30", signedOut: "06:00", note: "Left early." }),
+  }, "admin");
+  const fixBody = await fix.json();
+  ok("an admin can still change a locked night", fix.status === 200 && fixBody.ok, JSON.stringify(fixBody));
+  ok("...and the change actually took", fixBody.entry?.signedOutAt !== closedAt);
+  await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${expectedNight}`, { method: "DELETE" }, "admin");
 } else {
   ok("sign-in refused outside the window", si.status === 403 && !siBody.ok, JSON.stringify(siBody));
   ok("...and it says when it opens", /20:30/.test(siBody.error ?? ""), siBody.error);

@@ -33,11 +33,28 @@ export async function POST() {
 				{ status: 409 },
 			);
 		}
+		// A closed night is final for the person who worked it. The database guard
+		// (`signed_out_at is null`) already refuses the write; this turns that into
+		// an explicit refusal rather than a no-op reported as success, so a stale
+		// tab or a replayed request cannot look like it changed something.
+		if (!updated) {
+			return Response.json(
+				{
+					ok: false,
+					locked: true,
+					entry,
+					error:
+						"You've already signed out of this night, so it's locked. Ask an admin if the times need changing.",
+				},
+				{ status: 409 },
+			);
+		}
+
 		return Response.json({
 			ok: true,
 			updated,
 			entry,
-			message: updated ? "Signed out. Have a good rest." : "You already signed out of this shift.",
+			message: "Signed out. Have a good rest.",
 		});
 	} catch (err) {
 		console.error("[attendance] sign-out failed", err);

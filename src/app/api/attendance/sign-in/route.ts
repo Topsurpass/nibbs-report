@@ -42,9 +42,15 @@ export async function POST() {
 			created,
 			entry,
 			closesAt: windowClosesAt(nightDate).toISOString(),
+			locked: Boolean(entry.signedOutAt),
 			message: created
 				? `Signed in for the night of ${nightDate}.`
-				: "You already signed in for tonight.",
+				: entry.signedOutAt
+					// Nothing was written either way — the unique constraint saw to that —
+					// but say plainly that the night is closed rather than implying it is
+					// still running.
+					? "Tonight is already signed out and locked. Ask an admin if it needs changing."
+					: "You already signed in for tonight.",
 		});
 	} catch (err) {
 		console.error("[attendance] sign-in failed", err);
