@@ -1,5 +1,5 @@
 import { bankListSchema } from "@/lib/validators/bank";
-import { requireUser } from "@/services/auth/guards";
+import { requireMasterBankEditor, requireUser } from "@/services/auth/guards";
 import { listBanks, syncBanks } from "@/services/banks/repository";
 
 export const runtime = "nodejs";
@@ -23,10 +23,13 @@ export async function GET() {
 
 /**
  * Replace the master list with the posted array (add/edit/delete in one shot).
- * Any signed-in user may edit banks and collateral.
+ *
+ * Admins only. The list is shared reference data: every settlement audit reads
+ * the collateral figures, so one wrong edit moves every breach calculation for
+ * the whole team. Analysts read it on the settings screen but cannot write it.
  */
 export async function PUT(request: Request) {
-	const auth = await requireUser();
+	const auth = await requireMasterBankEditor();
 	if ("response" in auth) return auth.response;
 
 	let payload: unknown;

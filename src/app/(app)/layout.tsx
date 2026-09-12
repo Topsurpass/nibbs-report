@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import AppChrome from "@/app/components/AppChrome";
+import { SessionProvider } from "@/app/components/providers/SessionProvider";
 import { getSessionUser } from "@/services/auth/sessions";
 import { listBanks } from "@/services/banks/repository";
 
@@ -18,9 +19,13 @@ export default async function AppLayout({
 	if (user.mustChangePassword) redirect("/change-password");
 
 	const banks = await listBanks();
+	// The session is read once here and handed to client screens through the
+	// provider, so a component that needs the role does not re-query for it.
 	return (
-		<AppChrome user={user} initialMaster={banks}>
-			{children}
-		</AppChrome>
+		<SessionProvider user={user}>
+			<AppChrome user={user} initialMaster={banks}>
+				{children}
+			</AppChrome>
+		</SessionProvider>
 	);
 }

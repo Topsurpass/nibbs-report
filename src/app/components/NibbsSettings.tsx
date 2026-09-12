@@ -8,6 +8,12 @@ import { mergeBanks, parseMasterFromRows } from "@/lib/importBanks";
 
 interface Props {
 	master: MasterBank[];
+	/**
+	 * Whether this user may change the list. False renders the same data as a
+	 * plain read-only table with no controls — the screen stays useful to an
+	 * analyst who needs to look a code or a collateral figure up.
+	 */
+	canEdit: boolean;
 	/** Persist the full list to the DB; resolves to the stored rows or throws. */
 	onSave: (list: MasterBank[]) => Promise<MasterBank[]>;
 	/** Replace the list with the built-in defaults; resolves to the stored rows. */
@@ -25,8 +31,12 @@ interface ImportMsg {
  * so it is maintained here and persisted to the shared Neon database. Edits are
  * staged in a draft and written on Save; an Excel upload merges rows into the
  * draft for review before saving.
+ *
+ * `canEdit` gates every control. It is a rendering decision only: the list is
+ * shared reference data feeding every audit, so `/api/banks` re-checks the same
+ * rule and refuses a write from anyone else regardless of what was rendered.
  */
-export default function NibbsSettings({ master, onSave, onReset }: Props) {
+export default function NibbsSettings({ master, canEdit, onSave, onReset }: Props) {
 	const [draft, setDraft] = useState<MasterBank[]>(master);
 	const [dirty, setDirty] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -53,6 +63,7 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 	};
 
 	const save = async () => {
+		if (!canEdit) return;
 		setSaveError(null);
 		const cleaned = draft.filter((b) => b.code.trim() && b.name.trim());
 
@@ -93,6 +104,7 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 	};
 
 	const reset = async () => {
+		if (!canEdit) return;
 		if (!window.confirm("Reset the master list to the built-in defaults? This overwrites the stored list.")) {
 			return;
 		}
@@ -108,7 +120,7 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 
 	const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
-		if (!file) return;
+		if (!file || !canEdit) return;
 		setImportMsg(null);
 		try {
 			const buf = await file.arrayBuffer();
@@ -154,8 +166,9 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 					</p>
 					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">NIBBS Settings</h1>
 					<p className="mt-2 max-w-2xl text-sm text-white/80">
-						Master bank list and posted collateral used by the settlement audit. Edits are saved to
-						the shared database and applied to every audit run.
+						{canEdit
+							? "Master bank list and posted collateral used by the settlement audit. Edits are saved to the shared database and applied to every audit run."
+							: "Master bank list and posted collateral used by the settlement audit. This list is shared by the whole team, so only an admin can change it."}
 					</p>
 				</div>
 			</header>
@@ -171,42 +184,53 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 							<span className="tnum font-medium">₦{formatNaira(totalCollateral)}</span>
 						</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<input
-							ref={fileRef}
-							type="file"
-							accept=".xlsx,.xls,.csv"
-							onChange={onImportFile}
-							className="hidden"
-						/>
-						<button
-							onClick={() => fileRef.current?.click()}
-							className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-							title={`Upload a 2-column sheet: "Bank name - 10-digit code" | collateral`}
-						>
-							⬆ Import Excel
-						</button>
-						<button
-							onClick={add}
-							className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-						>
-							+ Add bank
-						</button>
-						<button
-							onClick={reset}
-							disabled={resetting || saving}
-							className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-						>
-							{resetting ? "Resetting…" : "Reset to defaults"}
-						</button>
-						<button
-							onClick={save}
-							disabled={!dirty || saving}
-							className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							{saving ? "Saving…" : dirty ? "Save changes" : saved ? "✓ Saved" : "Saved"}
-						</button>
-					</div>
+					{canEdit ? (
+						<div className="flex flex-wrap items-center gap-2">
+							<input
+								ref={fileRef}
+								type="file"
+								accept=".xlsx,.xls,.csv"
+								onChange={onImportFile}
+								className="hidden"
+							/>
+							<button
+								onClick={() => fileRef.current?.click()}
+								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+								title={`Upload a 2-column sheet: "Bank name - 10-digit code" | collateral`}
+							>
+								⬆ Import Excel
+							</button>
+							<button
+								onClick={add}
+								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+							>
+								+ Add bank
+							</button>
+							<button
+								onClick={reset}
+								disabled={resetting || saving}
+								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
+							>
+								{resetting ? "Resetting…" : "Reset to defaults"}
+							</button>
+							<button
+								onClick={save}
+								disabled={!dirty || saving}
+								className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+							>
+								{saving ? "Saving…" : dirty ? "Save changes" : saved ? "✓ Saved" : "Saved"}
+							</button>
+						</div>
+					) : (
+						/* Say who can change it, so a read-only screen reads as a
+						   deliberate rule rather than a page that failed to load. */
+						<p className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
+							<span className="mr-1.5" aria-hidden>
+								🔒
+							</span>
+							View only · ask an admin to change the list
+						</p>
+					)}
 				</div>
 
 				{saveError && (
@@ -249,53 +273,72 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 									<th className="px-4 py-3 font-semibold">Bank code</th>
 									<th className="px-4 py-3 font-semibold">Bank name</th>
 									<th className="px-4 py-3 text-right font-semibold">Collateral (₦)</th>
-									<th className="px-3 py-3"></th>
+									{canEdit && <th className="px-3 py-3"></th>}
 								</tr>
 							</thead>
 							<tbody>
-								{draft.map((b, i) => (
-									<tr key={i} className="border-t border-border">
-										<td className="px-4 py-1.5">
-											<input
-												value={b.code}
-												onChange={(e) => update(i, { code: e.target.value })}
-												placeholder="10-digit code"
-												className="tnum w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
-											/>
-										</td>
-										<td className="px-4 py-1.5">
-											<input
-												value={b.name}
-												onChange={(e) => update(i, { name: e.target.value })}
-												placeholder="Bank name"
-												className="w-full min-w-[180px] rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
-											/>
-										</td>
-										<td className="px-4 py-1.5 text-right">
-											<input
-												type="number"
-												value={b.collateral}
-												onChange={(e) =>
-													update(i, { collateral: Number(e.target.value) || 0 })
-												}
-												className="tnum w-44 rounded-md border border-border bg-background px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
-											/>
-										</td>
-										<td className="px-3 py-1.5 text-center">
-											<button
-												onClick={() => remove(i)}
-												className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-												title="Remove bank"
-											>
-												✕
-											</button>
-										</td>
-									</tr>
-								))}
+								{draft.map((b, i) =>
+									canEdit ? (
+										<tr key={i} className="border-t border-border">
+											<td className="px-4 py-1.5">
+												<input
+													value={b.code}
+													onChange={(e) => update(i, { code: e.target.value })}
+													placeholder="10-digit code"
+													className="tnum w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+												/>
+											</td>
+											<td className="px-4 py-1.5">
+												<input
+													value={b.name}
+													onChange={(e) => update(i, { name: e.target.value })}
+													placeholder="Bank name"
+													className="w-full min-w-[180px] rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+												/>
+											</td>
+											<td className="px-4 py-1.5 text-right">
+												<input
+													type="number"
+													value={b.collateral}
+													onChange={(e) =>
+														update(i, { collateral: Number(e.target.value) || 0 })
+													}
+													className="tnum w-44 rounded-md border border-border bg-background px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+												/>
+											</td>
+											<td className="px-3 py-1.5 text-center">
+												<button
+													onClick={() => remove(i)}
+													className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+													title="Remove bank"
+												>
+													✕
+												</button>
+											</td>
+										</tr>
+									) : (
+										/* Text, not disabled inputs: a read-only row should look
+										   like a record, not like a form somebody switched off.
+										   Collateral is formatted the way it reads everywhere
+										   else in the app rather than as a raw number. */
+										<tr key={i} className="border-t border-border">
+											<td className="tnum px-4 py-2.5 text-foreground">{b.code}</td>
+											<td className="px-4 py-2.5 text-foreground">{b.name}</td>
+											<td className="tnum px-4 py-2.5 text-right text-foreground">
+												₦{formatNaira(Number(b.collateral) || 0)}
+											</td>
+										</tr>
+									),
+								)}
 								{draft.length === 0 && (
 									<tr>
-										<td colSpan={4} className="px-4 py-10 text-center text-sm text-muted">
-											No banks. Click “Add bank” or Import Excel to start.
+										<td
+											colSpan={canEdit ? 4 : 3}
+											className="px-4 py-10 text-center text-sm text-muted"
+										>
+											{canEdit
+												? "No banks. Click “Add bank” or Import Excel to start."
+												: "No banks configured yet. An admin needs to set the list up."}
 										</td>
 									</tr>
 								)}
@@ -304,13 +347,21 @@ export default function NibbsSettings({ master, onSave, onReset }: Props) {
 					</div>
 				</div>
 
-				<p className="text-xs text-muted">
-					Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and
-					eTranzact files. Excel import expects two columns — <span className="font-medium">
-						Bank name - 10-digit code
-					</span>{" "}
-					and collateral. Changes take effect on your next audit run.
-				</p>
+				{canEdit ? (
+					<p className="text-xs text-muted">
+						Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and
+						eTranzact files. Excel import expects two columns — <span className="font-medium">
+							Bank name - 10-digit code
+						</span>{" "}
+						and collateral. Changes take effect on your next audit run.
+					</p>
+				) : (
+					<p className="text-xs text-muted">
+						Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and
+						eTranzact files. These figures are what your audit runs against — if one looks wrong,
+						send an admin the bank and the correct amount.
+					</p>
+				)}
 			</div>
 		</div>
 	);

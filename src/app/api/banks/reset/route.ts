@@ -1,11 +1,16 @@
-import { requireUser } from "@/services/auth/guards";
+import { requireMasterBankEditor } from "@/services/auth/guards";
 import { resetBanks } from "@/services/banks/repository";
 
 export const runtime = "nodejs";
 
-/** Reset the master list back to the built-in defaults. */
+/**
+ * Reset the master list back to the built-in defaults. Admins only.
+ *
+ * The most destructive write in the app: it discards every collateral figure the
+ * team has entered. Same guard as the PUT, never a weaker one.
+ */
 export async function POST() {
-	const auth = await requireUser();
+	const auth = await requireMasterBankEditor();
 	if ("response" in auth) return auth.response;
 
 	try {
