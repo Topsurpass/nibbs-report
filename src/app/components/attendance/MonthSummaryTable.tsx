@@ -3,6 +3,8 @@
 import { formatDuration } from "@/lib/attendance/nightWindow";
 import { personName, totalsOf } from "@/lib/attendance/summary";
 import type { PersonMonthSummary } from "@/lib/attendance/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 /**
  * Nights and hours per analyst, with the same totals row the workbook and the
@@ -20,80 +22,71 @@ interface Props {
 
 export default function MonthSummaryTable({ summaries, showEmail }: Props) {
 	const totals = totalsOf(summaries);
-	const th = "px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted";
-	const td = "px-3 py-2.5 text-sm";
 
 	return (
 		<div className="overflow-x-auto">
-			<table className="w-full min-w-[560px] border-collapse">
-				<thead>
-					<tr className="border-b border-border">
-						<th className={th}>Analyst</th>
-						{showEmail && <th className={th}>Email</th>}
-						<th className={`${th} text-right`}>Nights</th>
-						<th className={`${th} text-right`}>Signed out</th>
-						<th className={`${th} text-right`}>Still open</th>
-						<th className={`${th} text-right`}>Total hours</th>
-						<th className={`${th} text-right`}>Avg / night</th>
-					</tr>
-				</thead>
-				<tbody>
+			<Table className="min-w-[560px]">
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						<TableHead className="text-[11px] uppercase tracking-wide">Analyst</TableHead>
+						{showEmail && <TableHead className="text-[11px] uppercase tracking-wide">Email</TableHead>}
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Nights</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Signed out</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Still open</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Total hours</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Avg / night</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{summaries.map((s) => (
-						<tr key={s.person.id} className="border-b border-border/60 last:border-0">
-							<td className={`${td} font-medium text-foreground`}>{personName(s.person)}</td>
-							{showEmail && <td className={`${td} text-muted`}>{s.person.email}</td>}
-							<td className={`${td} text-right font-semibold tabular-nums text-foreground`}>
-								{s.nights}
-							</td>
-							<td className={`${td} text-right tabular-nums text-muted`}>{s.completeNights}</td>
-							<td
-								className={`${td} text-right tabular-nums ${
-									s.openNights > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted"
-								}`}
+						<TableRow key={s.person.id}>
+							<TableCell className="font-medium text-foreground">{personName(s.person)}</TableCell>
+							{showEmail && <TableCell className="text-muted-foreground">{s.person.email}</TableCell>}
+							<TableCell className="tnum text-right font-semibold text-foreground">{s.nights}</TableCell>
+							<TableCell className="tnum text-right text-muted-foreground">{s.completeNights}</TableCell>
+							<TableCell
+								className={cn(
+									"tnum text-right",
+									s.openNights > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+								)}
 							>
 								{s.openNights}
-							</td>
-							<td className={`${td} text-right tabular-nums text-foreground`}>
-								{formatDuration(s.totalMinutes)}
-							</td>
-							<td className={`${td} text-right tabular-nums text-muted`}>
+							</TableCell>
+							<TableCell className="tnum text-right text-foreground">{formatDuration(s.totalMinutes)}</TableCell>
+							<TableCell className="tnum text-right text-muted-foreground">
 								{formatDuration(s.averageMinutes)}
-							</td>
-						</tr>
+							</TableCell>
+						</TableRow>
 					))}
 
 					{summaries.length === 0 && (
-						<tr>
-							<td colSpan={showEmail ? 7 : 6} className={`${td} text-center text-muted`}>
+						<TableRow className="hover:bg-transparent">
+							<TableCell colSpan={showEmail ? 7 : 6} className="text-center text-muted-foreground">
 								No analysts to show.
-							</td>
-						</tr>
+							</TableCell>
+						</TableRow>
 					)}
-				</tbody>
-				<tfoot>
-					<tr className="border-t-2 border-border bg-indigo-500/5">
-						<td className={`${td} font-bold text-foreground`}>TOTAL</td>
+				</TableBody>
+				<TableFooter className="bg-primary/5">
+					<TableRow className="hover:bg-transparent">
+						<TableCell className="font-bold text-foreground">TOTAL</TableCell>
 						{showEmail && (
-							<td className={`${td} text-muted`}>
+							<TableCell className="text-muted-foreground">
 								{totals.active} of {totals.people} signed in
-							</td>
+							</TableCell>
 						)}
-						<td className={`${td} text-right font-bold tabular-nums text-foreground`}>
-							{totals.nights}
-						</td>
-						<td className={`${td} text-right font-bold tabular-nums text-foreground`}>
+						<TableCell className="tnum text-right font-bold text-foreground">{totals.nights}</TableCell>
+						<TableCell className="tnum text-right font-bold text-foreground">
 							{totals.nights - totals.openNights}
-						</td>
-						<td className={`${td} text-right font-bold tabular-nums text-foreground`}>
-							{totals.openNights}
-						</td>
-						<td className={`${td} text-right font-bold tabular-nums text-foreground`}>
+						</TableCell>
+						<TableCell className="tnum text-right font-bold text-foreground">{totals.openNights}</TableCell>
+						<TableCell className="tnum text-right font-bold text-foreground">
 							{formatDuration(totals.totalMinutes)}
-						</td>
-						<td className={td} />
-					</tr>
-				</tfoot>
-			</table>
+						</TableCell>
+						<TableCell />
+					</TableRow>
+				</TableFooter>
+			</Table>
 		</div>
 	);
 }

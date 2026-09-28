@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { resetPasswordSchema, type ResetPasswordValues } from "@/lib/validators/auth";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PasswordInput } from "./forms/PasswordInput";
 
 /**
  * Completes a password reset using the token from the emailed link. On success,
@@ -53,27 +58,25 @@ export default function ResetPasswordForm({ token }: { token: string }) {
 
 	if (done) {
 		return (
-			<div className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-3 text-sm text-teal-700 dark:text-teal-300">
-				Password updated. Redirecting you to sign in…
-			</div>
+			<Alert className="border-emerald-500/30 bg-emerald-500/5">
+				<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
+				<AlertDescription className="text-emerald-700 dark:text-emerald-300">
+					Password updated. Redirecting you to sign in…
+				</AlertDescription>
+			</Alert>
 		);
 	}
 
 	const field = (id: "newPassword" | "confirmPassword", label: string) => (
-		<div>
-			<label htmlFor={id} className="mb-1 block text-sm font-medium text-foreground">
-				{label}
-			</label>
-			<input
+		<div className="space-y-1.5">
+			<Label htmlFor={id}>{label}</Label>
+			<PasswordInput
 				id={id}
-				type="password"
 				autoComplete="new-password"
+				aria-invalid={!!errors[id]}
 				{...register(id)}
-				className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
 			/>
-			{errors[id] && (
-				<p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors[id]?.message}</p>
-			)}
+			{errors[id] && <p className="text-xs text-destructive">{errors[id]?.message}</p>}
 		</div>
 	);
 
@@ -81,22 +84,17 @@ export default function ResetPasswordForm({ token }: { token: string }) {
 		<form onSubmit={onSubmit} className="space-y-4" noValidate>
 			<input type="hidden" {...register("token")} />
 			{serverError && (
-				<div
-					role="alert"
-					className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-				>
-					{serverError}
-				</div>
+				<Alert variant="destructive" role="alert">
+					<AlertCircle />
+					<AlertDescription>{serverError}</AlertDescription>
+				</Alert>
 			)}
 			{field("newPassword", "New password")}
 			{field("confirmPassword", "Confirm new password")}
-			<button
-				type="submit"
-				disabled={isSubmitting}
-				className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-			>
+			<Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+				{isSubmitting && <Loader2 className="animate-spin" />}
 				{isSubmitting ? "Saving…" : "Set new password"}
-			</button>
+			</Button>
 		</form>
 	);
 }

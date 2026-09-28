@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, Plus, ArrowRight } from "lucide-react";
 import type { BreachRecord } from "@/lib/reconcile";
 import { formatNaira } from "@/lib/format";
-import {
-	BREACH_COLUMNS,
-	buildBreachClipboard,
-	downloadBreachExcel,
-} from "@/lib/exportReport";
+import { BREACH_COLUMNS, buildBreachClipboard, downloadBreachExcel } from "@/lib/exportReport";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /** Outcome of pushing breaches onto the daily report. */
 export type AddToReportResult =
@@ -42,9 +42,7 @@ export default function BreachSection({
 }: Props) {
 	const [copied, setCopied] = useState(false);
 	const [adding, setAdding] = useState(false);
-	const [added, setAdded] = useState<{ reportId: string; added: number; created: boolean } | null>(
-		null,
-	);
+	const [added, setAdded] = useState<{ reportId: string; added: number; created: boolean } | null>(null);
 	const [addError, setAddError] = useState<string | null>(null);
 
 	const addToReport = async () => {
@@ -86,106 +84,90 @@ export default function BreachSection({
 
 	if (breaches.length === 0) {
 		return (
-			<div className="print-block rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-6 text-center ring-1 ring-inset ring-emerald-500/20">
-				<p className="text-2xl">✓</p>
+			<Card className="print-block border-emerald-500/25 bg-emerald-500/5 py-8 text-center ring-1 ring-inset ring-emerald-500/20">
+				<CheckCircle2 className="mx-auto size-7 text-emerald-600 dark:text-emerald-400" />
 				<p className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
 					No breaches — nothing to escalate
 				</p>
-				<p className="text-xs text-muted">
-					All banks reconcile and collateral coverage is intact.
-				</p>
-			</div>
+				<p className="text-xs text-muted-foreground">All banks reconcile and collateral coverage is intact.</p>
+			</Card>
 		);
 	}
 
 	const cellBase = "border border-border px-3 py-2 text-sm align-middle";
 
 	return (
-		<div className="print-block overflow-hidden rounded-2xl border border-red-500/30 bg-surface shadow-sm">
+		<Card className="print-block gap-0 overflow-hidden border-destructive/30 py-0">
 			{/* Toolbar */}
-			<div className="no-print flex flex-wrap items-center justify-between gap-3 border-b border-red-500/20 bg-red-500/5 px-5 py-4">
+			<CardHeader className="no-print flex-row flex-wrap items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/5 py-4">
 				<div>
-					<h2 className="flex items-center gap-2 text-base font-semibold text-red-700 dark:text-red-300">
-						<span aria-hidden>⚠</span> Breached Section for
-						Escalation
-					</h2>
-					<p className="text-xs text-muted">
-						{breaches.length} item(s) · edit Status/Reason, then
-						copy straight into your reply
-					</p>
+					<CardTitle className="flex items-center gap-2 text-destructive">
+						<AlertTriangle className="size-4" />
+						Breached Section for Escalation
+					</CardTitle>
+					<CardDescription>
+						{breaches.length} item(s) · edit Status/Reason, then copy straight into your reply
+					</CardDescription>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="row-start-2 flex flex-wrap items-center gap-2 self-center sm:row-start-1">
 					{onAddToReport && (
-						<button
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
 							onClick={addToReport}
 							disabled={!canAddToReport || adding}
 							title={canAddToReport ? undefined : addHint}
-							className="rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
+							className="border-destructive/40 text-destructive hover:bg-destructive/10"
 						>
-							{adding
-								? "Adding…"
-								: `＋ Add to daily report${sessionLabel ? ` · ${sessionLabel}` : ""}`}
-						</button>
+							<Plus className="size-4" />
+							{adding ? "Adding…" : `Add to daily report${sessionLabel ? ` · ${sessionLabel}` : ""}`}
+						</Button>
 					)}
-					<button
-						onClick={copyTable}
-						className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-500"
-					>
-						{copied ? "✓ Copied" : "📋 Copy table"}
-					</button>
-					<button
-						onClick={() =>
-							downloadBreachExcel(breaches, reportDate)
-						}
-						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-					>
-						⬇ Excel
-					</button>
+					<Button type="button" size="sm" onClick={copyTable} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+						{copied ? <ClipboardCheck className="size-4" /> : <Clipboard className="size-4" />}
+						{copied ? "Copied" : "Copy table"}
+					</Button>
+					<Button type="button" variant="outline" size="sm" onClick={() => downloadBreachExcel(breaches, reportDate)}>
+						<Download className="size-4" />
+						Excel
+					</Button>
 				</div>
-			</div>
+			</CardHeader>
 
 			{(added || addError) && (
 				<div className="no-print px-5 pt-3 text-sm">
-					{addError && (
-						<span className="text-red-700 dark:text-red-300">{addError}</span>
-					)}
+					{addError && <span className="text-destructive">{addError}</span>}
 					{added && (
 						<span className="text-emerald-700 dark:text-emerald-300">
 							{added.added > 0
-								? `✓ Added ${added.added} row${added.added === 1 ? "" : "s"} to the ${
+								? `Added ${added.added} row${added.added === 1 ? "" : "s"} to the ${
 										added.created ? "new " : ""
 									}${reportDate.toLocaleDateString("en-GB")} daily report`
 								: `Already on the ${reportDate.toLocaleDateString("en-GB")} daily report`}{" "}
 							<Link
 								href={`/daily-reports/${added.reportId}`}
-								className="font-semibold underline underline-offset-2 hover:no-underline"
+								className="inline-flex items-center gap-0.5 font-semibold underline underline-offset-2 hover:no-underline"
 							>
-								Open report →
+								Open report <ArrowRight className="size-3" />
 							</Link>
 						</span>
 					)}
 				</div>
 			)}
 
-			<p className="no-print px-5 pt-3 text-[11px] text-muted">
-				Tip: “Copy table” copies a formatted grid — paste it directly
-				into an Outlook/Gmail reply or a new Excel sheet.
+			<p className="no-print px-5 pt-3 text-[11px] text-muted-foreground">
+				Tip: &ldquo;Copy table&rdquo; copies a formatted grid — paste it directly into an Outlook/Gmail reply or a
+				new Excel sheet.
 			</p>
 
 			{/* Excel-style grid */}
 			<div className="overflow-x-auto p-4">
 				<table className="w-full min-w-[820px] border-collapse">
-					{/*<caption className="mb-0 border border-b-0 border-border bg-red-600 px-3 py-2 text-left text-sm font-bold text-white">
-						Breached Section For Escalation —{" "}
-						{reportDate.toLocaleDateString("en-GB")}
-					</caption>*/}
 					<thead>
 						<tr className="bg-amber-300/80 text-slate-900 dark:bg-amber-400/80">
 							{BREACH_COLUMNS.map((c) => (
-								<th
-									key={c}
-									className="border border-border px-3 py-2 text-left text-xs font-bold uppercase tracking-wide"
-								>
+								<th key={c} className="border border-border px-3 py-2 text-left text-xs font-bold uppercase tracking-wide">
 									{c}
 								</th>
 							))}
@@ -193,44 +175,25 @@ export default function BreachSection({
 					</thead>
 					<tbody>
 						{breaches.map((b, i) => (
-							<tr
-								key={`${b.code}-${b.kind}`}
-								className="odd:bg-black/[0.015] dark:odd:bg-white/[0.02]"
-							>
+							<tr key={`${b.code}-${b.kind}`} className="odd:bg-muted/30">
 								<td className={cellBase}>
-									<div className="font-medium text-foreground">
-										{b.name}
-									</div>
-									<div className="tnum text-[11px] text-muted">
-										{b.code}
-									</div>
+									<div className="font-medium text-foreground">{b.name}</div>
+									<div className="tnum text-[11px] text-muted-foreground">{b.code}</div>
 								</td>
-								<td
-									className={`${cellBase} tnum text-right text-foreground`}
-								>
+								<td className={cn(cellBase, "tnum text-right text-foreground")}>
 									{formatNaira(b.netSettlementPosition)}
 								</td>
-								<td
-									className={`${cellBase} tnum text-right text-foreground`}
-								>
-									{b.collateral === null
-										? "—"
-										: formatNaira(b.collateral)}
+								<td className={cn(cellBase, "tnum text-right text-foreground")}>
+									{b.collateral === null ? "—" : formatNaira(b.collateral)}
 								</td>
-								<td
-									className={`${cellBase} tnum text-right font-semibold text-red-600 dark:text-red-400`}
-								>
+								<td className={cn(cellBase, "tnum text-right font-semibold text-destructive")}>
 									{formatNaira(b.variance)}
 								</td>
-								<td className={`${cellBase} p-0`}>
+								<td className={cn(cellBase, "p-0")}>
 									<select
 										value={b.status}
-										onChange={(e) =>
-											onChange(i, {
-												status: e.target.value,
-											})
-										}
-										className="w-full bg-transparent px-3 py-2 text-sm font-medium text-foreground outline-none focus:bg-indigo-500/5"
+										onChange={(e) => onChange(i, { status: e.target.value })}
+										className="w-full bg-transparent px-3 py-2 text-sm font-medium text-foreground outline-none focus:bg-primary/5"
 									>
 										{STATUS_OPTIONS.map((o) => (
 											<option key={o} value={o}>
@@ -239,16 +202,12 @@ export default function BreachSection({
 										))}
 									</select>
 								</td>
-								<td className={`${cellBase} p-0`}>
+								<td className={cn(cellBase, "p-0")}>
 									<input
 										type="text"
 										value={b.reason}
-										onChange={(e) =>
-											onChange(i, {
-												reason: e.target.value,
-											})
-										}
-										className="w-full min-w-[180px] bg-transparent px-3 py-2 text-sm text-foreground outline-none focus:bg-indigo-500/5"
+										onChange={(e) => onChange(i, { reason: e.target.value })}
+										className="w-full min-w-[180px] bg-transparent px-3 py-2 text-sm text-foreground outline-none focus:bg-primary/5"
 									/>
 								</td>
 							</tr>
@@ -256,6 +215,6 @@ export default function BreachSection({
 					</tbody>
 				</table>
 			</div>
-		</div>
+		</Card>
 	);
 }

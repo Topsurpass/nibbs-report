@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Compass, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useTour } from "@/hooks/useTour";
 import TourModal from "@/app/components/onboarding/TourModal";
@@ -26,6 +27,9 @@ import {
 import { personName, summarizeMonth } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import type { AuthUser } from "@/types/user";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 /**
  * The night-duty register.
@@ -198,124 +202,85 @@ export default function NightDutyRegister({
 		const candidate = nightDateFor(now) ?? toLagos(now).date;
 		return candidate.startsWith(month) ? candidate : `${month}-01`;
 	})();
-	const control =
-		"rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-40 dark:hover:bg-white/5";
 
 	return (
-		<main className="">
-			{/*<header className="hero-gradient rounded-2xl px-6 py-6 text-white">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<h1 className="text-2xl font-bold">Night Duty</h1>
-						<p className="mt-1 text-sm text-white/80">
-							Sign in for your shift and see every night you have worked.
-						</p>
-					</div>
-					<button
-						type="button"
-						onClick={tour.replay}
-						className="rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/25"
-					>
-						🧭 Show me around
-					</button>
-				</div>
-			</header>*/}
+		<main>
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-9 sm:px-10">
 					<div className="flex flex-wrap items-end justify-between gap-4">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-								Night Duty
-							</p>
-							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-								Night Duty Register
-							</h1>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Night Duty</p>
+							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Night Duty Register</h1>
 							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Sign in for your shift and see every night you
-								have worked.
+								Sign in for your shift and see every night you have worked.
 							</p>
 						</div>
 
 						{/* Replay: the tour auto-shows once, but it has to stay
 						    reachable afterwards or it may as well not exist. */}
-						<button
+						<Button
 							type="button"
+							variant="secondary"
 							onClick={tour.replay}
-							className="no-print shrink-0 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+							className="no-print shrink-0 bg-white/15 text-white backdrop-blur hover:bg-white/25"
 						>
-							<span className="mr-1.5" aria-hidden>
-								🧭
-							</span>
+							<Compass className="size-4" />
 							Show me around
-						</button>
+						</Button>
 					</div>
 				</div>
 			</header>
 
-			<SignInCard
-				initialNightDate={initialNightDate}
-				initialEntry={initialEntry}
-				onChanged={refresh}
-			/>
+			<SignInCard initialNightDate={initialNightDate} initialEntry={initialEntry} onChanged={refresh} />
 
-			<section className="rounded-2xl border border-border bg-surface m-6">
+			<Card className="m-6 gap-0 py-0">
 				<div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
 					<div className="flex items-center gap-1">
-						<button
+						<Button
 							type="button"
+							variant="outline"
+							size="icon"
 							onClick={() => setMonth((m) => addMonths(m, -1))}
 							aria-label="Previous month"
-							className={control}
 						>
-							←
-						</button>
-						<button
+							<ChevronLeft className="size-4" />
+						</Button>
+						<Button
 							type="button"
+							variant="outline"
+							size="icon"
 							onClick={() => setMonth((m) => addMonths(m, 1))}
 							aria-label="Next month"
-							className={control}
 						>
-							→
-						</button>
+							<ChevronRight className="size-4" />
+						</Button>
 					</div>
 
 					<div className="min-w-0">
-						<h2 className="text-base font-bold text-foreground">
-							{formatMonth(month)}
-						</h2>
-						<p className="text-[11px] text-muted">
-							{loading
-								? "Loading…"
-								: `${entries.length} night${entries.length === 1 ? "" : "s"} recorded`}
+						<h2 className="text-base font-bold text-foreground">{formatMonth(month)}</h2>
+						<p className="text-[11px] text-muted-foreground">
+							{loading ? "Loading…" : `${entries.length} night${entries.length === 1 ? "" : "s"} recorded`}
 						</p>
 					</div>
 
 					{month !== thisMonth && (
-						<button
-							type="button"
-							onClick={() => setMonth(thisMonth)}
-							className={control}
-						>
+						<Button type="button" variant="outline" size="sm" onClick={() => setMonth(thisMonth)}>
 							This month
-						</button>
+						</Button>
 					)}
 
 					{isAdmin && (
-						<div
-							role="group"
-							aria-label="Whose register to show"
-							className="ml-auto flex rounded-lg border border-border p-0.5"
-						>
+						<div role="group" aria-label="Whose register to show" className="ml-auto flex rounded-lg border border-border p-0.5">
 							{(["me", "all"] as const).map((value) => (
 								<button
 									key={value}
 									type="button"
 									onClick={() => setScope(value)}
-									className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+									className={
 										scope === value
-											? "bg-indigo-600 text-white"
-											: "text-muted hover:text-foreground"
-									}`}
+											? "rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors"
+											: "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+									}
 								>
 									{value === "me" ? "Mine" : "Everyone"}
 								</button>
@@ -323,36 +288,28 @@ export default function NightDutyRegister({
 						</div>
 					)}
 
-					<div className={`flex gap-2 ${isAdmin ? "" : "ml-auto"}`}>
-						<a href={exportHref} className={control} download>
-							⬇ Excel
-						</a>
-						<button
-							type="button"
-							onClick={saveJpeg}
-							className={control}
-						>
-							🖼 Image
-						</button>
+					<div className={isAdmin ? "flex gap-2" : "ml-auto flex gap-2"}>
+						<Button type="button" variant="outline" size="sm" render={<a href={exportHref} download />}>
+							<Download className="size-3.5" />
+							Excel
+						</Button>
+						<Button type="button" variant="outline" size="sm" onClick={saveJpeg}>
+							<ImageIcon className="size-3.5" />
+							Image
+						</Button>
 						{isAdmin && scope === "all" && (
-							<button
-								type="button"
-								onClick={() => openDialog(defaultNewNight)}
-								className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-							>
+							<Button type="button" size="sm" onClick={() => openDialog(defaultNewNight)}>
+								<Plus className="size-3.5" />
 								Add a night
-							</button>
+							</Button>
 						)}
 					</div>
 				</div>
 
 				{(error || imageError || removeError) && (
-					<div
-						role="alert"
-						className="border-b border-border bg-red-500/10 px-5 py-3 text-sm text-red-700 dark:text-red-300"
-					>
-						{error ?? imageError ?? removeError}
-					</div>
+					<Alert variant="destructive" role="alert" className="rounded-none border-x-0 border-t-0">
+						<AlertDescription>{error ?? imageError ?? removeError}</AlertDescription>
+					</Alert>
 				)}
 
 				<div className="px-5 py-5">
@@ -361,54 +318,40 @@ export default function NightDutyRegister({
 						entries={entries}
 						scope={scope}
 						now={now}
-						onPickNight={
-							isAdmin ? (night) => openDialog(night) : undefined
-						}
+						onPickNight={isAdmin ? (night) => openDialog(night) : undefined}
 					/>
 				</div>
-			</section>
+			</Card>
 
-			<section className="rounded-2xl border border-border bg-surface m-6">
-				<div className="border-b border-border px-5 py-4">
-					<h2 className="text-base font-bold text-foreground">
-						{scope === "all" ? "Nights per analyst" : "Your month"}
-					</h2>
-					<p className="text-[11px] text-muted">
-						Hours count signed-out nights only — an open night is
-						unknown, not zero. This table keeps everyone; the Excel and
-						image downloads list only analysts with at least one night.
-					</p>
-				</div>
+			<Card className="m-6 gap-0 py-0">
+				<CardHeader className="border-b border-border py-4">
+					<CardTitle>{scope === "all" ? "Nights per analyst" : "Your month"}</CardTitle>
+					<CardDescription>
+						Hours count signed-out nights only — an open night is unknown, not zero. This table keeps
+						everyone; the Excel and image downloads list only analysts with at least one night.
+					</CardDescription>
+				</CardHeader>
 				<div className="px-5 py-4">
-					<MonthSummaryTable
-						summaries={summaries}
-						showEmail={scope === "all"}
-					/>
+					<MonthSummaryTable summaries={summaries} showEmail={scope === "all"} />
 				</div>
-			</section>
+			</Card>
 
-			<section className="rounded-2xl border border-border bg-surface m-6">
-				<div className="border-b border-border px-5 py-4">
-					<h2 className="text-base font-bold text-foreground">
-						Every night
-					</h2>
-				</div>
+			<Card className="m-6 gap-0 py-0">
+				<CardHeader className="border-b border-border py-4">
+					<CardTitle>Every night</CardTitle>
+				</CardHeader>
 				<div className="px-5 py-2">
 					<NightList
 						entries={entries}
 						people={people}
 						showAnalyst={scope === "all"}
-						onEdit={
-							isAdmin
-								? (night, userId) => openDialog(night, userId)
-								: undefined
-						}
+						onEdit={isAdmin ? (night, userId) => openDialog(night, userId) : undefined}
 						onRemove={isAdmin ? removeNight : undefined}
 						removingId={removingId}
 						resetKey={viewKey}
 					/>
 				</div>
-			</section>
+			</Card>
 
 			{isAdmin && dialogNight && (
 				<AdminEntryDialog
@@ -422,12 +365,7 @@ export default function NightDutyRegister({
 				/>
 			)}
 
-			<TourModal
-				open={tour.open}
-				title="Night Duty"
-				steps={ATTENDANCE_TOUR_STEPS}
-				onDone={tour.complete}
-			/>
+			<TourModal open={tour.open} title="Night Duty" steps={ATTENDANCE_TOUR_STEPS} onDone={tour.complete} />
 		</main>
 	);
 }

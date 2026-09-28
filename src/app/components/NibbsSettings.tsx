@@ -2,9 +2,16 @@
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2 } from "lucide-react";
 import type { MasterBank } from "@/lib/master";
 import { formatNaira } from "@/lib/format";
 import { mergeBanks, parseMasterFromRows } from "@/lib/importBanks";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface Props {
 	master: MasterBank[];
@@ -24,6 +31,9 @@ interface ImportMsg {
 	ok: string;
 	errors: string[];
 }
+
+const cellInputCls =
+	"h-8 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 /**
  * NIBBS configuration screen: the master bank list plus each bank's posted
@@ -71,9 +81,7 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 		const badCodes = cleaned.filter((b) => !/^\d{10}$/.test(b.code.trim()));
 		if (badCodes.length > 0) {
 			setSaveError(
-				`Fix bank code(s) — must be exactly 10 digits: ${badCodes
-					.map((b) => `"${b.code}"`)
-					.join(", ")}`,
+				`Fix bank code(s) — must be exactly 10 digits: ${badCodes.map((b) => `"${b.code}"`).join(", ")}`,
 			);
 			return;
 		}
@@ -161,9 +169,7 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 		<div>
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-9 sm:px-10">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-						Configuration
-					</p>
+					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Configuration</p>
 					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">NIBBS Settings</h1>
 					<p className="mt-2 max-w-2xl text-sm text-white/80">
 						{canEdit
@@ -176,79 +182,59 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 			<div className="space-y-4 px-6 py-8 sm:px-10">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
-						<h2 className="text-base font-semibold text-foreground">
-							Master bank list &amp; collateral
-						</h2>
-						<p className="text-xs text-muted">
+						<h2 className="text-base font-semibold text-foreground">Master bank list &amp; collateral</h2>
+						<p className="text-xs text-muted-foreground">
 							{draft.length} banks · total collateral{" "}
 							<span className="tnum font-medium">₦{formatNaira(totalCollateral)}</span>
 						</p>
 					</div>
 					{canEdit ? (
 						<div className="flex flex-wrap items-center gap-2">
-							<input
-								ref={fileRef}
-								type="file"
-								accept=".xlsx,.xls,.csv"
-								onChange={onImportFile}
-								className="hidden"
-							/>
-							<button
+							<input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onImportFile} className="hidden" />
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
 								onClick={() => fileRef.current?.click()}
-								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-								title={`Upload a 2-column sheet: "Bank name - 10-digit code" | collateral`}
+								title='Upload a 2-column sheet: "Bank name - 10-digit code" | collateral'
 							>
-								⬆ Import Excel
-							</button>
-							<button
-								onClick={add}
-								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/5"
-							>
-								+ Add bank
-							</button>
-							<button
-								onClick={reset}
-								disabled={resetting || saving}
-								className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-							>
+								<Upload />
+								Import Excel
+							</Button>
+							<Button type="button" variant="outline" size="sm" onClick={add}>
+								<Plus />
+								Add bank
+							</Button>
+							<Button type="button" variant="outline" size="sm" onClick={reset} disabled={resetting || saving}>
+								{resetting ? <Loader2 className="animate-spin" /> : <RotateCcw />}
 								{resetting ? "Resetting…" : "Reset to defaults"}
-							</button>
-							<button
-								onClick={save}
-								disabled={!dirty || saving}
-								className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-							>
-								{saving ? "Saving…" : dirty ? "Save changes" : saved ? "✓ Saved" : "Saved"}
-							</button>
+							</Button>
+							<Button type="button" size="sm" onClick={save} disabled={!dirty || saving}>
+								{saving ? <Loader2 className="animate-spin" /> : dirty ? null : <Check />}
+								{saving ? "Saving…" : dirty ? "Save changes" : saved ? "Saved" : "Saved"}
+							</Button>
 						</div>
 					) : (
 						/* Say who can change it, so a read-only screen reads as a
 						   deliberate rule rather than a page that failed to load. */
-						<p className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
-							<span className="mr-1.5" aria-hidden>
-								🔒
-							</span>
+						<Badge variant="outline" className="gap-1.5 px-3 py-1.5 text-xs font-medium">
+							<Lock className="size-3" />
 							View only · ask an admin to change the list
-						</p>
+						</Badge>
 					)}
 				</div>
 
 				{saveError && (
-					<div
-						role="alert"
-						className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-					>
-						{saveError}
-					</div>
+					<Alert variant="destructive" role="alert">
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
 				)}
 
 				{importMsg && (
-					<div className="space-y-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-						{importMsg.ok && (
-							<p className="font-medium text-teal-700 dark:text-teal-300">{importMsg.ok}</p>
-						)}
+					<Card className="gap-1 p-3">
+						{importMsg.ok && <p className="text-sm font-medium text-brand-teal">{importMsg.ok}</p>}
 						{importMsg.errors.length > 0 && (
-							<div className="text-amber-700 dark:text-amber-300">
+							<div className="text-sm text-amber-700 dark:text-amber-300">
 								<p className="font-medium">
 									{importMsg.errors.length} row{importMsg.errors.length === 1 ? "" : "s"} skipped:
 								</p>
@@ -256,112 +242,109 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 									{importMsg.errors.slice(0, 8).map((e, i) => (
 										<li key={i}>{e}</li>
 									))}
-									{importMsg.errors.length > 8 && (
-										<li>…and {importMsg.errors.length - 8} more</li>
-									)}
+									{importMsg.errors.length > 8 && <li>…and {importMsg.errors.length - 8} more</li>}
 								</ul>
 							</div>
 						)}
-					</div>
+					</Card>
 				)}
 
-				<div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+				<Card className="gap-0 overflow-hidden py-0">
 					<div className="max-h-[600px] overflow-auto">
-						<table className="w-full text-sm">
-							<thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur">
-								<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-									<th className="px-4 py-3 font-semibold">Bank code</th>
-									<th className="px-4 py-3 font-semibold">Bank name</th>
-									<th className="px-4 py-3 text-right font-semibold">Collateral (₦)</th>
-									{canEdit && <th className="px-3 py-3"></th>}
-								</tr>
-							</thead>
-							<tbody>
+						<Table>
+							<TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
+								<TableRow className="hover:bg-transparent">
+									<TableHead className="px-4 py-3 text-[11px] uppercase tracking-wide">Bank code</TableHead>
+									<TableHead className="px-4 py-3 text-[11px] uppercase tracking-wide">Bank name</TableHead>
+									<TableHead className="px-4 py-3 text-right text-[11px] uppercase tracking-wide">
+										Collateral (₦)
+									</TableHead>
+									{canEdit && <TableHead className="w-10" />}
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 								{draft.map((b, i) =>
 									canEdit ? (
-										<tr key={i} className="border-t border-border">
-											<td className="px-4 py-1.5">
+										<TableRow key={i}>
+											<TableCell className="px-4 py-1.5">
 												<input
 													value={b.code}
 													onChange={(e) => update(i, { code: e.target.value })}
 													placeholder="10-digit code"
-													className="tnum w-32 rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+													className={cn(cellInputCls, "tnum w-32")}
 												/>
-											</td>
-											<td className="px-4 py-1.5">
+											</TableCell>
+											<TableCell className="px-4 py-1.5">
 												<input
 													value={b.name}
 													onChange={(e) => update(i, { name: e.target.value })}
 													placeholder="Bank name"
-													className="w-full min-w-[180px] rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+													className={cn(cellInputCls, "w-full min-w-[180px]")}
 												/>
-											</td>
-											<td className="px-4 py-1.5 text-right">
+											</TableCell>
+											<TableCell className="px-4 py-1.5 text-right">
 												<input
 													type="number"
 													value={b.collateral}
-													onChange={(e) =>
-														update(i, { collateral: Number(e.target.value) || 0 })
-													}
-													className="tnum w-44 rounded-md border border-border bg-background px-2 py-1.5 text-right text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+													onChange={(e) => update(i, { collateral: Number(e.target.value) || 0 })}
+													className={cn(cellInputCls, "tnum w-44 text-right")}
 												/>
-											</td>
-											<td className="px-3 py-1.5 text-center">
+											</TableCell>
+											<TableCell className="px-3 py-1.5 text-center">
 												<button
+													type="button"
 													onClick={() => remove(i)}
-													className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+													className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 													title="Remove bank"
 												>
-													✕
+													<X className="size-3.5" />
 												</button>
-											</td>
-										</tr>
+											</TableCell>
+										</TableRow>
 									) : (
 										/* Text, not disabled inputs: a read-only row should look
 										   like a record, not like a form somebody switched off.
 										   Collateral is formatted the way it reads everywhere
 										   else in the app rather than as a raw number. */
-										<tr key={i} className="border-t border-border">
-											<td className="tnum px-4 py-2.5 text-foreground">{b.code}</td>
-											<td className="px-4 py-2.5 text-foreground">{b.name}</td>
-											<td className="tnum px-4 py-2.5 text-right text-foreground">
+										<TableRow key={i}>
+											<TableCell className="tnum px-4 py-2.5 text-foreground">{b.code}</TableCell>
+											<TableCell className="px-4 py-2.5 text-foreground">{b.name}</TableCell>
+											<TableCell className="tnum px-4 py-2.5 text-right text-foreground">
 												₦{formatNaira(Number(b.collateral) || 0)}
-											</td>
-										</tr>
+											</TableCell>
+										</TableRow>
 									),
 								)}
 								{draft.length === 0 && (
-									<tr>
-										<td
-											colSpan={canEdit ? 4 : 3}
-											className="px-4 py-10 text-center text-sm text-muted"
-										>
+									<TableRow className="hover:bg-transparent">
+										<TableCell colSpan={canEdit ? 4 : 3} className="px-4 py-10 text-center text-sm text-muted-foreground">
 											{canEdit
 												? "No banks. Click “Add bank” or Import Excel to start."
 												: "No banks configured yet. An admin needs to set the list up."}
-										</td>
-									</tr>
+										</TableCell>
+									</TableRow>
 								)}
-							</tbody>
-						</table>
+							</TableBody>
+						</Table>
 					</div>
-				</div>
+				</Card>
 
-				{canEdit ? (
-					<p className="text-xs text-muted">
-						Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and
-						eTranzact files. Excel import expects two columns — <span className="font-medium">
-							Bank name - 10-digit code
-						</span>{" "}
-						and collateral. Changes take effect on your next audit run.
-					</p>
-				) : (
-					<p className="text-xs text-muted">
-						Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and
-						eTranzact files. These figures are what your audit runs against — if one looks wrong,
-						send an admin the bank and the correct amount.
-					</p>
-				)}
+				<p className="text-xs text-muted-foreground">
+					{canEdit ? (
+						<>
+							Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and eTranzact
+							files. Excel import expects two columns —{" "}
+							<span className="font-medium">Bank name - 10-digit code</span> and collateral. Changes take
+							effect on your next audit run.
+						</>
+					) : (
+						<>
+							Tip: the bank code is the 10-digit NIBBS settlement code used to match the HTML and eTranzact
+							files. These figures are what your audit runs against — if one looks wrong, send an admin the
+							bank and the correct amount.
+						</>
+					)}
+				</p>
 			</div>
 		</div>
 	);

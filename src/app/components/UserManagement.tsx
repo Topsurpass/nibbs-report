@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { RefreshCw, Loader2, CircleCheck, TriangleAlert, CircleX } from "lucide-react";
 import { createUserSchema, type CreateUserValues } from "@/lib/validators/user";
 import type { AuthUser } from "@/types/user";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface Props {
 	/** The signed-in admin — used to prevent deleting your own account. */
@@ -15,6 +24,16 @@ interface Banner {
 	kind: "success" | "warn" | "error";
 	text: string;
 }
+
+const BANNER_STYLES: Record<Banner["kind"], { wrapCls: string; textCls: string; icon: typeof CircleCheck }> = {
+	success: { wrapCls: "border-brand-teal/30 bg-brand-teal/5", textCls: "text-brand-teal", icon: CircleCheck },
+	warn: {
+		wrapCls: "border-amber-500/30 bg-amber-500/5",
+		textCls: "text-amber-700 dark:text-amber-300",
+		icon: TriangleAlert,
+	},
+	error: { wrapCls: "border-destructive/30 bg-destructive/5", textCls: "text-destructive", icon: CircleX },
+};
 
 /**
  * Admin-only account management (the "sign up" surface). Creating a user
@@ -102,9 +121,7 @@ export default function UserManagement({ currentUserId }: Props) {
 			const res = await fetch(`/api/users/${u.id}`, { method: "POST" });
 			const data = await res.json();
 			if (!res.ok || !data.ok) throw new Error(data.error ?? "Reset failed.");
-			setUsers((list) =>
-				list.map((x) => (x.id === u.id ? { ...x, mustChangePassword: true } : x)),
-			);
+			setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, mustChangePassword: true } : x)));
 			setBanner(
 				data.emailed
 					? { kind: "success", text: `New password emailed to ${u.email}.` }
@@ -163,192 +180,156 @@ export default function UserManagement({ currentUserId }: Props) {
 	};
 
 	const adminCount = users.filter((u) => u.role === "admin").length;
-
-	const bannerClass =
-		banner?.kind === "success"
-			? "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300"
-			: banner?.kind === "warn"
-				? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-				: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
-
-	const inputClass =
-		"w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40";
+	const bannerStyle = banner ? BANNER_STYLES[banner.kind] : null;
+	const BannerIcon = bannerStyle?.icon;
 
 	return (
 		<div>
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-9 sm:px-10">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-						Configuration · Admin
-					</p>
+					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Configuration · Admin</p>
 					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">User Management</h1>
 					<p className="mt-2 max-w-2xl text-sm text-white/80">
-						Create analyst accounts. The system generates a one-time password and emails it; the
-						analyst sets their own password on first sign-in.
+						Create analyst accounts. The system generates a one-time password and emails it; the analyst sets
+						their own password on first sign-in.
 					</p>
 				</div>
 			</header>
 
 			<div className="space-y-6 px-6 py-8 sm:px-10">
-				{banner && (
-					<div role="alert" className={`rounded-lg border px-3 py-2 text-sm ${bannerClass}`}>
-						{banner.text}
-					</div>
+				{banner && bannerStyle && BannerIcon && (
+					<Alert role="alert" className={cn(bannerStyle.wrapCls, bannerStyle.textCls)}>
+						<BannerIcon />
+						<AlertDescription className={bannerStyle.textCls}>{banner.text}</AlertDescription>
+					</Alert>
 				)}
 
 				{/* Create analyst */}
-				<section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
-					<h2 className="text-base font-semibold text-foreground">Create analyst account</h2>
-					<p className="mb-4 text-xs text-muted">
-						They receive an email with a temporary password and a sign-in link.
-					</p>
-					<form onSubmit={onCreate} className="grid gap-4 sm:grid-cols-3" noValidate>
-						<div>
-							<label htmlFor="firstName" className="mb-1 block text-sm font-medium text-foreground">
-								First name
-							</label>
-							<input id="firstName" {...register("firstName")} className={inputClass} />
-							{errors.firstName && (
-								<p className="mt-1 text-xs text-red-600 dark:text-red-400">
-									{errors.firstName.message}
-								</p>
-							)}
-						</div>
-						<div>
-							<label htmlFor="lastName" className="mb-1 block text-sm font-medium text-foreground">
-								Last name
-							</label>
-							<input id="lastName" {...register("lastName")} className={inputClass} />
-							{errors.lastName && (
-								<p className="mt-1 text-xs text-red-600 dark:text-red-400">
-									{errors.lastName.message}
-								</p>
-							)}
-						</div>
-						<div>
-							<label htmlFor="email" className="mb-1 block text-sm font-medium text-foreground">
-								Email
-							</label>
-							<input id="email" type="email" {...register("email")} className={inputClass} />
-							{errors.email && (
-								<p className="mt-1 text-xs text-red-600 dark:text-red-400">
-									{errors.email.message}
-								</p>
-							)}
-						</div>
-						<div className="sm:col-span-3">
-							<button
-								type="submit"
-								disabled={isSubmitting}
-								className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								{isSubmitting ? "Creating…" : "Create account & email password"}
-							</button>
-						</div>
-					</form>
-				</section>
+				<Card>
+					<CardHeader>
+						<CardTitle>Create analyst account</CardTitle>
+						<CardDescription>They receive an email with a temporary password and a sign-in link.</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<form onSubmit={onCreate} className="grid gap-4 sm:grid-cols-3" noValidate>
+							<div className="space-y-1.5">
+								<Label htmlFor="firstName">First name</Label>
+								<Input id="firstName" aria-invalid={!!errors.firstName} {...register("firstName")} />
+								{errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="lastName">Last name</Label>
+								<Input id="lastName" aria-invalid={!!errors.lastName} {...register("lastName")} />
+								{errors.lastName && <p className="text-xs text-destructive">{errors.lastName.message}</p>}
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="email">Email</Label>
+								<Input id="email" type="email" aria-invalid={!!errors.email} {...register("email")} />
+								{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+							</div>
+							<div className="sm:col-span-3">
+								<Button type="submit" disabled={isSubmitting}>
+									{isSubmitting && <Loader2 className="animate-spin" />}
+									{isSubmitting ? "Creating…" : "Create account & email password"}
+								</Button>
+							</div>
+						</form>
+					</CardContent>
+				</Card>
 
 				{/* User list */}
-				<section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+				<Card className="gap-0 overflow-hidden py-0">
 					<div className="flex items-center justify-between border-b border-border px-5 py-3">
-						<h2 className="text-base font-semibold text-foreground">Accounts</h2>
-						<button
-							onClick={loadUsers}
-							className="rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5"
-						>
-							↻ Refresh
-						</button>
+						<CardTitle>Accounts</CardTitle>
+						<Button type="button" variant="ghost" size="sm" onClick={loadUsers}>
+							<RefreshCw className="size-3.5" />
+							Refresh
+						</Button>
 					</div>
 
 					{loading ? (
-						<p className="px-5 py-8 text-center text-sm text-muted">Loading accounts…</p>
+						<p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading accounts…</p>
 					) : loadError ? (
-						<p className="px-5 py-8 text-center text-sm text-red-600 dark:text-red-400">{loadError}</p>
+						<p className="px-5 py-8 text-center text-sm text-destructive">{loadError}</p>
 					) : users.length === 0 ? (
-						<p className="px-5 py-8 text-center text-sm text-muted">No accounts yet.</p>
+						<p className="px-5 py-8 text-center text-sm text-muted-foreground">No accounts yet.</p>
 					) : (
-						<div className="overflow-x-auto">
-							<table className="w-full text-sm">
-								<thead>
-									<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-										<th className="px-5 py-3 font-semibold">Name</th>
-										<th className="px-5 py-3 font-semibold">Email</th>
-										<th className="px-5 py-3 font-semibold">Role</th>
-										<th className="px-5 py-3 font-semibold">Status</th>
-										<th className="px-5 py-3 text-right font-semibold">Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{users.map((u) => (
-										<tr key={u.id} className="border-t border-border">
-											<td className="px-5 py-3 font-medium text-foreground">
-												{u.firstName} {u.lastName}
-											</td>
-											<td className="px-5 py-3 text-muted">{u.email}</td>
-											<td className="px-5 py-3">
-												<span
-													className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-														u.role === "admin"
-															? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300"
-															: "bg-black/5 text-muted dark:bg-white/10"
-													}`}
-												>
-													{u.role}
-												</span>
-											</td>
-											<td className="px-5 py-3">
-												{u.mustChangePassword ? (
-													<span className="text-amber-700 dark:text-amber-300">
-														Pending first login
-													</span>
-												) : (
-													<span className="text-teal-700 dark:text-teal-300">Active</span>
-												)}
-											</td>
-											<td className="px-5 py-3 text-right">
-												<div className="flex justify-end gap-2">
-													{u.role === "analyst" ? (
-														<button
-															onClick={() => onSetRole(u, "admin")}
-															disabled={busyId === u.id}
-															className="rounded-md border border-indigo-500/30 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 disabled:opacity-50 dark:text-indigo-300"
-														>
-															Make admin
-														</button>
-													) : (
-														<button
-															onClick={() => onSetRole(u, "analyst")}
-															disabled={busyId === u.id || adminCount <= 1}
-															title={adminCount <= 1 ? "Can't remove the last admin" : "Revoke admin"}
-															className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5"
-														>
-															Revoke admin
-														</button>
-													)}
-													<button
-														onClick={() => onReset(u)}
+						<Table>
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Name</TableHead>
+									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Email</TableHead>
+									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Role</TableHead>
+									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Status</TableHead>
+									<TableHead className="px-5 py-3 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{users.map((u) => (
+									<TableRow key={u.id}>
+										<TableCell className="px-5 py-3 font-medium text-foreground">
+											{u.firstName} {u.lastName}
+										</TableCell>
+										<TableCell className="px-5 py-3 text-muted-foreground">{u.email}</TableCell>
+										<TableCell className="px-5 py-3">
+											<Badge
+												variant={u.role === "admin" ? "default" : "secondary"}
+												className={cn(u.role === "admin" && "bg-primary/15 text-primary")}
+											>
+												{u.role}
+											</Badge>
+										</TableCell>
+										<TableCell className="px-5 py-3">
+											{u.mustChangePassword ? (
+												<span className="text-amber-700 dark:text-amber-300">Pending first login</span>
+											) : (
+												<span className="text-brand-teal">Active</span>
+											)}
+										</TableCell>
+										<TableCell className="px-5 py-3 text-right">
+											<div className="flex justify-end gap-2">
+												{u.role === "analyst" ? (
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => onSetRole(u, "admin")}
 														disabled={busyId === u.id}
-														className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
+														className="border-primary/30 text-primary hover:bg-primary/10"
 													>
-														Reset password
-													</button>
-													<button
-														onClick={() => onDelete(u)}
-														disabled={busyId === u.id || u.id === currentUserId}
-														title={u.id === currentUserId ? "You can't delete your own account" : "Delete"}
-														className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400"
+														Make admin
+													</Button>
+												) : (
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => onSetRole(u, "analyst")}
+														disabled={busyId === u.id || adminCount <= 1}
+														title={adminCount <= 1 ? "Can't remove the last admin" : "Revoke admin"}
 													>
-														Delete
-													</button>
-												</div>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+														Revoke admin
+													</Button>
+												)}
+												<Button variant="outline" size="sm" onClick={() => onReset(u)} disabled={busyId === u.id}>
+													Reset password
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={() => onDelete(u)}
+													disabled={busyId === u.id || u.id === currentUserId}
+													title={u.id === currentUserId ? "You can't delete your own account" : "Delete"}
+													className="border-destructive/30 text-destructive hover:bg-destructive/10"
+												>
+													Delete
+												</Button>
+											</div>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
 					)}
-				</section>
+				</Card>
 			</div>
 		</div>
 	);

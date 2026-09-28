@@ -1,6 +1,8 @@
 "use client";
 
+import { Sun, Moon, SunMoon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
 	/** Icon-only rendering for the collapsed sidebar / tight spaces. */
@@ -26,18 +28,22 @@ export default function ThemeToggle({ mini = false, className }: ThemeToggleProp
 			onClick={toggle}
 			title={label}
 			aria-label={label}
-			className={`flex items-center rounded-lg text-sm font-medium text-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
-				mini ? "justify-center px-0 py-2" : "gap-2 px-3 py-2"
-			} ${className ?? ""}`}
-		>
-			<span className="text-base leading-none" aria-hidden suppressHydrationWarning>
-				{mounted ? (isDark ? "☀️" : "🌙") : "🌓"}
-			</span>
-			{!mini && (
-				<span suppressHydrationWarning>
-					{mounted ? (isDark ? "Light mode" : "Dark mode") : "Theme"}
-				</span>
+			className={cn(
+				"flex items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+				mini ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
+				className,
 			)}
+		>
+			<span className="shrink-0" aria-hidden suppressHydrationWarning>
+				{!mounted ? (
+					<SunMoon className="size-[18px]" />
+				) : isDark ? (
+					<Sun className="size-[18px]" />
+				) : (
+					<Moon className="size-[18px]" />
+				)}
+			</span>
+			{!mini && <span suppressHydrationWarning>{mounted ? (isDark ? "Light mode" : "Dark mode") : "Theme"}</span>}
 		</button>
 	);
 }

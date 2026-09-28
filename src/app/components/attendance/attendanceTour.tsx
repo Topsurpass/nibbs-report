@@ -26,21 +26,21 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					This is the night-duty register. Sign in when your shift starts, sign out when it
 					ends, and every night you work is recorded against your name.
 				</p>
-				<p className="mt-2 text-muted">Five steps. About thirty seconds.</p>
+				<p className="mt-2 text-muted-foreground">Five steps. About thirty seconds.</p>
 			</>
 		),
 		visual: (
 			<Mock>
 				<div className="flex items-center justify-between gap-2 text-center font-medium text-foreground">
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">🌙 Sign in</span>
-					<span className="text-muted" aria-hidden>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">🌙 Sign in</span>
+					<span className="text-muted-foreground" aria-hidden>
 						→
 					</span>
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">☀️ Sign out</span>
-					<span className="text-muted" aria-hidden>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">☀️ Sign out</span>
+					<span className="text-muted-foreground" aria-hidden>
 						→
 					</span>
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">📅 Your month</span>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">📅 Your month</span>
 				</div>
 			</Mock>
 		),
@@ -55,7 +55,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					only be marked while you are actually on duty. Outside those hours the card shows a
 					countdown instead of a button.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					All times are Africa/Lagos, taken from the server — not from your device clock.
 				</p>
 			</>
@@ -65,9 +65,9 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 				<div className="flex items-center justify-between gap-3">
 					<div>
 						<p className="text-lg font-bold tabular-nums text-foreground">20:31</p>
-						<p className="text-[10px] text-muted">Africa/Lagos</p>
+						<p className="text-[10px] text-muted-foreground">Africa/Lagos</p>
 					</div>
-					<span className="rounded-lg bg-indigo-600 px-3 py-2 font-semibold text-white">
+					<span className="rounded-lg bg-primary px-3 py-2 font-semibold text-white">
 						Sign in for tonight
 					</span>
 				</div>
@@ -83,11 +83,11 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					Signing out records your hours for the night. There is a half-hour grace after
 					08:30, so a shift that runs long can still be closed.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Once you sign out the night is <strong>locked</strong> — you cannot change it
 					yourself. Ask an admin if a time is wrong.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Forget to sign out and the night still counts — it is listed as{" "}
 					<strong>still open</strong> and contributes no hours, rather than being counted as
 					zero.
@@ -100,7 +100,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					<span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
 						12h 00m
 					</span>
-					<span className="text-muted">20:30 → 08:30</span>
+					<span className="text-muted-foreground">20:30 → 08:30</span>
 					<span className="ml-auto rounded-full bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
 						Still open
 					</span>
@@ -117,7 +117,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					Green squares are nights you signed in for. Use the arrows to look back at any
 					previous month.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					A night is shown on the day it <em>started</em>. Sign in at 02:00 on the 5th and it
 					lands on the 4th, because that is the shift you were working.
 				</p>
@@ -132,7 +132,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 							className={`rounded-md border px-1 py-2 ${
 								[4, 5, 8].includes(day)
 									? "border-emerald-500/40 bg-emerald-500/10 font-semibold text-foreground"
-									: "border-border bg-surface text-muted"
+									: "border-border bg-card text-muted-foreground"
 							}`}
 						>
 							{day}
@@ -152,7 +152,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					night in detail. <strong>Image</strong> saves the summary as a JPEG you can paste
 					straight into a chat.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Admins get an <strong>Everyone</strong> toggle covering the whole team, and can
 					click any day to add or correct a night an analyst missed.
 				</p>
@@ -161,11 +161,11 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 		visual: (
 			<Mock>
 				<div className="flex items-center gap-2">
-					<span className="rounded-lg border border-border bg-surface px-2 py-1.5">⬇ Excel</span>
-					<span className="rounded-lg border border-border bg-surface px-2 py-1.5">🖼 Image</span>
+					<span className="rounded-lg border border-border bg-card px-2 py-1.5">⬇ Excel</span>
+					<span className="rounded-lg border border-border bg-card px-2 py-1.5">🖼 Image</span>
 					<span className="ml-auto flex rounded-lg border border-border p-0.5">
-						<span className="rounded-md px-2 py-1 text-muted">Mine</span>
-						<span className="rounded-md bg-indigo-600 px-2 py-1 font-semibold text-white">
+						<span className="rounded-md px-2 py-1 text-muted-foreground">Mine</span>
+						<span className="rounded-md bg-primary px-2 py-1 font-semibold text-white">
 							Everyone
 						</span>
 					</span>

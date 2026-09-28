@@ -11,6 +11,7 @@ import {
 } from "@/lib/attendance/nightWindow";
 import { entryMinutes, indexByNight } from "@/lib/attendance/summary";
 import type { AttendanceEntry } from "@/lib/attendance/types";
+import { cn } from "@/lib/utils";
 
 /**
  * A month of nights, laid out Monday-first.
@@ -43,10 +44,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 		<div>
 			<div className="grid grid-cols-7 gap-1.5 pb-2">
 				{WEEKDAYS.map((day) => (
-					<div
-						key={day}
-						className="text-center text-[10px] font-bold uppercase tracking-wider text-muted"
-					>
+					<div key={day} className="text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 						{day}
 					</div>
 				))}
@@ -59,29 +57,17 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 					const isTonight = day.date === tonight;
 					const dayNumber = Number(day.date.slice(8));
 
-					const base =
-						"relative flex min-h-[72px] flex-col rounded-xl border p-1.5 text-left transition-colors";
 					const tone = !day.inMonth
-						? "border-transparent bg-transparent text-muted/40"
+						? "border-transparent bg-transparent text-muted-foreground/40"
 						: worked
 							? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
-							: "border-border bg-background text-muted";
-					const ring = isTonight ? " ring-2 ring-indigo-500 ring-offset-1 ring-offset-surface" : "";
-					const clickable = onPickNight ? " cursor-pointer hover:border-indigo-400" : "";
+							: "border-border bg-background text-muted-foreground";
 
-					const label = `${day.date}${
-						worked
-							? `, ${nights.length} sign-in${nights.length === 1 ? "" : "s"}`
-							: ", no sign-in"
-					}`;
+					const label = `${day.date}${worked ? `, ${nights.length} sign-in${nights.length === 1 ? "" : "s"}` : ", no sign-in"}`;
 
 					const content = (
 						<>
-							<span
-								className={`text-xs font-semibold tabular-nums ${
-									isTonight ? "text-indigo-600 dark:text-indigo-300" : ""
-								}`}
-							>
+							<span className={cn("text-xs font-semibold tabular-nums", isTonight && "text-primary")}>
 								{dayNumber}
 							</span>
 
@@ -90,7 +76,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 									<span className="block font-semibold text-emerald-700 dark:text-emerald-300">
 										{formatLagosTime(new Date(nights[0].signedInAt))}
 									</span>
-									<span className="block text-muted">
+									<span className="block text-muted-foreground">
 										{nights[0].signedOutAt ? formatDuration(entryMinutes(nights[0])) : "open"}
 									</span>
 								</span>
@@ -104,6 +90,13 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 						</>
 					);
 
+					const cellCls = cn(
+						"relative flex min-h-[72px] flex-col rounded-xl border p-1.5 text-left transition-colors",
+						tone,
+						isTonight && "ring-2 ring-primary ring-offset-1 ring-offset-card",
+						onPickNight && "cursor-pointer hover:border-primary/60",
+					);
+
 					if (onPickNight && day.inMonth) {
 						return (
 							<button
@@ -111,7 +104,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 								type="button"
 								onClick={() => onPickNight(day.date)}
 								aria-label={`${label}. Add or correct this night.`}
-								className={`${base} ${tone}${ring}${clickable}`}
+								className={cellCls}
 							>
 								{content}
 							</button>
@@ -119,28 +112,24 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 					}
 
 					return (
-						<div
-							key={day.date}
-							aria-label={day.inMonth ? label : undefined}
-							className={`${base} ${tone}${ring}`}
-						>
+						<div key={day.date} aria-label={day.inMonth ? label : undefined} className={cellCls}>
 							{content}
 						</div>
 					);
 				})}
 			</div>
 
-			<div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted">
+			<div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
 				<span className="flex items-center gap-1.5">
-					<span className="h-2.5 w-2.5 rounded-sm border border-emerald-500/40 bg-emerald-500/20" />
+					<span className="size-2.5 rounded-sm border border-emerald-500/40 bg-emerald-500/20" />
 					Signed in
 				</span>
 				<span className="flex items-center gap-1.5">
-					<span className="h-2.5 w-2.5 rounded-sm border border-border bg-background" />
+					<span className="size-2.5 rounded-sm border border-border bg-background" />
 					No sign-in
 				</span>
 				<span className="flex items-center gap-1.5">
-					<span className="h-2.5 w-2.5 rounded-sm ring-2 ring-indigo-500" />
+					<span className="size-2.5 rounded-sm ring-2 ring-primary" />
 					Tonight
 				</span>
 				<span className="ml-auto">A night runs 20:30 → 08:30 and is shown on the day it started.</span>

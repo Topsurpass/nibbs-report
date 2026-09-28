@@ -1,6 +1,11 @@
 "use client";
 
 import { BANK_NAME_COLUMN } from "@/lib/escalation/types";
+import { Card, CardHeader, CardTitle, CardDescription, CardAction } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ColumnPickerProps {
 	/** Headers found in the uploaded file, in their original order. */
@@ -34,59 +39,36 @@ export default function ColumnPicker({
 	const count = selected.length + (includeBankName ? 1 : 0);
 
 	return (
-		<section className="rounded-2xl border border-border bg-surface p-5">
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<Card className="p-5">
+			<CardHeader className="flex-row items-center justify-between gap-3 px-0">
 				<div>
-					<h2 className="text-sm font-semibold text-foreground">Columns in the escalation files</h2>
-					<p className="mt-0.5 text-xs text-muted">
+					<CardTitle>Columns in the escalation files</CardTitle>
+					<CardDescription>
 						{count} of {total} selected · written in the file&rsquo;s original order
-					</p>
+					</CardDescription>
 				</div>
-				<div className="flex gap-2">
-					<button
-						type="button"
-						onClick={onSelectAll}
-						className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-					>
+				<CardAction className="row-start-1 flex gap-2 self-center">
+					<Button type="button" variant="outline" size="sm" onClick={onSelectAll}>
 						All
-					</button>
-					<button
-						type="button"
-						onClick={onSelectNone}
-						className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-					>
+					</Button>
+					<Button type="button" variant="outline" size="sm" onClick={onSelectNone}>
 						None
-					</button>
-				</div>
-			</div>
+					</Button>
+				</CardAction>
+			</CardHeader>
 
-			<div className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+			<div className="mt-4 grid gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
 				<label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-					<input
-						type="checkbox"
-						checked={includeBankName}
-						onChange={onToggleBankName}
-						className="h-4 w-4 shrink-0 accent-indigo-600"
-					/>
+					<Checkbox checked={includeBankName} onCheckedChange={onToggleBankName} />
 					<span className="truncate font-medium" title={BANK_NAME_COLUMN}>
 						{BANK_NAME_COLUMN}
 					</span>
-					<span className="shrink-0 rounded-full bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
-						Added
-					</span>
+					<Badge className="shrink-0 bg-primary/15 text-[9px] text-primary">Added</Badge>
 				</label>
 
 				{headers.map((header) => (
-					<label
-						key={header}
-						className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-					>
-						<input
-							type="checkbox"
-							checked={checked.has(header)}
-							onChange={() => onToggle(header)}
-							className="h-4 w-4 shrink-0 accent-indigo-600"
-						/>
+					<label key={header} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+						<Checkbox checked={checked.has(header)} onCheckedChange={() => onToggle(header)} />
 						<span className="truncate" title={header}>
 							{header}
 						</span>
@@ -95,10 +77,12 @@ export default function ColumnPicker({
 			</div>
 
 			{count === 0 && (
-				<p className="mt-4 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-					Nothing is selected — the files would be empty. Tick at least one column.
-				</p>
+				<Alert className="mt-4 border-amber-500/30 bg-amber-500/5">
+					<AlertDescription className="text-amber-700 dark:text-amber-300">
+						Nothing is selected — the files would be empty. Tick at least one column.
+					</AlertDescription>
+				</Alert>
 			)}
-		</section>
+		</Card>
 	);
 }

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { formatAmount } from "@/lib/escalation/parseRows";
 import type { BankGroup } from "@/lib/escalation/types";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface UnmappedBannerProps {
 	groups: BankGroup[];
@@ -50,14 +54,15 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 	};
 
 	return (
-		<section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5">
-			<h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-				⚠ {groups.length} unrecognised bank {groups.length === 1 ? "code" : "codes"} —{" "}
-				{rows} transaction{rows === 1 ? "" : "s"}, {formatAmount(total)}
+		<Card className="border-amber-500/40 bg-amber-500/10 p-5">
+			<h2 className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-200">
+				<AlertTriangle className="size-4" />
+				{groups.length} unrecognised bank {groups.length === 1 ? "code" : "codes"} — {rows} transaction
+				{rows === 1 ? "" : "s"}, {formatAmount(total)}
 			</h2>
 			<p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
-				These rows are still included, in an <code>UNMAPPED</code> file each. Name a code
-				here and it applies to every future upload.
+				These rows are still included, in an <code>UNMAPPED</code> file each. Name a code here and it applies to
+				every future upload.
 			</p>
 
 			<div className="mt-4 space-y-3">
@@ -67,40 +72,34 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 							{group.code}
 						</span>
 						<span className="mt-2 w-44 shrink-0 text-xs text-amber-800/80 dark:text-amber-200/80">
-							{group.rows.length} txn{group.rows.length === 1 ? "" : "s"} ·{" "}
-							{formatAmount(group.total)}
+							{group.rows.length} txn{group.rows.length === 1 ? "" : "s"} · {formatAmount(group.total)}
 						</span>
 						<div className="min-w-[200px] flex-1">
-							<input
+							<Input
 								value={names[group.code] ?? ""}
-								onChange={(e) =>
-									setNames((n) => ({ ...n, [group.code]: e.target.value }))
-								}
+								onChange={(e) => setNames((n) => ({ ...n, [group.code]: e.target.value }))}
 								onKeyDown={(e) => {
 									if (e.key === "Enter") void save(group.code);
 								}}
 								placeholder="Bank name (e.g. NOMBA FS)"
 								maxLength={120}
 								aria-label={`Bank name for code ${group.code}`}
-								className="w-full rounded-lg border border-amber-500/40 bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-amber-500 focus:outline-none"
+								className="border-amber-500/40 focus-visible:border-amber-500"
 							/>
-							{errors[group.code] && (
-								<p className="mt-1 text-xs font-medium text-red-600 dark:text-red-300">
-									{errors[group.code]}
-								</p>
-							)}
+							{errors[group.code] && <p className="mt-1 text-xs font-medium text-destructive">{errors[group.code]}</p>}
 						</div>
-						<button
+						<Button
 							type="button"
 							onClick={() => void save(group.code)}
 							disabled={saving === group.code}
-							className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+							className="bg-amber-600 text-white hover:bg-amber-700"
 						>
+							{saving === group.code && <Loader2 className="animate-spin" />}
 							{saving === group.code ? "Saving…" : "Save mapping"}
-						</button>
+						</Button>
 					</div>
 				))}
 			</div>
-		</section>
+		</Card>
 	);
 }

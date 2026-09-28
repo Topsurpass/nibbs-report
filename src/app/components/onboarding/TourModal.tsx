@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { clampStep } from "@/lib/onboarding/tourState";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface TourStep {
 	/** Short heading, e.g. "Confirm the bank column". */
@@ -130,11 +133,7 @@ export default function TourModal({ open, title, steps, onDone }: TourModalProps
 	return (
 		<div className="no-print fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
 			{/* Backdrop. Clicking it dismisses, same as Skip. */}
-			<div
-				className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-				onClick={onDone}
-				aria-hidden
-			/>
+			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onDone} aria-hidden />
 
 			<div
 				ref={dialogRef}
@@ -142,14 +141,12 @@ export default function TourModal({ open, title, steps, onDone }: TourModalProps
 				aria-modal="true"
 				aria-labelledby="tour-title"
 				aria-describedby="tour-body"
-				className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl sm:rounded-2xl"
+				className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl"
 			>
 				<div className="hero-gradient px-6 py-5 text-white">
 					<div className="flex items-start justify-between gap-4">
 						<div className="min-w-0">
-							<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
-								{title}
-							</p>
+							<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">{title}</p>
 							<h2 id="tour-title" className="mt-1 text-lg font-bold leading-tight">
 								<span className="mr-1.5" aria-hidden>
 									{current.icon}
@@ -157,14 +154,17 @@ export default function TourModal({ open, title, steps, onDone }: TourModalProps
 								{current.title}
 							</h2>
 						</div>
-						<button
+						<Button
 							type="button"
+							variant="ghost"
+							size="sm"
 							onClick={onDone}
 							aria-label="Skip the walkthrough"
-							className="shrink-0 rounded-lg px-2 py-1 text-sm text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+							className="shrink-0 text-white/80 hover:bg-white/15 hover:text-white"
 						>
+							<X className="size-3.5" />
 							Skip
-						</button>
+						</Button>
 					</div>
 				</div>
 
@@ -186,36 +186,26 @@ export default function TourModal({ open, title, steps, onDone }: TourModalProps
 								aria-selected={i === step}
 								aria-label={`Step ${i + 1}: ${s.title}`}
 								onClick={() => go(i)}
-								className={`h-2 rounded-full transition-all ${
-									i === step
-										? "w-5 bg-indigo-600 dark:bg-indigo-400"
-										: "w-2 bg-border hover:bg-muted"
-								}`}
+								className={cn(
+									"h-2 rounded-full transition-all",
+									i === step ? "w-5 bg-primary" : "w-2 bg-border hover:bg-muted-foreground/40",
+								)}
 							/>
 						))}
-						<span className="ml-2 text-xs tabular-nums text-muted">
+						<span className="tnum ml-2 text-xs text-muted-foreground">
 							{step + 1} of {total}
 						</span>
 					</div>
 
 					<div className="flex shrink-0 gap-2">
 						{!isFirst && (
-							<button
-								type="button"
-								onClick={back}
-								className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-							>
+							<Button type="button" variant="outline" onClick={back}>
 								Back
-							</button>
+							</Button>
 						)}
-						<button
-							ref={nextRef}
-							type="button"
-							onClick={isLast ? onDone : next}
-							className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-						>
+						<Button ref={nextRef} type="button" onClick={isLast ? onDone : next}>
 							{isLast ? "Done" : "Next"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>

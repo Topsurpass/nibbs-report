@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { Lock } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import {
 	formatCountdown,
@@ -16,6 +17,9 @@ import {
 } from "@/lib/attendance/nightWindow";
 import { entryMinutes } from "@/lib/attendance/summary";
 import type { AttendanceEntry } from "@/lib/attendance/types";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /**
  * The one thing an analyst comes to this page to do.
@@ -98,9 +102,9 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 	// might be wrong is worse than showing nothing for one frame.
 	if (!now) {
 		return (
-			<section className="rounded-2xl border border-border bg-surface p-6">
-				<div className="h-24 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
-			</section>
+			<Card className="m-6 p-6">
+				<div className="h-24 animate-pulse rounded-xl bg-muted" />
+			</Card>
 		);
 	}
 
@@ -129,9 +133,7 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 		status = {
 			tone: "open",
 			heading: "Sign-in is open",
-			detail: `Night of ${formatNightLabel(activeNight)} · closes ${formatLagosTime(
-				windowClosesAt(activeNight),
-			)}`,
+			detail: `Night of ${formatNightLabel(activeNight)} · closes ${formatLagosTime(windowClosesAt(activeNight))}`,
 		};
 	} else {
 		const opensAt = nextOpenAfter(now);
@@ -142,94 +144,68 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 		};
 	}
 
-	const dot =
-		status.tone === "open"
-			? "bg-emerald-500"
-			: status.tone === "done"
-				? "bg-indigo-500"
-				: "bg-slate-400";
+	const dot = status.tone === "open" ? "bg-emerald-500" : status.tone === "done" ? "bg-primary" : "bg-muted-foreground/40";
 
 	return (
-		<section className="overflow-hidden rounded-2xl border border-border bg-surface space-y-6 m-6">
+		<Card className="m-6 gap-0 overflow-hidden py-0">
 			<div className="hero-gradient px-6 py-5 text-white">
 				<div className="flex flex-wrap items-center justify-between gap-4">
 					<div className="min-w-0">
-						<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
-							Night duty
-						</p>
-						<p className="mt-1 text-3xl font-bold tabular-nums leading-none">
-							{formatLagosTime(now)}
-						</p>
-						<p className="mt-1 text-xs text-white/70">
-							Africa/Lagos
-						</p>
+						<p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Night duty</p>
+						<p className="tnum mt-1 text-3xl font-bold leading-none">{formatLagosTime(now)}</p>
+						<p className="mt-1 text-xs text-white/70">Africa/Lagos</p>
 					</div>
 					<div className="text-right">
 						<p className="text-sm font-semibold">
 							<span
-								className={`mr-2 inline-block h-2 w-2 rounded-full align-middle ${
-									status.tone === "shut"
-										? "bg-white/50"
-										: "bg-white"
-								}`}
+								className={cn("mr-2 inline-block size-2 rounded-full align-middle", status.tone === "shut" ? "bg-white/50" : "bg-white")}
 								aria-hidden
 							/>
 							{status.heading}
 						</p>
-						<p className="mt-0.5 text-xs text-white/75">
-							{status.detail}
-						</p>
+						<p className="mt-0.5 text-xs text-white/75">{status.detail}</p>
 					</div>
 				</div>
 			</div>
 
 			<div className="flex flex-wrap items-center gap-3 px-6 py-5">
-				<span
-					className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`}
-					aria-hidden
-				/>
+				<span className={cn("size-2.5 shrink-0 rounded-full", dot)} aria-hidden />
 
 				{canSignIn && !entry && (
-					<button
-						type="button"
-						onClick={() => act("sign-in")}
-						disabled={busy}
-						className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
-					>
+					<Button type="button" size="lg" onClick={() => act("sign-in")} disabled={busy}>
 						{busy ? "Signing in…" : "Sign in for tonight"}
-					</button>
+					</Button>
 				)}
 
 				{canSignOut && (
-					<button
+					<Button
 						type="button"
+						variant="outline"
+						size="lg"
 						onClick={() => act("sign-out")}
 						disabled={busy}
-						className="rounded-lg border border-indigo-500 px-5 py-2.5 text-sm font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/10 disabled:opacity-60 dark:text-indigo-300"
+						className="border-primary text-primary hover:bg-primary/10"
 					>
 						{busy ? "Signing out…" : "Sign out"}
-					</button>
+					</Button>
 				)}
 
 				{!canSignIn && !canSignOut && !signedOutAlready && (
-					<p className="text-sm text-muted">
-						The register opens at 20:30 and closes at 08:30. Nothing
-						else on this page is affected.
+					<p className="text-sm text-muted-foreground">
+						The register opens at 20:30 and closes at 08:30. Nothing else on this page is affected.
 					</p>
 				)}
 
 				{signedOutAlready && (
-					<p className="flex items-center gap-1.5 text-sm text-muted">
-						<span aria-hidden>🔒</span>
-						This night is recorded and locked. Ask an admin if the times
-						need changing.
+					<p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+						<Lock className="size-3.5" />
+						This night is recorded and locked. Ask an admin if the times need changing.
 					</p>
 				)}
 
 				{openShift && !canSignOut && (
 					<p className="text-sm text-amber-600 dark:text-amber-400">
-						The sign-out window has passed. Ask an admin to close
-						this night.
+						The sign-out window has passed. Ask an admin to close this night.
 					</p>
 				)}
 			</div>
@@ -237,15 +213,14 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 			{(error || flash) && (
 				<div
 					role="status"
-					className={`border-t border-border px-6 py-3 text-sm ${
-						error
-							? "text-red-600 dark:text-red-400"
-							: "text-emerald-600 dark:text-emerald-400"
-					}`}
+					className={cn(
+						"border-t border-border px-6 py-3 text-sm",
+						error ? "text-destructive" : "text-emerald-600 dark:text-emerald-400",
+					)}
 				>
 					{error ?? flash}
 				</div>
 			)}
-		</section>
+		</Card>
 	);
 }

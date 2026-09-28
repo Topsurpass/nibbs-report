@@ -27,7 +27,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					and get a separate workbook for every beneficiary bank, ready to attach to a
 					lien request.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Takes about four clicks. Here&rsquo;s the whole flow.
 				</p>
 			</>
@@ -35,15 +35,15 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 		visual: (
 			<Mock>
 				<div className="flex items-center justify-between gap-2 text-center font-medium text-foreground">
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">📄 One spool</span>
-					<span className="text-muted" aria-hidden>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">📄 One spool</span>
+					<span className="text-muted-foreground" aria-hidden>
 						→
 					</span>
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">🏦 Split by bank</span>
-					<span className="text-muted" aria-hidden>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">🏦 Split by bank</span>
+					<span className="text-muted-foreground" aria-hidden>
 						→
 					</span>
-					<span className="flex-1 rounded-lg bg-surface px-2 py-2">📦 Send</span>
+					<span className="flex-1 rounded-lg bg-card px-2 py-2">📦 Send</span>
 				</div>
 			</Mock>
 		),
@@ -58,16 +58,16 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					<code>.xls</code> and <code>.csv</code> all work, and the right sheet is picked
 					for you.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Nothing is uploaded while you review — the preview is built in your browser.
 				</p>
 			</>
 		),
 		visual: (
 			<Mock>
-				<div className="rounded-lg border border-dashed border-border bg-surface px-3 py-4 text-center">
+				<div className="rounded-lg border border-dashed border-border bg-card px-3 py-4 text-center">
 					<p className="font-semibold text-foreground">✓ fraudulent.xlsx</p>
-					<p className="mt-1 text-muted">184 rows · sheet &ldquo;Sheet1&rdquo;</p>
+					<p className="mt-1 text-muted-foreground">184 rows · sheet &ldquo;Sheet1&rdquo;</p>
 				</div>
 			</Mock>
 		),
@@ -93,7 +93,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 		visual: (
 			<Mock>
 				<p className="font-semibold text-foreground">Beneficiary bank-code column</p>
-				<div className="mt-2 rounded-lg border border-border bg-surface px-3 py-2 text-foreground">
+				<div className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-foreground">
 					beneficiary_issuer_code — code, 100% matched ▾
 				</div>
 			</Mock>
@@ -109,7 +109,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					<strong>Beneficiary Bank</strong> column with the name spelled out. Untick
 					anything you&rsquo;d rather not send.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Your choice is remembered, so the next spool with the same columns starts where
 					you left off.
 				</p>
@@ -122,8 +122,8 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					<span>☑ beneficiary_name</span>
 					<span>☑ amount</span>
 					<span>☑ transaction_reference</span>
-					<span className="text-muted">☐ mac</span>
-					<span className="text-muted">☐ card_num</span>
+					<span className="text-muted-foreground">☐ mac</span>
+					<span className="text-muted-foreground">☐ card_num</span>
 				</div>
 			</Mock>
 		),
@@ -137,7 +137,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					If a code isn&rsquo;t in the bank directory, those rows still get their own file
 					— nothing is dropped. Type the bank&rsquo;s name and it&rsquo;s saved for good.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					Saved names apply to every future upload, for everyone on the team.
 				</p>
 			</>
@@ -149,7 +149,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 				</p>
 				<div className="mt-2 flex items-center gap-2">
 					<span className="font-mono font-bold text-foreground">C62</span>
-					<span className="flex-1 rounded-lg border border-border bg-surface px-2 py-1.5 text-muted">
+					<span className="flex-1 rounded-lg border border-border bg-card px-2 py-1.5 text-muted-foreground">
 						NOMBA FS
 					</span>
 					<span className="rounded-lg bg-amber-600 px-2 py-1.5 font-semibold text-white">
@@ -169,7 +169,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					<strong>Download all</strong> for a zip containing every bank plus a summary
 					sheet. Each file ends with a totals row.
 				</p>
-				<p className="mt-2 text-muted">
+				<p className="mt-2 text-muted-foreground">
 					<strong>Combined workbook</strong> gives you the single file with one tab per
 					bank, the same shape you used to build by hand.
 				</p>
@@ -180,11 +180,11 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 				<div className="space-y-1.5 text-foreground">
 					<div className="flex items-center justify-between gap-2">
 						<span>ROLEZ MICROFINANCE BANK</span>
-						<span className="tabular-nums text-muted">134 · 266,690,000.00</span>
+						<span className="tabular-nums text-muted-foreground">134 · 266,690,000.00</span>
 					</div>
 					<div className="flex items-center justify-between gap-2">
 						<span>Providus Bank</span>
-						<span className="tabular-nums text-muted">29 · 121,830,000.00</span>
+						<span className="tabular-nums text-muted-foreground">29 · 121,830,000.00</span>
 					</div>
 					<div className="flex items-center justify-between gap-2 border-t border-border pt-1.5 font-semibold">
 						<span>TOTAL (9 banks)</span>

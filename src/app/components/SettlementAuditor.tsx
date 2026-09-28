@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { Play, Download, AlertTriangle, CheckCircle2, TriangleAlert } from "lucide-react";
 import FileDropzone from "./FileDropzone";
 import CheckSummary from "./CheckSummary";
 import ReconciliationTable from "./ReconciliationTable";
@@ -13,13 +14,18 @@ import { sessionRowLabel } from "@/lib/session/nibbsSession";
 import type { AddToReportResult } from "./BreachSection";
 import { useMaster } from "./providers/MasterProvider";
 import { useAudit } from "./providers/AuditProvider";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 function toDate(str: string): Date {
 	const [y, m, d] = str.split("-").map(Number);
 	return new Date(y, (m || 1) - 1, d || 1);
 }
-const breachKey = (b: Pick<BreachRecord, "code" | "kind">) =>
-	`${b.code}-${b.kind}`;
+const breachKey = (b: Pick<BreachRecord, "code" | "kind">) => `${b.code}-${b.kind}`;
 
 export default function SettlementAuditor() {
 	const { master } = useMaster();
@@ -74,13 +80,8 @@ export default function SettlementAuditor() {
 	const txtSummary = useMemo(() => {
 		if (!txt) return undefined;
 		const parts = [`${txt.rows.length} records`];
-		if (txt.fileDates.length)
-			parts.push(`date ${txt.fileDates.join(", ")}`);
-		parts.push(
-			txt.format.valid
-				? "format ✓"
-				: `format ⚠ (${txt.format.issues.length})`,
-		);
+		if (txt.fileDates.length) parts.push(`date ${txt.fileDates.join(", ")}`);
+		parts.push(txt.format.valid ? "format ✓" : `format ⚠ (${txt.format.issues.length})`);
 		if (txtFile && reportDate) {
 			const chk = validateTxtFilename(txtFile.name, toDate(reportDate));
 			parts.push(chk.ok ? "filename ✓" : "filename ⚠");
@@ -139,15 +140,10 @@ export default function SettlementAuditor() {
 				<div className="px-6 py-9 sm:px-10">
 					<div className="flex flex-wrap items-end justify-between gap-4">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-								Report
-							</p>
-							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-								Settlement Audit
-							</h1>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Report</p>
+							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Settlement Audit</h1>
 							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Drop the settlement HTML and eTranzact file —
-								the app runs every NIBBS_CHECKER validation and
+								Drop the settlement HTML and eTranzact file — the app runs every NIBBS_CHECKER validation and
 								flags breaches for escalation.
 							</p>
 						</div>
@@ -155,11 +151,11 @@ export default function SettlementAuditor() {
 							<span className="block text-[11px] font-medium uppercase tracking-wide text-white/70">
 								Report date
 							</span>
-							<input
+							<Input
 								type="date"
 								value={reportDate}
 								onChange={(e) => setReportDate(e.target.value)}
-								className="mt-1 bg-transparent text-sm font-semibold text-white outline-none [color-scheme:dark]"
+								className="mt-1 h-auto border-none bg-transparent p-0 text-sm font-semibold text-white shadow-none outline-none [color-scheme:dark] focus-visible:ring-0 dark:bg-transparent"
 							/>
 						</label>
 					</div>
@@ -193,41 +189,28 @@ export default function SettlementAuditor() {
 
 				{/* Actions */}
 				<section className="no-print flex flex-wrap items-center gap-3">
-					<button
-						onClick={() => setArmed(true)}
-						disabled={!canRun}
-						className="rounded-xl bg-foreground px-5 py-2.5 text-sm font-semibold text-background shadow-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-					>
-						▶ Run audit
-					</button>
+					<Button size="lg" onClick={() => setArmed(true)} disabled={!canRun}>
+						<Play className="size-4" />
+						Run audit
+					</Button>
 					{result && (
-						<>
-							<button
-								onClick={() =>
-									downloadExcel(
-										result,
-										breaches,
-										toDate(reportDate),
-									)
-								}
-								className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm hover:bg-black/5 dark:hover:bg-white/5"
-							>
-								⬇ Download Excel
-							</button>
-						</>
+						<Button size="lg" variant="outline" onClick={() => downloadExcel(result, breaches, toDate(reportDate))}>
+							<Download className="size-4" />
+							Download Excel
+						</Button>
 					)}
 					{result && (
-						<span
-							className={`ml-auto rounded-full px-3 py-1.5 text-xs font-bold ${
+						<Badge
+							className={cn(
+								"ml-auto gap-1.5 px-3 py-1.5 text-xs font-bold",
 								result.hasFailures
-									? "bg-red-500/15 text-red-700 dark:text-red-300"
-									: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-							}`}
+									? "bg-destructive/15 text-destructive"
+									: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+							)}
 						>
-							{result.hasFailures
-								? "AUDIT FAILED — see flags"
-								: "ALL CHECKS PASSED"}
-						</span>
+							{result.hasFailures ? <TriangleAlert className="size-3.5" /> : <CheckCircle2 className="size-3.5" />}
+							{result.hasFailures ? "AUDIT FAILED — see flags" : "ALL CHECKS PASSED"}
+						</Badge>
 					)}
 				</section>
 
@@ -235,88 +218,54 @@ export default function SettlementAuditor() {
 				{result && (
 					<>
 						<section className="space-y-3">
-							<h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+							<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
 								Validation checks
 							</h2>
 							<CheckSummary checks={result.checks} />
 						</section>
 
 						{result.formatIssues.length > 0 && (
-							<section className="print-block overflow-hidden rounded-2xl border border-red-500/30 bg-surface shadow-sm">
-								<div className="border-b border-red-500/20 bg-red-500/5 px-5 py-3">
-									<h2 className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-300">
-										<span aria-hidden>⚠</span> Format
-										deviations — eTranzact file
+							<Card className="print-block gap-0 overflow-hidden border-destructive/30 py-0">
+								<div className="border-b border-destructive/20 bg-destructive/5 px-5 py-3">
+									<h2 className="flex items-center gap-2 text-sm font-semibold text-destructive">
+										<AlertTriangle className="size-4" />
+										Format deviations — eTranzact file
 									</h2>
-									<p className="text-xs text-muted">
-										{result.formatIssues.length} line(s) do
-										not match the required template. Fix the
-										file and re-upload before sending to
-										NIBBS.
+									<p className="text-xs text-muted-foreground">
+										{result.formatIssues.length} line(s) do not match the required template. Fix the file and
+										re-upload before sending to NIBBS.
 									</p>
 								</div>
 								<div className="max-h-72 overflow-auto">
-									<table className="w-full border-collapse text-sm">
-										<thead className="sticky top-0 bg-surface/95 backdrop-blur">
-											<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-												<th className="px-4 py-2 font-semibold">
-													Line
-												</th>
-												<th className="px-4 py-2 font-semibold">
-													Problem
-												</th>
-												<th className="px-4 py-2 font-semibold">
-													Content
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{result.formatIssues.map(
-												(issue) => (
-													<tr
-														key={issue.line}
-														className="border-t border-border"
-													>
-														<td className="tnum px-4 py-2 font-semibold text-red-600 dark:text-red-400">
-															{issue.line}
-														</td>
-														<td className="px-4 py-2 text-foreground">
-															{issue.message}
-														</td>
-														<td className="tnum px-4 py-2 text-xs text-muted">
-															{issue.content || (
-																<span className="italic">
-																	(empty)
-																</span>
-															)}
-														</td>
-													</tr>
-												),
-											)}
-										</tbody>
-									</table>
+									<Table>
+										<TableHeader className="sticky top-0 bg-card/95 backdrop-blur-sm">
+											<TableRow className="hover:bg-transparent">
+												<TableHead>Line</TableHead>
+												<TableHead>Problem</TableHead>
+												<TableHead>Content</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{result.formatIssues.map((issue) => (
+												<TableRow key={issue.line}>
+													<TableCell className="tnum font-semibold text-destructive">{issue.line}</TableCell>
+													<TableCell className="text-foreground">{issue.message}</TableCell>
+													<TableCell className="tnum text-xs text-muted-foreground">
+														{issue.content || <span className="italic">(empty)</span>}
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
 								</div>
-							</section>
+							</Card>
 						)}
 
 						<section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-							<Stat
-								label="Frame net sum"
-								value={formatNaira(result.totals.frameNetSum)}
-							/>
-							<Stat
-								label="Smartdet sum"
-								value={formatNaira(result.totals.smartdetSum)}
-							/>
-							<Stat
-								label="Banks reconciled"
-								value={String(result.rows.length)}
-							/>
-							<Stat
-								label="Breaches"
-								value={String(breaches.length)}
-								danger={breaches.length > 0}
-							/>
+							<Stat label="Frame net sum" value={formatNaira(result.totals.frameNetSum)} />
+							<Stat label="Smartdet sum" value={formatNaira(result.totals.smartdetSum)} />
+							<Stat label="Banks reconciled" value={String(result.rows.length)} />
+							<Stat label="Breaches" value={String(breaches.length)} danger={breaches.length > 0} />
 						</section>
 
 						<ReconciliationTable rows={result.rows} />
@@ -324,11 +273,7 @@ export default function SettlementAuditor() {
 							breaches={breaches}
 							reportDate={toDate(reportDate)}
 							onChange={updateBreach}
-							sessionLabel={
-								result.session.label
-									? sessionRowLabel(result.session.label)
-									: undefined
-							}
+							sessionLabel={result.session.label ? sessionRowLabel(result.session.label) : undefined}
 							canAddToReport={!!result.session.label}
 							addHint={result.session.error}
 							onAddToReport={addBreachesToDailyReport}
@@ -337,47 +282,27 @@ export default function SettlementAuditor() {
 				)}
 
 				{!result && (
-					<div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center">
-						<p className="text-sm text-muted">
-							Upload both files and click{" "}
-							<span className="font-semibold">Run audit</span> to
+					<Card className="border-dashed bg-muted/20 p-10 text-center shadow-none">
+						<p className="text-sm text-muted-foreground">
+							Upload both files and click <span className="font-semibold text-foreground">Run audit</span> to
 							see the reconciliation and breach report.
 						</p>
-					</div>
+					</Card>
 				)}
 
-				<p className="text-center text-xs text-muted">
-					All processing happens locally in your browser — settlement
-					data never leaves this machine.
+				<p className="text-center text-xs text-muted-foreground">
+					All processing happens locally in your browser — settlement data never leaves this machine.
 				</p>
 			</div>
 		</div>
 	);
 }
 
-function Stat({
-	label,
-	value,
-	danger,
-}: {
-	label: string;
-	value: string;
-	danger?: boolean;
-}) {
+function Stat({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
 	return (
-		<div className="print-block rounded-xl border border-border bg-surface p-4 shadow-sm">
-			<p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-				{label}
-			</p>
-			<p
-				className={`tnum mt-1 text-lg font-bold ${
-					danger
-						? "text-red-600 dark:text-red-400"
-						: "text-foreground"
-				}`}
-			>
-				{value}
-			</p>
-		</div>
+		<Card className="print-block gap-1 p-4">
+			<p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+			<p className={cn("tnum text-lg font-bold", danger ? "text-destructive" : "text-foreground")}>{value}</p>
+		</Card>
 	);
 }

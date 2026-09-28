@@ -1,24 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import type { ReconRow } from "@/lib/reconcile";
 import { formatNaira } from "@/lib/format";
+import { Card, CardHeader, CardTitle, CardDescription, CardAction } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type Filter = "all" | "breaches";
 
 function Amount({ value, breach }: { value: number | null; breach?: boolean }) {
 	if (value === null || !Number.isFinite(value))
-		return <span className="text-muted">—</span>;
+		return <span className="text-muted-foreground">—</span>;
 	const negative = value < 0;
 	return (
 		<span
-			className={`tnum ${
+			className={cn(
+				"tnum",
 				breach
-					? "font-bold text-red-600 dark:text-red-400"
+					? "font-bold text-destructive"
 					: negative
 						? "text-amber-600 dark:text-amber-400"
-						: "text-foreground"
-			}`}
+						: "text-foreground",
+			)}
 		>
 			{breach && <span aria-hidden>⚠ </span>}
 			{formatNaira(value)}
@@ -30,9 +35,7 @@ function PresenceDot({ ok, label }: { ok: boolean; label: string }) {
 	return (
 		<span
 			title={label}
-			className={`inline-block h-2.5 w-2.5 rounded-full ${
-				ok ? "bg-emerald-500" : "bg-red-400"
-			}`}
+			className={cn("inline-block size-2.5 rounded-full", ok ? "bg-emerald-500" : "bg-destructive/70")}
 		/>
 	);
 }
@@ -40,154 +43,129 @@ function PresenceDot({ ok, label }: { ok: boolean; label: string }) {
 export default function ReconciliationTable({ rows }: { rows: ReconRow[] }) {
 	const [filter, setFilter] = useState<Filter>("breaches");
 	const shown =
-		filter === "breaches"
-			? rows.filter(
-					(r) =>
-						r.jiveBreach || r.collateralBreach || r.presenceIssue,
-				)
-			: rows;
+		filter === "breaches" ? rows.filter((r) => r.jiveBreach || r.collateralBreach || r.presenceIssue) : rows;
 
 	return (
-		<div className="print-block rounded-2xl border border-border bg-surface shadow-sm">
-			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+		<Card className="print-block gap-0 py-0">
+			<CardHeader className="flex-row items-center justify-between gap-3 border-b border-border py-4">
 				<div>
-					<h2 className="text-base font-semibold text-foreground">
-						Reconciliation
-					</h2>
-					<p className="text-xs text-muted">
-						{rows.length} banks · joined by 10-digit code (mirrors
-						NIBBS_CHECKER)
-					</p>
+					<CardTitle>Reconciliation</CardTitle>
+					<CardDescription>
+						{rows.length} banks · joined by 10-digit code (mirrors NIBBS_CHECKER)
+					</CardDescription>
 				</div>
-				<div className="no-print inline-flex rounded-lg border border-border p-0.5 text-xs font-medium">
-					{(["all", "breaches"] as Filter[]).map((f) => (
-						<button
-							key={f}
-							onClick={() => setFilter(f)}
-							className={`rounded-md px-3 py-1.5 capitalize transition-colors ${
-								filter === f
-									? "bg-foreground text-background"
-									: "text-muted hover:text-foreground"
-							}`}
-						>
-							{f === "all" ? "All banks" : "Breaches only"}
-						</button>
-					))}
-				</div>
-			</div>
+				<CardAction className="no-print row-start-1 self-center">
+					<div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5 text-xs font-medium">
+						{(["all", "breaches"] as Filter[]).map((f) => (
+							<button
+								key={f}
+								type="button"
+								onClick={() => setFilter(f)}
+								className={cn(
+									"rounded-md px-3 py-1.5 capitalize transition-colors",
+									filter === f
+										? "bg-foreground text-background"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{f === "all" ? "All banks" : "Breaches only"}
+							</button>
+						))}
+					</div>
+				</CardAction>
+			</CardHeader>
 
 			<div className="max-h-[560px] overflow-auto">
-				<table className="w-full border-collapse text-sm">
-					<thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur">
-						<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-							<th className="px-4 py-3 font-semibold">Bank</th>
-							<th className="px-3 py-3 text-right font-semibold">
+				<Table>
+					<TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm [&_tr]:border-b-border">
+						<TableRow className="hover:bg-transparent">
+							<TableHead className="px-4 py-3 text-[11px] uppercase tracking-wide">Bank</TableHead>
+							<TableHead className="px-3 py-3 text-right text-[11px] uppercase tracking-wide">
 								Collateral (C)
-							</th>
-							<th className="px-3 py-3 text-right font-semibold">
+							</TableHead>
+							<TableHead className="px-3 py-3 text-right text-[11px] uppercase tracking-wide">
 								Smartdet (H)
-							</th>
-							<th className="px-3 py-3 text-right font-semibold">
+							</TableHead>
+							<TableHead className="px-3 py-3 text-right text-[11px] uppercase tracking-wide">
 								Frame (O)
-							</th>
-							<th
-								className="px-3 py-3 text-right font-semibold"
+							</TableHead>
+							<TableHead
+								className="px-3 py-3 text-right text-[11px] uppercase tracking-wide"
 								title="H − O (must be 0)"
 							>
 								Jive (H−O)
-							</th>
-							<th
-								className="px-3 py-3 text-right font-semibold"
+							</TableHead>
+							<TableHead
+								className="px-3 py-3 text-right text-[11px] uppercase tracking-wide"
 								title="C + H (must be ≥ 0)"
 							>
 								Collat. (C+H)
-							</th>
-							<th
-								className="px-3 py-3 text-center font-semibold"
+							</TableHead>
+							<TableHead
+								className="px-3 py-3 text-center text-[11px] uppercase tracking-wide"
 								title="Present in Master · HTML · eTranzact"
 							>
 								M·H·E
-							</th>
-						</tr>
-					</thead>
-					<tbody>
+							</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
 						{shown.map((r, i) => {
-							const rowBreach =
-								r.jiveBreach || r.collateralBreach;
+							const rowBreach = r.jiveBreach || r.collateralBreach;
 							return (
-								<tr
+								<TableRow
 									key={r.code}
-									className={`border-t border-border align-middle ${
-										rowBreach
-											? "bg-red-500/5"
-											: i % 2
-												? "bg-black/[0.015] dark:bg-white/[0.015]"
-												: ""
-									}`}
+									className={cn(
+										"align-middle",
+										rowBreach ? "bg-destructive/5 hover:bg-destructive/10" : i % 2 ? "bg-muted/30" : "",
+									)}
 								>
-									<td className="px-4 py-2.5">
-										<div className="font-medium text-foreground">
-											{r.name}
-										</div>
-										<div className="tnum text-[11px] text-muted">
-											{r.code}
-										</div>
-									</td>
-									<td className="px-3 py-2.5 text-right">
+									<TableCell className="px-4 py-2.5">
+										<div className="font-medium text-foreground">{r.name}</div>
+										<div className="tnum text-[11px] text-muted-foreground">{r.code}</div>
+									</TableCell>
+									<TableCell className="px-3 py-2.5 text-right">
 										<Amount value={r.collateral} />
-									</td>
-									<td className="px-3 py-2.5 text-right">
+									</TableCell>
+									<TableCell className="px-3 py-2.5 text-right">
 										<Amount value={r.smartdetAmount} />
-									</td>
-									<td className="px-3 py-2.5 text-right">
+									</TableCell>
+									<TableCell className="px-3 py-2.5 text-right">
 										<Amount value={r.frameAmount} />
-									</td>
-									<td className="px-3 py-2.5 text-right">
-										<Amount
-											value={r.jive}
-											breach={r.jiveBreach}
-										/>
-									</td>
-									<td className="px-3 py-2.5 text-right">
-										<Amount
-											value={r.collateralCheck}
-											breach={r.collateralBreach}
-										/>
-									</td>
-									<td className="px-3 py-2.5">
+									</TableCell>
+									<TableCell className="px-3 py-2.5 text-right">
+										<Amount value={r.jive} breach={r.jiveBreach} />
+									</TableCell>
+									<TableCell className="px-3 py-2.5 text-right">
+										<Amount value={r.collateralCheck} breach={r.collateralBreach} />
+									</TableCell>
+									<TableCell className="px-3 py-2.5">
 										<div className="flex items-center justify-center gap-1.5">
-											<PresenceDot
-												ok={r.inMaster}
-												label="Master"
-											/>
-											<PresenceDot
-												ok={r.inFrame}
-												label="HTML (Frame)"
-											/>
-											<PresenceDot
-												ok={r.inSmartdet}
-												label="eTranzact (Smartdet)"
-											/>
+											<PresenceDot ok={r.inMaster} label="Master" />
+											<PresenceDot ok={r.inFrame} label="HTML (Frame)" />
+											<PresenceDot ok={r.inSmartdet} label="eTranzact (Smartdet)" />
 										</div>
-									</td>
-								</tr>
+									</TableCell>
+								</TableRow>
 							);
 						})}
 						{shown.length === 0 && (
-							<tr>
-								<td
-									colSpan={7}
-									className="px-4 py-8 text-center text-sm text-muted"
-								>
-									{filter === "breaches"
-										? "✓ No breaches — switch to “All banks” to see every row."
-										: "No rows to show."}
-								</td>
-							</tr>
+							<TableRow className="hover:bg-transparent">
+								<TableCell colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+									{filter === "breaches" ? (
+										<span className="inline-flex items-center gap-1.5">
+											<CheckCircle2 className="size-4 text-emerald-500" />
+											No breaches — switch to &ldquo;All banks&rdquo; to see every row.
+										</span>
+									) : (
+										"No rows to show."
+									)}
+								</TableCell>
+							</TableRow>
 						)}
-					</tbody>
-				</table>
+					</TableBody>
+				</Table>
 			</div>
-		</div>
+		</Card>
 	);
 }

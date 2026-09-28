@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import {
 	formatDuration,
 	formatLagosTime,
@@ -10,6 +11,9 @@ import {
 import { entryMinutes, groupNights, personName } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import { paginate } from "@/lib/paginate";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 /**
  * Every night in the month, newest first — the detail behind the calendar.
@@ -38,15 +42,16 @@ const NIGHTS_PER_PAGE = 8;
 
 function DurationBadge({ minutes }: { minutes: number | null }) {
 	return (
-		<span
-			className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
+		<Badge
+			className={cn(
+				"tnum shrink-0",
 				minutes === null
 					? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-					: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-			}`}
+					: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+			)}
 		>
 			{minutes === null ? "Still open" : formatDuration(minutes)}
-		</span>
+		</Badge>
 	);
 }
 
@@ -59,10 +64,7 @@ export default function NightList({
 	removingId,
 	resetKey,
 }: Props) {
-	const nameById = useMemo(
-		() => new Map(people.map((p) => [p.id, personName(p)])),
-		[people],
-	);
+	const nameById = useMemo(() => new Map(people.map((p) => [p.id, personName(p)])), [people]);
 	const groups = useMemo(() => groupNights(entries), [entries]);
 
 	const [page, setPage] = useState(1);
@@ -81,19 +83,11 @@ export default function NightList({
 
 	if (groups.length === 0) {
 		return (
-			<p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+			<p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
 				No nights recorded this month.
 			</p>
 		);
 	}
-
-	const rowButton =
-		"rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/5";
-	const removeButton =
-		"rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400";
-
-	const control =
-		"rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/5";
 
 	return (
 		<div>
@@ -105,29 +99,24 @@ export default function NightList({
 						<li key={group.nightDate} className="py-3">
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 								<div className="min-w-[9rem]">
-									<p className="text-sm font-semibold text-foreground">
-										{formatNightLabel(group.nightDate)}
-									</p>
-									<p className="text-[11px] tabular-nums text-muted">{group.nightDate}</p>
+									<p className="text-sm font-semibold text-foreground">{formatNightLabel(group.nightDate)}</p>
+									<p className="tnum text-[11px] text-muted-foreground">{group.nightDate}</p>
 								</div>
 
 								{showAnalyst && (
-									<span
-										className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-											count > 1
-												? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300"
-												: "bg-black/5 text-muted dark:bg-white/10"
-										}`}
+									<Badge
+										variant="secondary"
+										className={cn(count > 1 && "bg-primary/15 text-primary")}
 									>
 										{count} on duty
-									</span>
+									</Badge>
 								)}
 
 								{/* One analyst's own register has a single row per night, so the
 								    times sit on the heading line instead of below it. */}
 								{!showAnalyst && (
 									<>
-										<p className="tabular-nums text-sm text-muted">
+										<p className="tnum text-sm text-muted-foreground">
 											{formatLagosTime(new Date(group.entries[0].signedInAt))}
 											{" → "}
 											{group.entries[0].signedOutAt
@@ -136,12 +125,13 @@ export default function NightList({
 										</p>
 										<DurationBadge minutes={entryMinutes(group.entries[0])} />
 										{group.entries[0].source === "admin" && (
-											<span
+											<Badge
+												variant="secondary"
+												className="bg-primary/15 text-primary"
 												title={group.entries[0].note ?? "Added by an admin"}
-												className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300"
 											>
 												Admin entry
-											</span>
+											</Badge>
 										)}
 									</>
 								)}
@@ -149,23 +139,27 @@ export default function NightList({
 								{!showAnalyst && (onEdit || onRemove) && (
 									<div className="ml-auto flex gap-2">
 										{onEdit && (
-											<button
+											<Button
 												type="button"
+												variant="outline"
+												size="sm"
 												onClick={() => onEdit(group.nightDate, group.entries[0].userId)}
-												className={rowButton}
 											>
 												Edit
-											</button>
+											</Button>
 										)}
 										{onRemove && (
-											<button
+											<Button
 												type="button"
+												variant="outline"
+												size="sm"
 												onClick={() => onRemove(group.entries[0])}
 												disabled={removingId === group.entries[0].id}
-												className={removeButton}
+												className="border-destructive/40 text-destructive hover:bg-destructive/10"
 											>
+												{removingId === group.entries[0].id && <Loader2 className="animate-spin" />}
 												{removingId === group.entries[0].id ? "Removing…" : "Remove"}
-											</button>
+											</Button>
 										)}
 									</div>
 								)}
@@ -174,15 +168,12 @@ export default function NightList({
 							{showAnalyst && (
 								<ul className="mt-2 space-y-1 border-l-2 border-border pl-3">
 									{group.entries.map((entry) => (
-										<li
-											key={entry.id}
-											className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
-										>
+										<li key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
 											<span className="min-w-[10rem] flex-1 text-foreground">
 												{nameById.get(entry.userId) ?? "Unknown analyst"}
 											</span>
 
-											<span className="tabular-nums text-muted">
+											<span className="tnum text-muted-foreground">
 												{formatLagosTime(new Date(entry.signedInAt))}
 												{" → "}
 												{entry.signedOutAt ? formatLagosTime(new Date(entry.signedOutAt)) : "—"}
@@ -191,37 +182,37 @@ export default function NightList({
 											<DurationBadge minutes={entryMinutes(entry)} />
 
 											{entry.source === "admin" && (
-												<span
+												<Badge
+													variant="secondary"
+													className="bg-primary/15 text-primary"
 													title={entry.note ?? "Added by an admin"}
-													className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300"
 												>
 													Admin entry
-												</span>
+												</Badge>
 											)}
 
 											{onEdit && (
-												<button
-													type="button"
-													onClick={() => onEdit(entry.nightDate, entry.userId)}
-													className={rowButton}
-												>
+												<Button type="button" variant="outline" size="sm" onClick={() => onEdit(entry.nightDate, entry.userId)}>
 													Edit
-												</button>
+												</Button>
 											)}
 
 											{/* Wrong sign-in, a duplicate, or somebody testing the
 											    button: an admin takes the row off the register here
 											    rather than opening the dialog first. */}
 											{onRemove && (
-												<button
+												<Button
 													type="button"
+													variant="outline"
+													size="sm"
 													onClick={() => onRemove(entry)}
 													disabled={removingId === entry.id}
 													aria-label={`Remove ${nameById.get(entry.userId) ?? "analyst"}'s night of ${entry.nightDate}`}
-													className={removeButton}
+													className="border-destructive/40 text-destructive hover:bg-destructive/10"
 												>
+													{removingId === entry.id && <Loader2 className="animate-spin" />}
 													{removingId === entry.id ? "Removing…" : "Remove"}
-												</button>
+												</Button>
 											)}
 										</li>
 									))}
@@ -234,29 +225,21 @@ export default function NightList({
 
 			{view.pageCount > 1 && (
 				<div className="flex flex-wrap items-center gap-3 border-t border-border py-3">
-					<p className="text-xs text-muted">
+					<p className="text-xs text-muted-foreground">
 						Nights {view.from}–{view.to} of {view.total}
 					</p>
 					<div className="ml-auto flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => setPage(view.page - 1)}
-							disabled={!view.hasPrevious}
-							className={control}
-						>
-							← Newer
-						</button>
-						<span className="text-xs tabular-nums text-muted">
+						<Button type="button" variant="outline" size="sm" onClick={() => setPage(view.page - 1)} disabled={!view.hasPrevious}>
+							<ChevronLeft className="size-3.5" />
+							Newer
+						</Button>
+						<span className="tnum text-xs text-muted-foreground">
 							Page {view.page} of {view.pageCount}
 						</span>
-						<button
-							type="button"
-							onClick={() => setPage(view.page + 1)}
-							disabled={!view.hasNext}
-							className={control}
-						>
-							Older →
-						</button>
+						<Button type="button" variant="outline" size="sm" onClick={() => setPage(view.page + 1)} disabled={!view.hasNext}>
+							Older
+							<ChevronRight className="size-3.5" />
+						</Button>
 					</div>
 				</div>
 			)}

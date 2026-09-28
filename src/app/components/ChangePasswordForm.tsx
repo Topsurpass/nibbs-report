@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { changePasswordSchema, type ChangePasswordValues } from "@/lib/validators/auth";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PasswordInput } from "./forms/PasswordInput";
 
 interface Props {
 	/** True for the mandatory first-login change (hides the "cancel" affordance). */
@@ -50,59 +55,41 @@ export default function ChangePasswordForm({ forced }: Props) {
 		}
 	});
 
-	const field = (
-		id: keyof ChangePasswordValues,
-		label: string,
-		autoComplete: string,
-	) => (
-		<div>
-			<label htmlFor={id} className="mb-1 block text-sm font-medium text-foreground">
-				{label}
-			</label>
-			<input
+	const field = (id: keyof ChangePasswordValues, label: string, autoComplete: string) => (
+		<div className="space-y-1.5">
+			<Label htmlFor={id}>{label}</Label>
+			<PasswordInput
 				id={id}
-				type="password"
 				autoComplete={autoComplete}
+				aria-invalid={!!errors[id]}
 				{...register(id)}
-				className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
 			/>
-			{errors[id] && (
-				<p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors[id]?.message}</p>
-			)}
+			{errors[id] && <p className="text-xs text-destructive">{errors[id]?.message}</p>}
 		</div>
 	);
 
 	return (
 		<form onSubmit={onSubmit} className="space-y-4" noValidate>
 			{serverError && (
-				<div
-					role="alert"
-					className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-				>
-					{serverError}
-				</div>
+				<Alert variant="destructive" role="alert">
+					<AlertCircle />
+					<AlertDescription>{serverError}</AlertDescription>
+				</Alert>
 			)}
 
 			{field("currentPassword", forced ? "Temporary password" : "Current password", "current-password")}
 			{field("newPassword", "New password", "new-password")}
 			{field("confirmPassword", "Confirm new password", "new-password")}
 
-			<button
-				type="submit"
-				disabled={isSubmitting}
-				className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-			>
+			<Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+				{isSubmitting && <Loader2 className="animate-spin" />}
 				{isSubmitting ? "Saving…" : "Save new password"}
-			</button>
+			</Button>
 
 			{!forced && (
-				<button
-					type="button"
-					onClick={() => router.replace("/")}
-					className="w-full rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5"
-				>
+				<Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.replace("/")}>
 					Cancel
-				</button>
+				</Button>
 			)}
 		</form>
 	);

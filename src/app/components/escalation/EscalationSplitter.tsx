@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Compass, AlertTriangle, Loader2 } from "lucide-react";
 import FileDropzone from "@/app/components/FileDropzone";
 import BankGroupTable from "./BankGroupTable";
 import ColumnPicker from "./ColumnPicker";
@@ -25,6 +26,11 @@ import type { BankGroup, CodeMode } from "@/lib/escalation/types";
 import TourModal from "@/app/components/onboarding/TourModal";
 import { ESCALATION_TOUR, ESCALATION_TOUR_STEPS } from "./escalationTour";
 import { useTour } from "@/hooks/useTour";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 /**
  * Drop a spooled fraud export, get one escalation file per beneficiary bank.
@@ -273,7 +279,7 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 	const candidates = analysis?.columns.candidates ?? [];
 
 	return (
-		<div className="">
+		<div>
 			<TourModal
 				open={tour.open}
 				title="Fraud Escalation"
@@ -292,24 +298,22 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 								Generate excel file for bank beneficiaries
 							</h1>
 							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Drop a spooled transaction file and get one
-								escalation workbook per beneficiary bank, ready
-								to send for lien placement.
+								Drop a spooled transaction file and get one escalation workbook per beneficiary bank,
+								ready to send for lien placement.
 							</p>
 						</div>
 
 						{/* Replay: the tour auto-shows once, but it has to stay
 						    reachable afterwards or it may as well not exist. */}
-						<button
+						<Button
 							type="button"
+							variant="secondary"
 							onClick={tour.replay}
-							className="no-print shrink-0 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+							className="no-print shrink-0 bg-white/15 text-white backdrop-blur hover:bg-white/25"
 						>
-							<span className="mr-1.5" aria-hidden>
-								🧭
-							</span>
+							<Compass className="size-4" />
 							Show me around
-						</button>
+						</Button>
 					</div>
 				</div>
 			</header>
@@ -333,83 +337,52 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 				/>
 
 				{preview && result && (
-					<div className="mt-6 space-y-6">
+					<div className="space-y-6">
 						{/* Bank-code column: always visible and always overridable. Getting
 					    this wrong escalates to the sending bank instead of the receiving
 					    one, so it is never a silent decision. */}
-						<section className="rounded-2xl border border-border bg-surface p-5">
+						<Card className="p-5">
 							<div className="flex flex-wrap items-end gap-4">
 								<div className="min-w-60 flex-1">
-									<label
-										htmlFor="code-column"
-										className="block text-sm font-semibold text-foreground"
-									>
+									<label htmlFor="code-column" className="block text-sm font-semibold text-foreground">
 										Beneficiary bank-code column
 									</label>
-									<select
-										id="code-column"
+									<Select
 										value={preview.codeColumn}
-										onChange={(e) => {
-											const column = e.target.value;
-											const match = candidates.find(
-												(c) => c.column === column,
-											);
-											setPreview((p) =>
-												p
-													? {
-															...p,
-															codeColumn: column,
-															codeMode:
-																match?.mode ??
-																"direct",
-														}
-													: p,
-											);
+										onValueChange={(column) => {
+											if (!column) return;
+											const match = candidates.find((c) => c.column === column);
+											setPreview((p) => (p ? { ...p, codeColumn: column, codeMode: match?.mode ?? "direct" } : p));
 										}}
-										className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none"
 									>
-										{candidates.length === 0 && (
-											<option value="">
-												No candidate found
-											</option>
-										)}
-										{candidates.map((c) => (
-											<option
-												key={c.column}
-												value={c.column}
-											>
-												{c.column} —{" "}
-												{c.mode === "direct"
-													? "code"
-													: "13-char prefix"}
-												,{" "}
-												{Math.round(c.matchRate * 100)}%
-												matched
-											</option>
-										))}
-									</select>
-									<p className="mt-1.5 text-xs text-muted">
-										Confirm this is the{" "}
-										<strong>beneficiary</strong> column, not
-										the sender.
+										<SelectTrigger id="code-column" className="mt-2 w-full">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{candidates.length === 0 && (
+												<SelectItem value="__none__" disabled>
+													No candidate found
+												</SelectItem>
+											)}
+											{candidates.map((c) => (
+												<SelectItem key={c.column} value={c.column}>
+													{c.column} — {c.mode === "direct" ? "code" : "13-char prefix"},{" "}
+													{Math.round(c.matchRate * 100)}% matched
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="mt-1.5 text-xs text-muted-foreground">
+										Confirm this is the <strong>beneficiary</strong> column, not the sender.
 									</p>
 								</div>
 
 								<label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-foreground">
-									<input
-										type="checkbox"
-										checked={successfulOnly}
-										onChange={() =>
-											setSuccessfulOnly((v) => !v)
-										}
-										className="h-4 w-4 accent-indigo-600"
-									/>
+									<Checkbox checked={successfulOnly} onCheckedChange={() => setSuccessfulOnly((v) => !v)} />
 									Successful only
 									{result.filteredOut > 0 && (
-										<span className="text-xs text-muted">
-											(
-											{result.filteredOut.toLocaleString()}{" "}
-											hidden)
+										<span className="text-xs text-muted-foreground">
+											({result.filteredOut.toLocaleString()} hidden)
 										</span>
 									)}
 								</label>
@@ -419,77 +392,53 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 						    somewhere, so nothing can go missing unnoticed. */}
 							<dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
 								<div>
-									<dt className="text-xs text-muted">
-										Rows in file
-									</dt>
-									<dd className="font-semibold tabular-nums text-foreground">
-										{result.inputRows.toLocaleString()}
-									</dd>
+									<dt className="text-xs text-muted-foreground">Rows in file</dt>
+									<dd className="tnum font-semibold text-foreground">{result.inputRows.toLocaleString()}</dd>
 								</div>
 								<div>
-									<dt className="text-xs text-muted">
-										Banks
-									</dt>
-									<dd className="font-semibold tabular-nums text-foreground">
-										{result.groups.length}
-									</dd>
+									<dt className="text-xs text-muted-foreground">Banks</dt>
+									<dd className="tnum font-semibold text-foreground">{result.groups.length}</dd>
 								</div>
 								<div>
-									<dt className="text-xs text-muted">
-										No bank code
-									</dt>
+									<dt className="text-xs text-muted-foreground">No bank code</dt>
 									<dd
-										className={`font-semibold tabular-nums ${
-											result.noCode.length > 0
-												? "text-amber-600 dark:text-amber-300"
-												: "text-foreground"
-										}`}
+										className={cn(
+											"tnum font-semibold",
+											result.noCode.length > 0 ? "text-amber-600 dark:text-amber-300" : "text-foreground",
+										)}
 									>
 										{result.noCode.length.toLocaleString()}
 									</dd>
 								</div>
 								<div>
-									<dt className="text-xs text-muted">
-										Total value
-									</dt>
-									<dd className="font-semibold tabular-nums text-foreground">
-										{formatAmount(result.grandTotal)}
-									</dd>
+									<dt className="text-xs text-muted-foreground">Total value</dt>
+									<dd className="tnum font-semibold text-foreground">{formatAmount(result.grandTotal)}</dd>
 								</div>
 							</dl>
 
 							{!analysis?.balanced && (
-								<p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-300">
-									Row accounting does not balance — do not
-									send these files. Report this file.
+								<p className="mt-3 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+									<AlertTriangle className="size-3.5" />
+									Row accounting does not balance — do not send these files. Report this file.
 								</p>
 							)}
 							{result.noCode.length > 0 && (
 								<p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
 									{result.noCode.length.toLocaleString()} row
-									{result.noCode.length === 1
-										? " has"
-										: "s have"}{" "}
-									no readable bank code and{" "}
-									{result.noCode.length === 1 ? "is" : "are"}{" "}
-									not in any file. Check the column above.
+									{result.noCode.length === 1 ? " has" : "s have"} no readable bank code and{" "}
+									{result.noCode.length === 1 ? "is" : "are"} not in any file. Check the column above.
 								</p>
 							)}
-						</section>
+						</Card>
 
-						<UnmappedBanner
-							groups={unmapped}
-							onSave={saveOverride}
-						/>
+						<UnmappedBanner groups={unmapped} onSave={saveOverride} />
 
 						<ColumnPicker
 							headers={preview.spool.headers}
 							selected={selected}
 							includeBankName={includeBankName}
 							onToggle={toggle}
-							onToggleBankName={() =>
-								setIncludeBankName((v) => !v)
-							}
+							onToggleBankName={() => setIncludeBankName((v) => !v)}
 							onSelectAll={() => {
 								setSelected([...preview.spool.headers]);
 								setIncludeBankName(true);
@@ -506,39 +455,23 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 									Beneficiary banks ({result.groups.length})
 								</h2>
 								<div className="flex flex-wrap gap-2">
-									<button
+									<Button
 										type="button"
-										onClick={() =>
-											void download(
-												"combined",
-												"combined",
-											)
-										}
-										disabled={
-											nothingSelected ||
-											downloading !== null
-										}
-										className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
+										variant="outline"
+										onClick={() => void download("combined", "combined")}
+										disabled={nothingSelected || downloading !== null}
 									>
-										{downloading === "combined"
-											? "Building…"
-											: "Combined workbook"}
-									</button>
-									<button
+										{downloading === "combined" && <Loader2 className="animate-spin" />}
+										{downloading === "combined" ? "Building…" : "Combined workbook"}
+									</Button>
+									<Button
 										type="button"
-										onClick={() =>
-											void download("zip", "zip")
-										}
-										disabled={
-											nothingSelected ||
-											downloading !== null
-										}
-										className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+										onClick={() => void download("zip", "zip")}
+										disabled={nothingSelected || downloading !== null}
 									>
-										{downloading === "zip"
-											? "Building…"
-											: "Download all (.zip)"}
-									</button>
+										{downloading === "zip" && <Loader2 className="animate-spin" />}
+										{downloading === "zip" ? "Building…" : "Download all (.zip)"}
+									</Button>
 								</div>
 							</div>
 
@@ -546,9 +479,7 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 								groups={result.groups}
 								grandTotal={result.grandTotal}
 								downloading={downloading}
-								onDownload={(group: BankGroup) =>
-									void download(group.code, group.code)
-								}
+								onDownload={(group: BankGroup) => void download(group.code, group.code)}
 							/>
 						</section>
 					</div>

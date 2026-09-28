@@ -4,6 +4,18 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+	ArrowLeft,
+	Download,
+	Mail,
+	Trash2,
+	Check,
+	Plus,
+	X,
+	AlertCircle,
+	CheckCircle2,
+	Loader2,
+} from "lucide-react";
+import {
 	CATEGORY_PRESETS,
 	HANDOVER_TYPES,
 	STATUS_OPTIONS,
@@ -14,6 +26,31 @@ import {
 	type SummaryRow,
 } from "@/lib/schedule/template";
 import { scheduleFileName } from "@/lib/schedule/exportSchedule";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type TabId = "cover" | "summary" | "fraud" | "recs";
 
@@ -33,9 +70,7 @@ interface Props {
 }
 
 const rid = () =>
-	typeof crypto !== "undefined" && crypto.randomUUID
-		? crypto.randomUUID()
-		: Math.random().toString(36).slice(2);
+	typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
 const fullName = (u: DirectoryUser) => `${u.firstName} ${u.lastName}`.trim();
 
@@ -50,13 +85,20 @@ const TABS: { id: TabId; label: string }[] = [
 	{ id: "recs", label: "Recommendations" },
 ];
 
+/** Extracted from the shadcn Input styling, for the dense per-row grid cells
+ * where a raw control keeps the tables compact — a full `Select`/`Input`
+ * component per cell would add popover overhead across dozens of rows. */
 const inputCls =
-	"w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40";
+	"h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+const iconBtnCls =
+	"rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive";
+const addBtnCls =
+	"inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
 		<div>
-			<label className="mb-1 block text-sm font-medium text-foreground">{label}</label>
+			<Label className="mb-1.5">{label}</Label>
 			{children}
 		</div>
 	);
@@ -190,14 +232,11 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 		setSaving(true);
 		try {
 			const isNew = !persistedRef.current;
-			const res = await fetch(
-				isNew ? "/api/schedule-reports" : `/api/schedule-reports/${idRef.current}`,
-				{
-					method: isNew ? "POST" : "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(report),
-				},
-			);
+			const res = await fetch(isNew ? "/api/schedule-reports" : `/api/schedule-reports/${idRef.current}`, {
+				method: isNew ? "POST" : "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(report),
+			});
 			const data = await res.json();
 			if (!res.ok || !data.ok) {
 				setError(data.error ?? "Couldn't save the report.");
@@ -288,8 +327,9 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 		<div>
 			<header className="hero-gradient text-white">
 				<div className="px-6 py-8 sm:px-10">
-					<Link href="/daily-reports" className="text-xs text-white/70 hover:text-white">
-						← All reports
+					<Link href="/daily-reports" className="inline-flex items-center gap-1 text-xs text-white/70 hover:text-white">
+						<ArrowLeft className="size-3.5" />
+						All reports
 					</Link>
 					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
 						{mode === "new" ? "New Daily Schedule Report" : "Edit Daily Schedule Report"}
@@ -300,66 +340,55 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 				</div>
 			</header>
 
-			<div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-border bg-surface/90 px-6 py-3 backdrop-blur sm:px-10">
-				<div className="flex flex-wrap gap-1">
-					{TABS.map((t) => (
-						<button
-							key={t.id}
-							onClick={() => setTab(t.id)}
-							className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-								tab === t.id
-									? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
-									: "text-muted hover:bg-black/5 dark:hover:bg-white/5"
-							}`}
-						>
-							{t.label}
-						</button>
-					))}
-				</div>
+			<div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-border bg-card/90 px-6 py-3 backdrop-blur-sm sm:px-10">
+				<Tabs value={tab} onValueChange={(v) => setTab(v as TabId)}>
+					<TabsList>
+						{TABS.map((t) => (
+							<TabsTrigger key={t.id} value={t.id}>
+								{t.label}
+							</TabsTrigger>
+						))}
+					</TabsList>
+				</Tabs>
 				<div className="ml-auto flex flex-wrap items-center gap-2">
-					<button
-						onClick={exportXlsx}
-						disabled={exporting}
-						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-					>
-						{exporting ? "Building…" : "⬇ Export .xlsx"}
-					</button>
-					<button
-						onClick={openSend}
-						disabled={saving}
-						className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
-					>
-						✉ Send
-					</button>
+					<Button type="button" variant="outline" size="sm" onClick={exportXlsx} disabled={exporting}>
+						{exporting ? <Loader2 className="animate-spin" /> : <Download />}
+						{exporting ? "Building…" : "Export .xlsx"}
+					</Button>
+					<Button type="button" variant="outline" size="sm" onClick={openSend} disabled={saving}>
+						<Mail />
+						Send
+					</Button>
 					{mode === "edit" && (
-						<button
-							onClick={remove}
-							disabled={deleting}
-							className="rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
-						>
+						<Button type="button" variant="destructive" size="sm" onClick={remove} disabled={deleting}>
+							<Trash2 />
 							{deleting ? "Deleting…" : "Delete"}
-						</button>
+						</Button>
 					)}
-					<button
+					<Button
+						type="button"
+						size="sm"
 						onClick={() => saveReport(true)}
 						disabled={saving || (!dirty && persistedRef.current)}
-						className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
 					>
-						{saving ? "Saving…" : dirty ? "Save" : savedFlag ? "✓ Saved" : "Saved"}
-					</button>
+						{saving ? <Loader2 className="animate-spin" /> : dirty ? null : <Check />}
+						{saving ? "Saving…" : dirty ? "Save" : savedFlag ? "Saved" : "Saved"}
+					</Button>
 				</div>
 			</div>
 
 			<div className="px-6 py-6 sm:px-10">
 				{error && (
-					<div role="alert" className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-						{error}
-					</div>
+					<Alert variant="destructive" role="alert" className="mb-4">
+						<AlertCircle />
+						<AlertDescription>{error}</AlertDescription>
+					</Alert>
 				)}
 				{notice && (
-					<div className="mb-4 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm text-teal-700 dark:text-teal-300">
-						{notice}
-					</div>
+					<Alert className="mb-4 border-emerald-500/30 bg-emerald-500/5">
+						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
+						<AlertDescription className="text-emerald-700 dark:text-emerald-300">{notice}</AlertDescription>
+					</Alert>
 				)}
 
 				{tab === "cover" && (
@@ -439,19 +468,16 @@ function OfficerPicker({
 								))}
 							</select>
 							{values.length > 1 && (
-								<button
-									onClick={() => remove(i)}
-									className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
-									title="Remove officer"
-								>
-									✕
+								<button type="button" onClick={() => remove(i)} className={iconBtnCls} title="Remove officer">
+									<X className="size-3.5" />
 								</button>
 							)}
 						</div>
 					);
 				})}
-				<button onClick={add} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
-					+ Add officer
+				<button type="button" onClick={add} className={addBtnCls}>
+					<Plus className="size-3.5" />
+					Add officer
 				</button>
 			</div>
 		</Field>
@@ -475,35 +501,38 @@ function CoverTab({
 	// Ensure the signed-in officer is always an option even if not in the directory.
 	const outgoingOpts = currentUserName && !officerNames.includes(currentUserName) ? [currentUserName, ...officerNames] : officerNames;
 	return (
-		<div className="max-w-2xl space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+		<Card className="max-w-2xl space-y-4 p-6">
 			<Field label="Department">
-				<input className={inputCls} value={c.department} onChange={(e) => setCover({ department: e.target.value })} />
+				<Input value={c.department} onChange={(e) => setCover({ department: e.target.value })} />
 			</Field>
 			<Field label="Handover Type">
-				<select className={inputCls} value={c.handoverType} onChange={(e) => setCover({ handoverType: e.target.value as HandoverType })}>
-					{HANDOVER_TYPES.map((h) => (
-						<option key={h} value={h}>
-							{h}
-						</option>
-					))}
-				</select>
+				<Select value={c.handoverType} onValueChange={(v) => setCover({ handoverType: v as HandoverType })}>
+					<SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+					<SelectContent>
+						{HANDOVER_TYPES.map((h) => (
+							<SelectItem key={h} value={h}>
+								{h}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 			</Field>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<Field label="Date">
-					<input type="date" className={inputCls} value={c.date} onChange={(e) => setCover({ date: e.target.value })} />
+					<Input type="date" value={c.date} onChange={(e) => setCover({ date: e.target.value })} />
 				</Field>
 				<Field label="Time of Handover">
-					<input className={inputCls} placeholder="e.g. 8:30pm" value={c.timeOfHandover} onChange={(e) => setCover({ timeOfHandover: e.target.value })} />
+					<Input placeholder="e.g. 8:30pm" value={c.timeOfHandover} onChange={(e) => setCover({ timeOfHandover: e.target.value })} />
 				</Field>
 			</div>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<OfficerPicker label="Outgoing Officer(s)" values={c.outgoingOfficers} options={outgoingOpts} onChange={(list) => setOfficers("outgoingOfficers", list)} />
 				<OfficerPicker label="Incoming Officer(s)" values={c.incomingOfficers} options={officerNames} onChange={(list) => setOfficers("incomingOfficers", list)} />
 			</div>
-			<p className="text-xs text-muted">
+			<p className="text-xs text-muted-foreground">
 				Officers are chosen from the user list. Signature lines are added as blank rows in the exported Excel.
 			</p>
-		</div>
+		</Card>
 	);
 }
 
@@ -541,81 +570,77 @@ function SummaryTab({
 	return (
 		<div className="space-y-5">
 			{report.summary.map((cat) => (
-				<div key={cat.id} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+				<Card key={cat.id} className="gap-0 overflow-hidden py-0">
 					<div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
 						<input
 							value={cat.task}
 							onChange={(e) => setCategory(cat.id, { task: e.target.value })}
-							className="rounded-md border border-border bg-background px-2 py-1.5 text-sm font-semibold uppercase tracking-wide outline-none focus:ring-2 focus:ring-indigo-500/40"
+							className={cn(inputCls, "w-auto font-semibold uppercase tracking-wide")}
 						/>
 						<input
 							value={cat.description}
 							placeholder="Description (optional)"
 							onChange={(e) => setCategory(cat.id, { description: e.target.value })}
-							className="min-w-[200px] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+							className={cn(inputCls, "min-w-[200px] flex-1")}
 						/>
-						<button onClick={() => removeCategory(cat.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove category">
-							Remove category
+						<button type="button" onClick={() => removeCategory(cat.id)} className={cn(iconBtnCls, "text-xs")} title="Remove category">
+							<Trash2 className="size-3.5" />
 						</button>
 					</div>
-					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead>
-								<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-									<th className="px-3 py-2 font-semibold">Details</th>
-									<th className="px-3 py-2 font-semibold">Summary / Findings</th>
-									<th className="px-3 py-2 font-semibold">Status</th>
-									<th className="px-2 py-2"></th>
-								</tr>
-							</thead>
-							<tbody>
-								{cat.rows.map((row) => (
-									<tr key={row.id} className="border-t border-border">
-										<td className="px-3 py-1.5">
-											<input className={inputCls} value={row.detail} onChange={(e) => setRow(cat.id, row.id, { detail: e.target.value })} />
-										</td>
-										<td className="px-3 py-1.5">
-											<input className={inputCls} value={row.findings} onChange={(e) => setRow(cat.id, row.id, { findings: e.target.value })} />
-										</td>
-										<td className="px-3 py-1.5">
-											<StatusSelect value={row.status} onChange={(v) => setRow(cat.id, row.id, { status: v })} />
-										</td>
-										<td className="px-2 py-1.5 text-center">
-											<button onClick={() => removeRow(cat.id, row.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove row">
-												✕
-											</button>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<Table>
+						<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead className="text-[11px] uppercase tracking-wide">Details</TableHead>
+								<TableHead className="text-[11px] uppercase tracking-wide">Summary / Findings</TableHead>
+								<TableHead className="w-40 text-[11px] uppercase tracking-wide">Status</TableHead>
+								<TableHead className="w-10" />
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{cat.rows.map((row) => (
+								<TableRow key={row.id}>
+									<TableCell>
+										<input className={inputCls} value={row.detail} onChange={(e) => setRow(cat.id, row.id, { detail: e.target.value })} />
+									</TableCell>
+									<TableCell>
+										<input className={inputCls} value={row.findings} onChange={(e) => setRow(cat.id, row.id, { findings: e.target.value })} />
+									</TableCell>
+									<TableCell>
+										<StatusSelect value={row.status} onChange={(v) => setRow(cat.id, row.id, { status: v })} />
+									</TableCell>
+									<TableCell className="text-center">
+										<button type="button" onClick={() => removeRow(cat.id, row.id)} className={iconBtnCls} title="Remove row">
+											<X className="size-3.5" />
+										</button>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
 					<div className="border-t border-border px-4 py-2">
-						<button onClick={() => addRow(cat.id)} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
-							+ Add row
+						<button type="button" onClick={() => addRow(cat.id)} className={addBtnCls}>
+							<Plus className="size-3.5" />
+							Add row
 						</button>
 					</div>
-				</div>
+				</Card>
 			))}
 
-			<div className="flex items-center gap-2">
-				<label className="text-sm font-medium text-foreground">Add category:</label>
-				<select
-					value=""
-					onChange={(e) => {
-						if (e.target.value) addCategory(e.target.value);
-						e.target.value = "";
-					}}
-					className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
-				>
-					<option value="">Choose…</option>
-					{CATEGORY_PRESETS.map((p) => (
-						<option key={p.key} value={p.key}>
-							{p.label}
-						</option>
-					))}
-					<option value="custom">Custom (blank)</option>
-				</select>
+			<div className="flex items-center gap-3">
+				<Label className="shrink-0">Add category:</Label>
+				<Select value="" onValueChange={(v) => v && addCategory(v)}>
+					<SelectTrigger className="w-56">
+						<SelectValue placeholder="Choose…" />
+					</SelectTrigger>
+					<SelectContent>
+						{CATEGORY_PRESETS.map((p) => (
+							<SelectItem key={p.key} value={p.key}>
+								{p.label}
+							</SelectItem>
+						))}
+						<SelectItem value="custom">Custom (blank)</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 		</div>
 	);
@@ -643,51 +668,50 @@ function FraudTab({
 	];
 	return (
 		<div className="space-y-3">
-			<p className="text-sm text-muted">Log any fraud incidents detected during the shift.</p>
-			<div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
-				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="text-left text-[11px] uppercase tracking-wide text-muted">
-								{cols.map((c) => (
-									<th key={c.key} className="px-3 py-2 font-semibold">
-										{c.label}
-									</th>
-								))}
-								<th className="px-2 py-2"></th>
-							</tr>
-						</thead>
-						<tbody>
-							{report.fraudAlerts.map((a) => (
-								<tr key={a.id} className="border-t border-border">
-									{cols.map((c) => (
-										<td key={c.key} className="px-3 py-1.5">
-											<input className={inputCls} value={a[c.key]} onChange={(e) => setAlert(a.id, { [c.key]: e.target.value })} />
-										</td>
-									))}
-									<td className="px-2 py-1.5 text-center">
-										<button onClick={() => removeAlert(a.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove row">
-											✕
-										</button>
-									</td>
-								</tr>
+			<p className="text-sm text-muted-foreground">Log any fraud incidents detected during the shift.</p>
+			<Card className="gap-0 overflow-hidden py-0">
+				<Table>
+					<TableHeader>
+						<TableRow className="hover:bg-transparent">
+							{cols.map((c) => (
+								<TableHead key={c.key} className="text-[11px] uppercase tracking-wide">
+									{c.label}
+								</TableHead>
 							))}
-							{report.fraudAlerts.length === 0 && (
-								<tr>
-									<td colSpan={cols.length + 1} className="px-3 py-6 text-center text-sm text-muted">
-										No incidents logged.
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
-				</div>
+							<TableHead className="w-10" />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{report.fraudAlerts.map((a) => (
+							<TableRow key={a.id}>
+								{cols.map((c) => (
+									<TableCell key={c.key}>
+										<input className={inputCls} value={a[c.key]} onChange={(e) => setAlert(a.id, { [c.key]: e.target.value })} />
+									</TableCell>
+								))}
+								<TableCell className="text-center">
+									<button type="button" onClick={() => removeAlert(a.id)} className={iconBtnCls} title="Remove row">
+										<X className="size-3.5" />
+									</button>
+								</TableCell>
+							</TableRow>
+						))}
+						{report.fraudAlerts.length === 0 && (
+							<TableRow className="hover:bg-transparent">
+								<TableCell colSpan={cols.length + 1} className="py-6 text-center text-sm text-muted-foreground">
+									No incidents logged.
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
 				<div className="border-t border-border px-4 py-2">
-					<button onClick={addAlert} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
-						+ Add incident
+					<button type="button" onClick={addAlert} className={addBtnCls}>
+						<Plus className="size-3.5" />
+						Add incident
 					</button>
 				</div>
-			</div>
+			</Card>
 		</div>
 	);
 }
@@ -706,22 +730,25 @@ function RecsTab({
 }) {
 	return (
 		<div className="max-w-2xl space-y-3">
-			<p className="text-sm text-muted">Suggestions or priority actions for the incoming shift.</p>
-			<div className="space-y-2 rounded-2xl border border-border bg-surface p-4 shadow-sm">
+			<p className="text-sm text-muted-foreground">Suggestions or priority actions for the incoming shift.</p>
+			<Card className="space-y-2 p-4">
 				{report.recommendations.map((rec, i) => (
 					<div key={rec.id} className="flex items-center gap-2">
-						<span className="tnum w-6 text-right text-sm text-muted">{i + 1}.</span>
+						<span className="tnum w-6 text-right text-sm text-muted-foreground">{i + 1}.</span>
 						<input className={inputCls} value={rec.text} onChange={(e) => setRec(rec.id, e.target.value)} />
-						<button onClick={() => removeRec(rec.id)} className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400" title="Remove">
-							✕
+						<button type="button" onClick={() => removeRec(rec.id)} className={iconBtnCls} title="Remove">
+							<X className="size-3.5" />
 						</button>
 					</div>
 				))}
-				{report.recommendations.length === 0 && <p className="py-4 text-center text-sm text-muted">No recommendations yet.</p>}
-				<button onClick={addRec} className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-300">
-					+ Add recommendation
+				{report.recommendations.length === 0 && (
+					<p className="py-4 text-center text-sm text-muted-foreground">No recommendations yet.</p>
+				)}
+				<button type="button" onClick={addRec} className={addBtnCls}>
+					<Plus className="size-3.5" />
+					Add recommendation
 				</button>
-			</div>
+			</Card>
 		</div>
 	);
 }
@@ -748,7 +775,8 @@ function SendModal({
 
 	// Change the recipient: refresh the greeting to match, unless the user has
 	// already customized the message.
-	const onSelectRecipient = (id: string) => {
+	const onSelectRecipient = (id: string | null) => {
+		if (!id) return;
 		setToUserId(id);
 		if (!messageEdited) {
 			const u = users.find((x) => x.id === id);
@@ -801,72 +829,79 @@ function SendModal({
 	};
 
 	return (
-		<div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
-			<div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
-				<h2 className="text-base font-semibold text-foreground">Send report</h2>
-				<p className="mb-4 text-xs text-muted">The styled .xlsx is attached to the email.</p>
+		<Dialog open onOpenChange={(v) => !v && onClose()}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Send report</DialogTitle>
+					<DialogDescription>The styled .xlsx is attached to the email.</DialogDescription>
+				</DialogHeader>
 
-				{err && <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">{err}</div>}
+				{err && (
+					<Alert variant="destructive">
+						<AlertCircle />
+						<AlertDescription>{err}</AlertDescription>
+					</Alert>
+				)}
 
 				<div className="space-y-4">
-					<div>
-						<label className="mb-1 block text-sm font-medium text-foreground">To</label>
-						<select className={inputCls} value={toUserId} onChange={(e) => onSelectRecipient(e.target.value)}>
-							{users.map((u) => (
-								<option key={u.id} value={u.id}>
-									{fullName(u)} ({u.email})
-								</option>
-							))}
-						</select>
-					</div>
+					<Field label="To">
+						<Select value={toUserId} onValueChange={onSelectRecipient}>
+							<SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+							<SelectContent>
+								{users.map((u) => (
+									<SelectItem key={u.id} value={u.id}>
+										{fullName(u)} ({u.email})
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</Field>
 
 					<label className="flex items-center gap-2 text-sm text-foreground">
-						<input type="checkbox" checked={ccAll} onChange={(e) => setCcAll(e.target.checked)} />
+						<Checkbox checked={ccAll} onCheckedChange={(v) => setCcAll(v === true)} />
 						Copy all other users
 					</label>
 
 					{!ccAll && (
-						<div>
-							<label className="mb-1 block text-sm font-medium text-foreground">CC (optional)</label>
+						<Field label="CC (optional)">
 							<div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
 								{users
 									.filter((u) => u.id !== toUserId)
 									.map((u) => (
-										<label key={u.id} className="flex items-center gap-2 text-sm text-muted">
-											<input type="checkbox" checked={ccIds.has(u.id)} onChange={() => toggleCc(u.id)} />
+										<label key={u.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+											<Checkbox checked={ccIds.has(u.id)} onCheckedChange={() => toggleCc(u.id)} />
 											{fullName(u)}
 										</label>
 									))}
 								{users.filter((u) => u.id !== toUserId).length === 0 && (
-									<p className="text-xs text-muted">No other users.</p>
+									<p className="text-xs text-muted-foreground">No other users.</p>
 								)}
 							</div>
-						</div>
+						</Field>
 					)}
 
-					<div>
-						<label className="mb-1 block text-sm font-medium text-foreground">Message</label>
-						<textarea
-							className={`${inputCls} h-28`}
+					<Field label="Message">
+						<Textarea
+							className="h-28"
 							value={message}
 							onChange={(e) => {
 								setMessage(e.target.value);
 								setMessageEdited(true);
 							}}
 						/>
-					</div>
+					</Field>
 				</div>
 
-				<div className="mt-5 flex justify-end gap-2">
-					<button onClick={onClose} className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5">
+				<DialogFooter>
+					<Button type="button" variant="outline" onClick={onClose}>
 						Cancel
-					</button>
-					<button onClick={send} disabled={sending} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+					</Button>
+					<Button type="button" onClick={send} disabled={sending}>
+						{sending && <Loader2 className="animate-spin" />}
 						{sending ? "Sending…" : "Send report"}
-					</button>
-				</div>
-			</div>
-		</div>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

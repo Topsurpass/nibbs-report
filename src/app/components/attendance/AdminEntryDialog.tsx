@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { adminEntrySchema, type AdminEntryInput } from "@/lib/validators/attendance";
 import {
 	formatLagosTime,
@@ -13,6 +14,19 @@ import {
 import { personName } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import { requestNightRemoval } from "./removeNight";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
 
 /**
  * Admin correction for one night.
@@ -56,13 +70,13 @@ export default function AdminEntryDialog({
 }: Props) {
 	const [serverError, setServerError] = useState<string | null>(null);
 	const [removing, setRemoving] = useState(false);
-	const dialogRef = useRef<HTMLDivElement>(null);
 
 	const {
 		register,
 		handleSubmit,
 		reset,
 		control,
+		setValue,
 		formState: { errors, isSubmitting },
 	} = useForm<AdminEntryInput>({
 		resolver: zodResolver(adminEntrySchema),
@@ -121,15 +135,6 @@ export default function AdminEntryDialog({
 		setServerError(null);
 	}
 
-	useEffect(() => {
-		if (!open) return;
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
-		};
-		document.addEventListener("keydown", onKeyDown);
-		return () => document.removeEventListener("keydown", onKeyDown);
-	}, [open, onClose]);
-
 	if (!open) return null;
 
 	const onSubmit = handleSubmit(async (values) => {
@@ -178,138 +183,101 @@ export default function AdminEntryDialog({
 		}
 	};
 
-	const field =
-		"w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40";
-	const errorText = "mt-1 text-xs text-red-600 dark:text-red-400";
-
 	return (
-		<div className="no-print fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
-			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden />
-
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="admin-entry-title"
-				className="relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl sm:rounded-2xl"
-			>
-				<div className="border-b border-border px-6 py-4">
-					<h2 id="admin-entry-title" className="text-base font-bold text-foreground">
-						{existing ? "Correct this night" : "Add a night"}
-					</h2>
-					<p className="mt-0.5 text-xs text-muted">
+		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+			<DialogContent className="no-print sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>{existing ? "Correct this night" : "Add a night"}</DialogTitle>
+					<DialogDescription>
 						{formatNightLabel(formNight)} · saved as an admin entry, stamped with your name
-					</p>
-				</div>
+					</DialogDescription>
+				</DialogHeader>
 
-				<form onSubmit={onSubmit} className="flex-1 space-y-4 overflow-y-auto px-6 py-5" noValidate>
+				<form onSubmit={onSubmit} className="space-y-4" noValidate>
 					{serverError && (
-						<div
-							role="alert"
-							className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-						>
-							{serverError}
-						</div>
+						<Alert variant="destructive" role="alert">
+							<AlertDescription>{serverError}</AlertDescription>
+						</Alert>
 					)}
 
-					<div className="grid grid-cols-2 gap-3">
-						<div>
-							<label
-								htmlFor="nightDate"
-								className="mb-1 block text-sm font-medium text-foreground"
-							>
-								Night
-							</label>
-							<input id="nightDate" type="date" {...register("nightDate")} className={field} />
-							{errors.nightDate && <p className={errorText}>{errors.nightDate.message}</p>}
-						</div>
-						<div />
+					<div className="space-y-1.5">
+						<Label htmlFor="nightDate">Night</Label>
+						<Input id="nightDate" type="date" aria-invalid={!!errors.nightDate} {...register("nightDate")} />
+						{errors.nightDate && <p className="text-xs text-destructive">{errors.nightDate.message}</p>}
 					</div>
 
-					<div>
-						<label htmlFor="userId" className="mb-1 block text-sm font-medium text-foreground">
-							Analyst
-						</label>
-						<select id="userId" {...register("userId")} className={field}>
-							{people.map((person) => (
-								<option key={person.id} value={person.id}>
-									{personName(person)}
-								</option>
-							))}
-						</select>
-						{errors.userId && <p className={errorText}>{errors.userId.message}</p>}
+					<div className="space-y-1.5">
+						<Label htmlFor="userId">Analyst</Label>
+						<Select
+							value={selectedUser}
+							onValueChange={(v) => v && setValue("userId", v, { shouldDirty: true, shouldValidate: true })}
+						>
+							<SelectTrigger id="userId" className="w-full"><SelectValue /></SelectTrigger>
+							<SelectContent>
+								{people.map((person) => (
+									<SelectItem key={person.id} value={person.id}>
+										{personName(person)}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						{errors.userId && <p className="text-xs text-destructive">{errors.userId.message}</p>}
 					</div>
 
 					<div className="grid grid-cols-2 gap-3">
-						<div>
-							<label htmlFor="signedIn" className="mb-1 block text-sm font-medium text-foreground">
-								Signed in
-							</label>
-							<input id="signedIn" type="time" {...register("signedIn")} className={field} />
-							{errors.signedIn && <p className={errorText}>{errors.signedIn.message}</p>}
+						<div className="space-y-1.5">
+							<Label htmlFor="signedIn">Signed in</Label>
+							<Input id="signedIn" type="time" aria-invalid={!!errors.signedIn} {...register("signedIn")} />
+							{errors.signedIn && <p className="text-xs text-destructive">{errors.signedIn.message}</p>}
 						</div>
-						<div>
-							<label htmlFor="signedOut" className="mb-1 block text-sm font-medium text-foreground">
-								Signed out
-							</label>
-							<input id="signedOut" type="time" {...register("signedOut")} className={field} />
-							{errors.signedOut && <p className={errorText}>{errors.signedOut.message}</p>}
+						<div className="space-y-1.5">
+							<Label htmlFor="signedOut">Signed out</Label>
+							<Input id="signedOut" type="time" aria-invalid={!!errors.signedOut} {...register("signedOut")} />
+							{errors.signedOut && <p className="text-xs text-destructive">{errors.signedOut.message}</p>}
 						</div>
 					</div>
-					<p className="-mt-1 text-xs text-muted">
-						Prefilled with a standard 20:30 → 08:30 shift — adjust either time if it was
-						different. Clear sign-out to record the night as still open, which leaves the
-						hours unknown rather than counting them as zero.
+					<p className="text-xs text-muted-foreground">
+						Prefilled with a standard 20:30 → 08:30 shift — adjust either time if it was different. Clear
+						sign-out to record the night as still open, which leaves the hours unknown rather than counting
+						them as zero.
 					</p>
 
-					<div>
-						<label htmlFor="note" className="mb-1 block text-sm font-medium text-foreground">
-							Note <span className="font-normal text-muted">(optional)</span>
-						</label>
-						<input
-							id="note"
-							type="text"
-							placeholder="Why this was added or changed"
-							{...register("note")}
-							className={field}
-						/>
-						{errors.note && <p className={errorText}>{errors.note.message}</p>}
+					<div className="space-y-1.5">
+						<Label htmlFor="note">
+							Note <span className="font-normal text-muted-foreground">(optional)</span>
+						</Label>
+						<Input id="note" type="text" placeholder="Why this was added or changed" {...register("note")} />
+						{errors.note && <p className="text-xs text-destructive">{errors.note.message}</p>}
 					</div>
 				</form>
 
-				<div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+				<DialogFooter className="sm:justify-between">
 					{existing ? (
-						<button
+						<Button
 							type="button"
+							variant="outline"
 							onClick={removeNight}
 							disabled={removing || isSubmitting}
-							className="rounded-lg border border-red-500/40 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
+							className="border-destructive/40 text-destructive hover:bg-destructive/10"
 						>
+							{removing && <Loader2 className="animate-spin" />}
 							{removing ? "Removing…" : "Remove night"}
-						</button>
+						</Button>
 					) : (
 						<span />
 					)}
 
 					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={onClose}
-							className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-						>
+						<Button type="button" variant="outline" onClick={onClose}>
 							Cancel
-						</button>
-						<button
-							type="button"
-							onClick={onSubmit}
-							disabled={isSubmitting || removing}
-							className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
-						>
+						</Button>
+						<Button type="button" onClick={onSubmit} disabled={isSubmitting || removing}>
+							{isSubmitting && <Loader2 className="animate-spin" />}
 							{isSubmitting ? "Saving…" : "Save night"}
-						</button>
+						</Button>
 					</div>
-				</div>
-			</div>
-		</div>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
