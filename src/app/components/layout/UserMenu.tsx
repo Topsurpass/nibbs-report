@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -43,12 +44,14 @@ export default function UserMenu({ user }: { user: AuthUser }) {
 				</Avatar>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent side="bottom" align="end" className="w-56">
-				<DropdownMenuLabel className="flex flex-col gap-0.5">
-					<span className="font-semibold text-foreground">
-						{user.firstName} {user.lastName}
-					</span>
-					<span className="truncate font-normal text-muted-foreground">{user.email}</span>
-				</DropdownMenuLabel>
+				<DropdownMenuGroup>
+					<DropdownMenuLabel className="flex flex-col gap-0.5">
+						<span className="font-semibold text-foreground">
+							{user.firstName} {user.lastName}
+						</span>
+						<span className="truncate font-normal text-muted-foreground">{user.email}</span>
+					</DropdownMenuLabel>
+				</DropdownMenuGroup>
 				{user.role === "admin" && (
 					<>
 						<DropdownMenuSeparator />
