@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Compass, AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
 import PageHeader from "@/app/components/layout/PageHeader";
+import Stepper from "@/app/components/layout/Stepper";
 import FileDropzone from "@/app/components/FileDropzone";
 import BankGroupTable from "./BankGroupTable";
 import ColumnPicker from "./ColumnPicker";
@@ -302,6 +303,16 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 					</Button>
 				}
 			/>
+
+			<Card className="px-5 py-4">
+				<Stepper
+					steps={[
+						{ label: "Upload spool", description: "Read the export in your browser" },
+						{ label: "Review & send", description: "Confirm columns, then split by bank" },
+					]}
+					current={preview ? 1 : 0}
+				/>
+			</Card>
 
 			<div className="space-y-6">
 				<FileDropzone

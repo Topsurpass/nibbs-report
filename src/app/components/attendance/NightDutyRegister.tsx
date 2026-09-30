@@ -1,10 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Compass, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus, Moon } from "lucide-react";
+import {
+	Compass,
+	ChevronLeft,
+	ChevronRight,
+	Download,
+	Image as ImageIcon,
+	Plus,
+	Moon,
+	CalendarDays,
+	Clock,
+	ListChecks,
+	Users as UsersIcon,
+} from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useTour } from "@/hooks/useTour";
 import PageHeader from "@/app/components/layout/PageHeader";
+import StatTile from "@/app/components/layout/StatTile";
 import TourModal from "@/app/components/onboarding/TourModal";
 import AdminEntryDialog from "./AdminEntryDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
@@ -18,6 +31,7 @@ import { buildSummaryImage } from "@/lib/attendance/exportAttendance";
 import {
 	addMonths,
 	currentMonth,
+	formatDuration,
 	formatMonth,
 	formatNightLabel,
 	nightDateFor,
@@ -25,12 +39,13 @@ import {
 	type MonthKey,
 	type NightDate,
 } from "@/lib/attendance/nightWindow";
-import { personName, summarizeMonth } from "@/lib/attendance/summary";
+import { personName, summarizeMonth, totalsOf } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import type { AuthUser } from "@/types/user";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 /**
  * The night-duty register.
@@ -141,6 +156,7 @@ export default function NightDutyRegister({
 	}, [loading, viewKey, month, scope]);
 
 	const summaries = useMemo(() => summarizeMonth(people, entries), [people, entries]);
+	const totals = useMemo(() => totalsOf(summaries), [summaries]);
 
 	const existingFor = useCallback(
 		(userId: string, nightDate: NightDate) =>
@@ -223,6 +239,18 @@ export default function NightDutyRegister({
 
 			<SignInCard initialNightDate={initialNightDate} initialEntry={initialEntry} onChanged={refresh} />
 
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+				<StatTile icon={CalendarDays} label="Nights recorded" value={loading ? "—" : totals.nights} />
+				<StatTile icon={Clock} label="Total hours" value={loading ? "—" : formatDuration(totals.totalMinutes)} />
+				<StatTile
+					icon={ListChecks}
+					label="Still open"
+					value={loading ? "—" : totals.openNights}
+					tone={totals.openNights > 0 ? "warning" : "default"}
+				/>
+				<StatTile icon={UsersIcon} label={scope === "all" ? "Analysts active" : "You"} value={loading ? "—" : totals.active} />
+			</div>
+
 			<Card className="gap-0 py-0">
 				<div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
 					<div className="flex items-center gap-1">
@@ -302,45 +330,43 @@ export default function NightDutyRegister({
 					</Alert>
 				)}
 
-				<div className="px-5 py-5">
-					<AttendanceCalendar
-						month={month}
-						entries={entries}
-						scope={scope}
-						now={now}
-						onPickNight={isAdmin ? (night) => openDialog(night) : undefined}
-					/>
-				</div>
-			</Card>
+				<Tabs defaultValue="calendar" className="gap-0">
+					<TabsList className="mx-5 mt-4 w-fit">
+						<TabsTrigger value="calendar">Calendar</TabsTrigger>
+						<TabsTrigger value="summary">{scope === "all" ? "Per analyst" : "Your month"}</TabsTrigger>
+						<TabsTrigger value="log">Every night</TabsTrigger>
+					</TabsList>
 
-			<Card className="gap-0 py-0">
-				<CardHeader className="border-b border-border py-4">
-					<CardTitle>{scope === "all" ? "Nights per analyst" : "Your month"}</CardTitle>
-					<CardDescription>
-						Hours count signed-out nights only — an open night is unknown, not zero. This table keeps
-						everyone; the Excel and image downloads list only analysts with at least one night.
-					</CardDescription>
-				</CardHeader>
-				<div className="px-5 py-4">
-					<MonthSummaryTable summaries={summaries} showEmail={scope === "all"} />
-				</div>
-			</Card>
+					<TabsContent value="calendar" className="px-5 py-5">
+						<AttendanceCalendar
+							month={month}
+							entries={entries}
+							scope={scope}
+							now={now}
+							onPickNight={isAdmin ? (night) => openDialog(night) : undefined}
+						/>
+					</TabsContent>
 
-			<Card className="gap-0 py-0">
-				<CardHeader className="border-b border-border py-4">
-					<CardTitle>Every night</CardTitle>
-				</CardHeader>
-				<div className="px-5 py-2">
-					<NightList
-						entries={entries}
-						people={people}
-						showAnalyst={scope === "all"}
-						onEdit={isAdmin ? (night, userId) => openDialog(night, userId) : undefined}
-						onRemove={isAdmin ? removeNight : undefined}
-						removingId={removingId}
-						resetKey={viewKey}
-					/>
-				</div>
+					<TabsContent value="summary" className="px-5 py-5">
+						<p className="mb-3 text-xs text-muted-foreground">
+							Hours count signed-out nights only — an open night is unknown, not zero. This table keeps
+							everyone; the Excel and image downloads list only analysts with at least one night.
+						</p>
+						<MonthSummaryTable summaries={summaries} showEmail={scope === "all"} />
+					</TabsContent>
+
+					<TabsContent value="log" className="px-5 py-3">
+						<NightList
+							entries={entries}
+							people={people}
+							showAnalyst={scope === "all"}
+							onEdit={isAdmin ? (night, userId) => openDialog(night, userId) : undefined}
+							onRemove={isAdmin ? removeNight : undefined}
+							removingId={removingId}
+							resetKey={viewKey}
+						/>
+					</TabsContent>
+				</Tabs>
 			</Card>
 
 			{isAdmin && dialogNight && (

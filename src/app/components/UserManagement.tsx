@@ -3,17 +3,50 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { RefreshCw, Loader2, CircleCheck, TriangleAlert, CircleX, Users } from "lucide-react";
+import {
+	RefreshCw,
+	Loader2,
+	CircleCheck,
+	TriangleAlert,
+	CircleX,
+	Users,
+	UserPlus,
+	MoreHorizontal,
+	ShieldCheck,
+	ShieldOff,
+	KeyRound,
+	Trash2,
+	Clock,
+	UserCheck,
+} from "lucide-react";
 import { createUserSchema, type CreateUserValues } from "@/lib/validators/user";
 import type { AuthUser } from "@/types/user";
 import PageHeader from "./layout/PageHeader";
+import StatTile from "./layout/StatTile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -36,6 +69,10 @@ const BANNER_STYLES: Record<Banner["kind"], { wrapCls: string; textCls: string; 
 	error: { wrapCls: "border-destructive/30 bg-destructive/5", textCls: "text-destructive", icon: CircleX },
 };
 
+function initialsOf(u: AuthUser) {
+	return `${u.firstName[0] ?? ""}${u.lastName[0] ?? ""}`.toUpperCase() || "?";
+}
+
 /**
  * Admin-only account management (the "sign up" surface). Creating a user
  * generates a one-time password server-side and emails it; the analyst is forced
@@ -47,6 +84,7 @@ export default function UserManagement({ currentUserId }: Props) {
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [banner, setBanner] = useState<Banner | null>(null);
 	const [busyId, setBusyId] = useState<string | null>(null);
+	const [createOpen, setCreateOpen] = useState(false);
 
 	const {
 		register,
@@ -101,6 +139,7 @@ export default function UserManagement({ currentUserId }: Props) {
 			}
 			setUsers((u) => [...u, data.user]);
 			resetForm();
+			setCreateOpen(false);
 			setBanner(
 				data.emailed
 					? { kind: "success", text: `Account created. Credentials emailed to ${data.user.email}.` }
@@ -181,6 +220,7 @@ export default function UserManagement({ currentUserId }: Props) {
 	};
 
 	const adminCount = users.filter((u) => u.role === "admin").length;
+	const pendingCount = users.filter((u) => u.mustChangePassword).length;
 	const bannerStyle = banner ? BANNER_STYLES[banner.kind] : null;
 	const BannerIcon = bannerStyle?.icon;
 
@@ -191,24 +231,181 @@ export default function UserManagement({ currentUserId }: Props) {
 				eyebrow="Configuration · Admin"
 				title="User Management"
 				description="Create analyst accounts. The system generates a one-time password and emails it; the analyst sets their own password on first sign-in."
+				actions={
+					<Button type="button" onClick={() => setCreateOpen(true)}>
+						<UserPlus className="size-4" />
+						New analyst
+					</Button>
+				}
 			/>
 
-			<div className="space-y-6">
-				{banner && bannerStyle && BannerIcon && (
-					<Alert role="alert" className={cn(bannerStyle.wrapCls, bannerStyle.textCls)}>
-						<BannerIcon />
-						<AlertDescription className={bannerStyle.textCls}>{banner.text}</AlertDescription>
-					</Alert>
-				)}
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+				<StatTile icon={Users} label="Accounts" value={loading ? "—" : users.length} />
+				<StatTile icon={ShieldCheck} label="Admins" value={loading ? "—" : adminCount} />
+				<StatTile
+					icon={Clock}
+					label="Pending first login"
+					value={loading ? "—" : pendingCount}
+					tone={pendingCount > 0 ? "warning" : "default"}
+				/>
+				<StatTile
+					icon={UserCheck}
+					label="Active"
+					value={loading ? "—" : users.length - pendingCount}
+					tone="success"
+				/>
+			</div>
 
-				{/* Create analyst */}
-				<Card>
-					<CardHeader>
-						<CardTitle>Create analyst account</CardTitle>
-						<CardDescription>They receive an email with a temporary password and a sign-in link.</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<form onSubmit={onCreate} className="grid gap-4 sm:grid-cols-3" noValidate>
+			{banner && bannerStyle && BannerIcon && (
+				<Alert role="alert" className={cn(bannerStyle.wrapCls, bannerStyle.textCls, "animate-in fade-in slide-in-from-top-1")}>
+					<BannerIcon />
+					<AlertDescription className={bannerStyle.textCls}>{banner.text}</AlertDescription>
+				</Alert>
+			)}
+
+			{/* User list */}
+			<Card className="gap-0 overflow-hidden py-0">
+				<div className="flex items-center justify-between border-b border-border px-5 py-3">
+					<div>
+						<p className="text-sm font-semibold text-foreground">Accounts</p>
+						<p className="text-xs text-muted-foreground">Everyone with access to the toolkit.</p>
+					</div>
+					<Button type="button" variant="ghost" size="sm" onClick={loadUsers} disabled={loading}>
+						<RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+						Refresh
+					</Button>
+				</div>
+
+				{loading ? (
+					<div className="space-y-0 divide-y divide-border">
+						{[0, 1, 2, 3].map((i) => (
+							<div key={i} className="flex items-center gap-3 px-5 py-3.5">
+								<Skeleton className="size-8 shrink-0 rounded-full" />
+								<div className="flex-1 space-y-1.5">
+									<Skeleton className="h-3.5 w-36" />
+									<Skeleton className="h-3 w-48" />
+								</div>
+								<Skeleton className="h-5 w-16 rounded-full" />
+								<Skeleton className="h-8 w-8 rounded-md" />
+							</div>
+						))}
+					</div>
+				) : loadError ? (
+					<p className="px-5 py-8 text-center text-sm text-destructive">{loadError}</p>
+				) : users.length === 0 ? (
+					<p className="px-5 py-8 text-center text-sm text-muted-foreground">No accounts yet.</p>
+				) : (
+					<Table>
+						<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Name</TableHead>
+								<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Role</TableHead>
+								<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Status</TableHead>
+								<TableHead className="px-5 py-3" />
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{users.map((u, i) => (
+								<TableRow
+									key={u.id}
+									className="animate-in fade-in slide-in-from-bottom-1"
+									style={{ animationDelay: `${Math.min(i, 8) * 30}ms`, animationFillMode: "backwards" }}
+								>
+									<TableCell className="px-5 py-3">
+										<div className="flex items-center gap-3">
+											<Avatar className="size-8 shrink-0">
+												<AvatarFallback className="bg-gradient-to-br from-brand-teal to-primary text-xs font-bold text-white">
+													{initialsOf(u)}
+												</AvatarFallback>
+											</Avatar>
+											<div className="min-w-0">
+												<p className="truncate font-medium text-foreground">
+													{u.firstName} {u.lastName}
+												</p>
+												<p className="truncate text-xs text-muted-foreground">{u.email}</p>
+											</div>
+										</div>
+									</TableCell>
+									<TableCell className="px-5 py-3">
+										<Badge
+											variant={u.role === "admin" ? "default" : "secondary"}
+											className={cn(u.role === "admin" && "bg-primary/15 text-primary")}
+										>
+											{u.role}
+										</Badge>
+									</TableCell>
+									<TableCell className="px-5 py-3">
+										{u.mustChangePassword ? (
+											<span className="text-amber-700 dark:text-amber-300">Pending first login</span>
+										) : (
+											<span className="text-brand-teal">Active</span>
+										)}
+									</TableCell>
+									<TableCell className="px-5 py-3 text-right">
+										<DropdownMenu>
+											<DropdownMenuTrigger
+												render={<Button variant="ghost" size="icon-sm" disabled={busyId === u.id} />}
+											>
+												{busyId === u.id ? (
+													<Loader2 className="size-4 animate-spin" />
+												) : (
+													<MoreHorizontal className="size-4" />
+												)}
+												<span className="sr-only">Actions for {u.email}</span>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-52">
+												{u.role === "analyst" ? (
+													<DropdownMenuItem onClick={() => onSetRole(u, "admin")}>
+														<ShieldCheck className="size-4" />
+														Make admin
+													</DropdownMenuItem>
+												) : (
+													<DropdownMenuItem
+														disabled={adminCount <= 1}
+														onClick={() => onSetRole(u, "analyst")}
+													>
+														<ShieldOff className="size-4" />
+														{adminCount <= 1 ? "Can't remove last admin" : "Revoke admin"}
+													</DropdownMenuItem>
+												)}
+												<DropdownMenuItem onClick={() => onReset(u)}>
+													<KeyRound className="size-4" />
+													Reset password
+												</DropdownMenuItem>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem
+													variant="destructive"
+													disabled={u.id === currentUserId}
+													onClick={() => onDelete(u)}
+												>
+													<Trash2 className="size-4" />
+													{u.id === currentUserId ? "That's you" : "Delete account"}
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				)}
+			</Card>
+
+			{/* Create analyst — modal */}
+			<Dialog
+				open={createOpen}
+				onOpenChange={(v) => {
+					setCreateOpen(v);
+					if (!v) resetForm();
+				}}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Create analyst account</DialogTitle>
+						<DialogDescription>They receive an email with a temporary password and a sign-in link.</DialogDescription>
+					</DialogHeader>
+					<form onSubmit={onCreate} className="space-y-4" noValidate>
+						<div className="grid gap-4 sm:grid-cols-2">
 							<div className="space-y-1.5">
 								<Label htmlFor="firstName">First name</Label>
 								<Input id="firstName" aria-invalid={!!errors.firstName} {...register("firstName")} />
@@ -219,115 +416,24 @@ export default function UserManagement({ currentUserId }: Props) {
 								<Input id="lastName" aria-invalid={!!errors.lastName} {...register("lastName")} />
 								{errors.lastName && <p className="text-xs text-destructive">{errors.lastName.message}</p>}
 							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="email">Email</Label>
-								<Input id="email" type="email" aria-invalid={!!errors.email} {...register("email")} />
-								{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-							</div>
-							<div className="sm:col-span-3">
-								<Button type="submit" disabled={isSubmitting}>
-									{isSubmitting && <Loader2 className="animate-spin" />}
-									{isSubmitting ? "Creating…" : "Create account & email password"}
-								</Button>
-							</div>
-						</form>
-					</CardContent>
-				</Card>
-
-				{/* User list */}
-				<Card className="gap-0 overflow-hidden py-0">
-					<div className="flex items-center justify-between border-b border-border px-5 py-3">
-						<CardTitle>Accounts</CardTitle>
-						<Button type="button" variant="ghost" size="sm" onClick={loadUsers}>
-							<RefreshCw className="size-3.5" />
-							Refresh
-						</Button>
-					</div>
-
-					{loading ? (
-						<p className="px-5 py-8 text-center text-sm text-muted-foreground">Loading accounts…</p>
-					) : loadError ? (
-						<p className="px-5 py-8 text-center text-sm text-destructive">{loadError}</p>
-					) : users.length === 0 ? (
-						<p className="px-5 py-8 text-center text-sm text-muted-foreground">No accounts yet.</p>
-					) : (
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Name</TableHead>
-									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Email</TableHead>
-									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Role</TableHead>
-									<TableHead className="px-5 py-3 text-[11px] uppercase tracking-wide">Status</TableHead>
-									<TableHead className="px-5 py-3 text-right text-[11px] uppercase tracking-wide">Actions</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{users.map((u) => (
-									<TableRow key={u.id}>
-										<TableCell className="px-5 py-3 font-medium text-foreground">
-											{u.firstName} {u.lastName}
-										</TableCell>
-										<TableCell className="px-5 py-3 text-muted-foreground">{u.email}</TableCell>
-										<TableCell className="px-5 py-3">
-											<Badge
-												variant={u.role === "admin" ? "default" : "secondary"}
-												className={cn(u.role === "admin" && "bg-primary/15 text-primary")}
-											>
-												{u.role}
-											</Badge>
-										</TableCell>
-										<TableCell className="px-5 py-3">
-											{u.mustChangePassword ? (
-												<span className="text-amber-700 dark:text-amber-300">Pending first login</span>
-											) : (
-												<span className="text-brand-teal">Active</span>
-											)}
-										</TableCell>
-										<TableCell className="px-5 py-3 text-right">
-											<div className="flex justify-end gap-2">
-												{u.role === "analyst" ? (
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => onSetRole(u, "admin")}
-														disabled={busyId === u.id}
-														className="border-primary/30 text-primary hover:bg-primary/10"
-													>
-														Make admin
-													</Button>
-												) : (
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => onSetRole(u, "analyst")}
-														disabled={busyId === u.id || adminCount <= 1}
-														title={adminCount <= 1 ? "Can't remove the last admin" : "Revoke admin"}
-													>
-														Revoke admin
-													</Button>
-												)}
-												<Button variant="outline" size="sm" onClick={() => onReset(u)} disabled={busyId === u.id}>
-													Reset password
-												</Button>
-												<Button
-													variant="outline"
-													size="sm"
-													onClick={() => onDelete(u)}
-													disabled={busyId === u.id || u.id === currentUserId}
-													title={u.id === currentUserId ? "You can't delete your own account" : "Delete"}
-													className="border-destructive/30 text-destructive hover:bg-destructive/10"
-												>
-													Delete
-												</Button>
-											</div>
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					)}
-				</Card>
-			</div>
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="email">Email</Label>
+							<Input id="email" type="email" aria-invalid={!!errors.email} {...register("email")} />
+							{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+						</div>
+						<DialogFooter>
+							<Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+								Cancel
+							</Button>
+							<Button type="submit" disabled={isSubmitting}>
+								{isSubmitting && <Loader2 className="animate-spin" />}
+								{isSubmitting ? "Creating…" : "Create & email password"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

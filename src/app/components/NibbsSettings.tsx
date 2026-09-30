@@ -2,11 +2,12 @@
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2, Settings } from "lucide-react";
+import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2, Settings, Landmark, Wallet, Scale } from "lucide-react";
 import type { MasterBank } from "@/lib/master";
 import { formatNaira } from "@/lib/format";
 import { mergeBanks, parseMasterFromRows } from "@/lib/importBanks";
 import PageHeader from "./layout/PageHeader";
+import StatTile from "./layout/StatTile";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,6 +167,8 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 
 	const totalCollateral = draft.reduce((s, b) => s + (Number(b.collateral) || 0), 0);
 
+	const avgCollateral = draft.length > 0 ? totalCollateral / draft.length : 0;
+
 	return (
 		<div className="space-y-6 p-4 md:p-6">
 			<PageHeader
@@ -177,18 +180,8 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 						? "Master bank list and posted collateral used by the settlement audit. Edits are saved to the shared database and applied to every audit run."
 						: "Master bank list and posted collateral used by the settlement audit. This list is shared by the whole team, so only an admin can change it."
 				}
-			/>
-
-			<div className="space-y-4">
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<h2 className="text-base font-semibold text-foreground">Master bank list &amp; collateral</h2>
-						<p className="text-xs text-muted-foreground">
-							{draft.length} banks · total collateral{" "}
-							<span className="tnum font-medium">₦{formatNaira(totalCollateral)}</span>
-						</p>
-					</div>
-					{canEdit ? (
+				actions={
+					canEdit ? (
 						<div className="flex flex-wrap items-center gap-2">
 							<input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onImportFile} className="hidden" />
 							<Button
@@ -221,9 +214,22 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 							<Lock className="size-3" />
 							View only · ask an admin to change the list
 						</Badge>
-					)}
-				</div>
+					)
+				}
+			/>
 
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+				<StatTile icon={Landmark} label="Banks configured" value={draft.length} />
+				<StatTile icon={Wallet} label="Total collateral" value={`₦${formatNaira(totalCollateral)}`} />
+				<StatTile
+					icon={Scale}
+					label="Average per bank"
+					value={`₦${formatNaira(avgCollateral)}`}
+					className="col-span-2 sm:col-span-1"
+				/>
+			</div>
+
+			<div className="space-y-4">
 				{saveError && (
 					<Alert variant="destructive" role="alert">
 						<AlertDescription>{saveError}</AlertDescription>
