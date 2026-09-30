@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, SunMoon } from "lucide-react";
 import {
+	Command,
 	CommandDialog,
 	CommandEmpty,
 	CommandGroup,
@@ -56,37 +57,39 @@ export default function CommandMenu({ open, onOpenChange, user }: Props) {
 
 	return (
 		<CommandDialog open={open} onOpenChange={onOpenChange} title="Quick jump" description="Jump to a screen or run an action">
-			<CommandInput placeholder="Jump to a screen or run a command…" />
-			<CommandList>
-				<CommandEmpty>No matches.</CommandEmpty>
-				<CommandGroup heading="Reports">
-					{REPORT_NAV.filter((item) => item.href).map((item) => (
-						<CommandItem key={item.label} value={item.label} disabled={item.soon} onSelect={() => go(item.href!)}>
-							<item.icon />
-							{item.label}
+			<Command>
+				<CommandInput placeholder="Jump to a screen or run a command…" />
+				<CommandList>
+					<CommandEmpty>No matches.</CommandEmpty>
+					<CommandGroup heading="Reports">
+						{REPORT_NAV.filter((item) => item.href).map((item) => (
+							<CommandItem key={item.label} value={item.label} disabled={item.soon} onSelect={() => go(item.href!)}>
+								<item.icon />
+								{item.label}
+							</CommandItem>
+						))}
+					</CommandGroup>
+					<CommandGroup heading="Configuration">
+						{configNav(user).map((item) => (
+							<CommandItem key={item.label} value={item.label} onSelect={() => go(item.href!)}>
+								<item.icon />
+								{item.label}
+							</CommandItem>
+						))}
+					</CommandGroup>
+					<CommandSeparator />
+					<CommandGroup heading="General">
+						<CommandItem value="Toggle theme" onSelect={() => toggle()}>
+							<SunMoon />
+							Toggle light / dark
 						</CommandItem>
-					))}
-				</CommandGroup>
-				<CommandGroup heading="Configuration">
-					{configNav(user).map((item) => (
-						<CommandItem key={item.label} value={item.label} onSelect={() => go(item.href!)}>
-							<item.icon />
-							{item.label}
+						<CommandItem value="Sign out" onSelect={() => void signOut()}>
+							<LogOut />
+							Sign out
 						</CommandItem>
-					))}
-				</CommandGroup>
-				<CommandSeparator />
-				<CommandGroup heading="General">
-					<CommandItem value="Toggle theme" onSelect={() => toggle()}>
-						<SunMoon />
-						Toggle light / dark
-					</CommandItem>
-					<CommandItem value="Sign out" onSelect={() => void signOut()}>
-						<LogOut />
-						Sign out
-					</CommandItem>
-				</CommandGroup>
-			</CommandList>
+					</CommandGroup>
+				</CommandList>
+			</Command>
 		</CommandDialog>
 	);
 }
