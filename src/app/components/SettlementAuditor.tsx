@@ -155,7 +155,7 @@ export default function SettlementAuditor() {
 
 			{/* Guided phase — a readable single column. Results below go full width,
 			    since the reconciliation and breach tables need the room. */}
-			<div className="mx-auto w-full max-w-3xl space-y-6">
+			<div className="mx-auto w-full  space-y-6">
 				<Card className="no-print px-5 py-4">
 					<Stepper steps={STEPS} current={currentStep} />
 				</Card>
