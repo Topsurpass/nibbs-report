@@ -32,6 +32,7 @@ interface UserRow {
 	email: string;
 	role: UserRole;
 	must_change_password: boolean;
+	is_active: boolean;
 	created_at: string;
 }
 
@@ -94,11 +95,12 @@ export async function getSessionUser(): Promise<PublicUser | null> {
 	const rows = (await withRetry(
 		() => sql`
 			select u.id, u.first_name, u.last_name, u.email, u.role,
-			       u.must_change_password, u.created_at
+			       u.must_change_password, u.is_active, u.created_at
 			from nibbs_sessions s
 			join nibbs_users u on u.id = s.user_id
 			where s.token_hash = ${hashToken(token)}
 			  and s.expires_at > now()
+			  and u.is_active = true
 			limit 1
 		`,
 	)) as UserRow[];
@@ -114,6 +116,7 @@ export async function getSessionUser(): Promise<PublicUser | null> {
 		passwordHash: "",
 		role: row.role,
 		mustChangePassword: row.must_change_password,
+		isActive: row.is_active,
 		createdAt: row.created_at,
 	});
 }

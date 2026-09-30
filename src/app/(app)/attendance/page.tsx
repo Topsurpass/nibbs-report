@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import NightDutyRegister from "@/app/components/attendance/NightDutyRegister";
-import { currentMonth, nightDateFor } from "@/lib/attendance/nightWindow";
+import { currentMonth, nightDateFor, signOutNightFor } from "@/lib/attendance/nightWindow";
 import type { AttendanceEntry } from "@/lib/attendance/types";
 import { getSessionUser } from "@/services/auth/sessions";
 import { getEntry } from "@/services/attendance/repository";
@@ -15,6 +15,12 @@ export const dynamic = "force-dynamic";
  * is correct on first paint rather than after a round trip. The night is
  * computed from the server clock — a device with a wrong clock must not be able
  * to open the window early.
+ *
+ * `nightDateFor` alone goes null during the 08:30-09:00 sign-out grace period,
+ * which used to mean a page load *during that exact window* never looked up
+ * the open entry at all — the sign-out button just wasn't there right when
+ * someone was trying to use it. `?? signOutNightFor(now)` matches the same
+ * precedence SignInCard uses client-side, so the two can never disagree.
  */
 export default async function AttendancePage() {
 	const user = await getSessionUser();
@@ -22,7 +28,7 @@ export default async function AttendancePage() {
 
 	const now = new Date();
 	const month = currentMonth(now);
-	const nightDate = nightDateFor(now);
+	const nightDate = nightDateFor(now) ?? signOutNightFor(now);
 
 	let people = [{ id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email }];
 	let entries: AttendanceEntry[] = [];

@@ -153,7 +153,7 @@ test("the JPEG model reports exactly the same totals as the workbook", () => {
 	assert.equal(image.rows.length, 2);
 	assert.equal(image.totals[0], "TOTAL");
 	assert.equal(image.totals[1], String(sheetTotal[2]));
-	assert.equal(image.totals[4], sheetTotal[5]);
+	assert.equal(image.totals[2], sheetTotal[5]);
 	assert.equal(image.fileName, "night-duty-2026-09-all-analysts.jpg");
 	// Column count must match the row shape or the painter draws ragged cells.
 	assert.ok(image.rows.every((r) => r.length === image.columns.length));

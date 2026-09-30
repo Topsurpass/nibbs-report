@@ -9,5 +9,7 @@ export interface AuthUser {
 	email: string;
 	role: UserRole;
 	mustChangePassword: boolean;
+	/** False for a revoked account — see users-repository.ts on the server. */
+	isActive: boolean;
 	createdAt: string;
 }

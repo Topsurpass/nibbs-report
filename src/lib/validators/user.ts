@@ -16,3 +16,13 @@ export const updateRoleSchema = z.object({
 });
 
 export type UpdateRoleValues = z.infer<typeof updateRoleSchema>;
+
+/** Admin revoking or restoring an account's access, without deleting it. */
+export const updateStatusSchema = z.object({
+	isActive: z.boolean(),
+});
+
+export type UpdateStatusValues = z.infer<typeof updateStatusSchema>;
+
+/** PATCH /api/users/[id] accepts either a role change or a status change. */
+export const updateUserSchema = z.union([updateRoleSchema, updateStatusSchema]);

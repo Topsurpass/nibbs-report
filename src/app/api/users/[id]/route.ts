@@ -1,15 +1,17 @@
 import { requireAdmin } from "@/services/auth/guards";
 import {
-	countAdmins,
+	countActiveAdmins,
 	deleteUser,
 	getUserById,
 	resetUserPassword,
+	setUserActive,
 	setUserRole,
 	toPublicUser,
 } from "@/services/auth/users-repository";
+import { deleteUserSessions } from "@/services/auth/sessions";
 import { generatePassword, hashPassword } from "@/services/auth/passwords";
 import { sendPasswordResetEmail } from "@/services/email/mailer";
-import { updateRoleSchema } from "@/lib/validators/user";
+import { updateUserSchema } from "@/lib/validators/user";
 import { getAppBaseUrl } from "@/lib/appUrl";
 
 export const runtime = "nodejs";
@@ -17,8 +19,11 @@ export const runtime = "nodejs";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * Change an account's role (admin only). Blocks demoting the last remaining
- * admin so the app can never be locked out of user management.
+ * Change an account's role, or revoke/restore its access (admin only). Both
+ * kinds of change guard against locking the app out of admin management: you
+ * cannot demote or revoke the last remaining *active* admin, and you cannot
+ * revoke your own access (an admin can still delete their own account if
+ * that's really what they want — see DELETE below).
  */
 export async function PATCH(request: Request, ctx: Ctx) {
 	const auth = await requireAdmin();
@@ -33,9 +38,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
 		return Response.json({ ok: false, error: "Invalid request." }, { status: 400 });
 	}
 
-	const parsed = updateRoleSchema.safeParse(payload);
+	const parsed = updateUserSchema.safeParse(payload);
 	if (!parsed.success) {
-		return Response.json({ ok: false, error: "Invalid role." }, { status: 400 });
+		return Response.json({ ok: false, error: "Invalid request." }, { status: 400 });
 	}
 
 	try {
@@ -44,24 +49,54 @@ export async function PATCH(request: Request, ctx: Ctx) {
 			return Response.json({ ok: false, error: "User not found." }, { status: 404 });
 		}
 
-		if (target.role === "admin" && parsed.data.role === "analyst") {
-			const admins = await countAdmins();
-			if (admins <= 1) {
+		if ("role" in parsed.data) {
+			if (target.role === "admin" && parsed.data.role === "analyst") {
+				const admins = await countActiveAdmins();
+				if (admins <= 1) {
+					return Response.json(
+						{ ok: false, error: "Can't remove the last admin." },
+						{ status: 400 },
+					);
+				}
+			}
+
+			const updated = await setUserRole(id, parsed.data.role);
+			if (!updated) {
+				return Response.json({ ok: false, error: "User not found." }, { status: 404 });
+			}
+			return Response.json({ ok: true, user: toPublicUser(updated) });
+		}
+
+		// Status change (revoke / restore access).
+		if (!parsed.data.isActive) {
+			if (id === auth.user.id) {
 				return Response.json(
-					{ ok: false, error: "Can't remove the last admin." },
+					{ ok: false, error: "You can't revoke your own access." },
 					{ status: 400 },
 				);
 			}
+			if (target.role === "admin") {
+				const admins = await countActiveAdmins();
+				if (admins <= 1) {
+					return Response.json(
+						{ ok: false, error: "Can't revoke the last admin." },
+						{ status: 400 },
+					);
+				}
+			}
 		}
 
-		const updated = await setUserRole(id, parsed.data.role);
+		const updated = await setUserActive(id, parsed.data.isActive);
 		if (!updated) {
 			return Response.json({ ok: false, error: "User not found." }, { status: 404 });
 		}
+		// Revoking must take effect immediately, not just on their next login —
+		// drop any session they're already holding.
+		if (!parsed.data.isActive) await deleteUserSessions(id);
 		return Response.json({ ok: true, user: toPublicUser(updated) });
 	} catch (err) {
-		console.error("[users] role update failed", err);
-		return Response.json({ ok: false, error: "Couldn't update the role." }, { status: 503 });
+		console.error("[users] update failed", err);
+		return Response.json({ ok: false, error: "Couldn't update the account." }, { status: 503 });
 	}
 }
 

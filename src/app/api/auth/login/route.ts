@@ -27,7 +27,9 @@ export async function POST(request: Request) {
 	try {
 		const user = await getUserByEmail(parsed.data.email);
 		const ok = user && (await verifyPassword(parsed.data.password, user.passwordHash));
-		if (!user || !ok) {
+		// A revoked account fails the same generic way as a wrong password —
+		// the response must not reveal that the email exists but is disabled.
+		if (!user || !ok || !user.isActive) {
 			return Response.json(
 				{ ok: false, error: "Invalid email or password." },
 				{ status: 401 },

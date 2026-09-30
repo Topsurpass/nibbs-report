@@ -15,9 +15,16 @@ create table if not exists nibbs_users (
   role                  text not null default 'analyst'
                         check (role in ('admin', 'analyst')),
   must_change_password  boolean not null default true,
+  is_active             boolean not null default true,
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
+
+-- Migration for databases created before `is_active` existed. Revoking access
+-- (an analyst who left, but whose attendance/report history should stay
+-- attributed to them) sets this false rather than deleting the row — deleting
+-- would cascade-delete their night_attendance history via the FK below.
+alter table nibbs_users add column if not exists is_active boolean not null default true;
 
 -- Server-side sessions. The cookie carries a raw random token; only its
 -- SHA-256 is stored here, so a DB leak cannot be replayed as a live session.

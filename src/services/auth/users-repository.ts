@@ -13,6 +13,10 @@ export interface UserRecord {
 	passwordHash: string;
 	role: UserRole;
 	mustChangePassword: boolean;
+	/** False for a revoked account — kept (not deleted) so its attendance and
+	 * report history stays attributed to them. Blocks login and any existing
+	 * session; see `getSessionUser`. */
+	isActive: boolean;
 	createdAt: string;
 }
 
@@ -24,6 +28,7 @@ export interface PublicUser {
 	email: string;
 	role: UserRole;
 	mustChangePassword: boolean;
+	isActive: boolean;
 	createdAt: string;
 }
 
@@ -35,6 +40,7 @@ interface UserRow {
 	password_hash: string;
 	role: UserRole;
 	must_change_password: boolean;
+	is_active: boolean;
 	created_at: string;
 }
 
@@ -47,6 +53,7 @@ function toRecord(row: UserRow): UserRecord {
 		passwordHash: row.password_hash,
 		role: row.role,
 		mustChangePassword: row.must_change_password,
+		isActive: row.is_active,
 		createdAt: row.created_at,
 	};
 }
@@ -153,11 +160,17 @@ export async function deleteUser(id: string): Promise<void> {
 	await withRetry(() => sql`delete from nibbs_users where id = ${id}`);
 }
 
-/** Number of admin accounts — used to prevent removing the last admin. */
-export async function countAdmins(): Promise<number> {
+/**
+ * Number of admins who can actually sign in right now — used to prevent
+ * demoting or revoking the last one. A deactivated admin doesn't count: the
+ * app would otherwise let you demote its only other admin and end up with
+ * zero people able to manage accounts, even though the row still says
+ * `role = 'admin'`.
+ */
+export async function countActiveAdmins(): Promise<number> {
 	const sql = requireSql();
 	const rows = (await withRetry(
-		() => sql`select count(*)::int as n from nibbs_users where role = 'admin'`,
+		() => sql`select count(*)::int as n from nibbs_users where role = 'admin' and is_active = true`,
 	)) as { n: number }[];
 	return rows[0]?.n ?? 0;
 }
@@ -172,6 +185,28 @@ export async function setUserRole(
 		() => sql`
 			update nibbs_users
 			set role = ${role}, updated_at = now()
+			where id = ${id}
+			returning *
+		`,
+	)) as UserRow[];
+	return rows[0] ? toRecord(rows[0]) : null;
+}
+
+/**
+ * Revoke or restore an account's access without deleting it — the row (and
+ * everything that references it: attendance history, reports they filed)
+ * stays intact. Login and `getSessionUser` both check this flag, so
+ * revoking takes effect immediately even for a session that's already open.
+ */
+export async function setUserActive(
+	id: string,
+	isActive: boolean,
+): Promise<UserRecord | null> {
+	const sql = requireSql();
+	const rows = (await withRetry(
+		() => sql`
+			update nibbs_users
+			set is_active = ${isActive}, updated_at = now()
 			where id = ${id}
 			returning *
 		`,

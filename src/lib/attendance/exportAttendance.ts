@@ -219,15 +219,14 @@ export interface ImageModel {
 const IMAGE_COLUMNS: ImageColumn[] = [
 	{ label: "Analyst", weight: 3, align: "left" },
 	{ label: "Nights", weight: 1, align: "right" },
-	{ label: "Signed out", weight: 1.2, align: "right" },
-	{ label: "Open", weight: 1, align: "right" },
 	{ label: "Total hours", weight: 1.4, align: "right" },
 ];
 
 /**
- * The same numbers as the workbook's Summary sheet, trimmed to what fits in a
- * picture. Email and per-night averages are dropped: a JPEG is for pasting into
- * a chat, and a five-column table stays legible on a phone.
+ * Deliberately just three columns — name, nights worked, total hours. A JPEG
+ * is for pasting into a chat as a quick "who did what" glance, not a report;
+ * the full breakdown (signed out / still open / per-night average / email)
+ * stays in the workbook for whoever needs it.
  *
  * Like the workbook, it lists only analysts with at least one night — the two
  * documents are shared side by side and must not disagree about who is on them.
@@ -249,20 +248,8 @@ export function buildSummaryImage(input: ExportInput): ImageModel {
 			summaries.length === 0 ? `No analyst signed in during ${formatMonth(month)}.` : undefined,
 		footer: `Generated ${formatLagosStamp(generatedAt.toISOString())} Africa/Lagos · Audit Toolkit`,
 		columns: IMAGE_COLUMNS,
-		rows: summaries.map((s) => [
-			personName(s.person),
-			String(s.nights),
-			String(s.completeNights),
-			String(s.openNights),
-			formatDuration(s.totalMinutes),
-		]),
-		totals: [
-			"TOTAL",
-			String(totals.nights),
-			String(totals.nights - totals.openNights),
-			String(totals.openNights),
-			formatDuration(totals.totalMinutes),
-		],
+		rows: summaries.map((s) => [personName(s.person), String(s.nights), formatDuration(s.totalMinutes)]),
+		totals: ["TOTAL", String(totals.nights), formatDuration(totals.totalMinutes)],
 		fileName:
 			scope === "all"
 				? `night-duty-${month}-all-analysts.jpg`

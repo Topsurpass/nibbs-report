@@ -17,7 +17,8 @@ import {
 	KeyRound,
 	Trash2,
 	Clock,
-	UserCheck,
+	UserX,
+	RotateCcw,
 } from "lucide-react";
 import { createUserSchema, type CreateUserValues } from "@/lib/validators/user";
 import type { AuthUser } from "@/types/user";
@@ -202,6 +203,33 @@ export default function UserManagement({ currentUserId }: Props) {
 		}
 	};
 
+	const onSetActive = async (u: AuthUser, isActive: boolean) => {
+		const verb = isActive ? "Restore access for" : "Revoke access for";
+		if (!window.confirm(`${verb} ${u.email}?`)) return;
+		setBusyId(u.id);
+		setBanner(null);
+		try {
+			const res = await fetch(`/api/users/${u.id}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ isActive }),
+			});
+			const data = await res.json();
+			if (!res.ok || !data.ok) throw new Error(data.error ?? "Couldn't update access.");
+			setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, isActive } : x)));
+			setBanner({
+				kind: isActive ? "success" : "warn",
+				text: isActive
+					? `${u.email} can sign in again.`
+					: `${u.email}'s access was revoked. Their account and history are kept, but they can no longer sign in.`,
+			});
+		} catch (err) {
+			setBanner({ kind: "error", text: err instanceof Error ? err.message : "Couldn't update access." });
+		} finally {
+			setBusyId(null);
+		}
+	};
+
 	const onDelete = async (u: AuthUser) => {
 		if (!window.confirm(`Delete ${u.email}? This cannot be undone.`)) return;
 		setBusyId(u.id);
@@ -220,7 +248,9 @@ export default function UserManagement({ currentUserId }: Props) {
 	};
 
 	const adminCount = users.filter((u) => u.role === "admin").length;
-	const pendingCount = users.filter((u) => u.mustChangePassword).length;
+	const activeAdminCount = users.filter((u) => u.role === "admin" && u.isActive).length;
+	const pendingCount = users.filter((u) => u.mustChangePassword && u.isActive).length;
+	const revokedCount = users.filter((u) => !u.isActive).length;
 	const bannerStyle = banner ? BANNER_STYLES[banner.kind] : null;
 	const BannerIcon = bannerStyle?.icon;
 
@@ -249,10 +279,10 @@ export default function UserManagement({ currentUserId }: Props) {
 					tone={pendingCount > 0 ? "warning" : "default"}
 				/>
 				<StatTile
-					icon={UserCheck}
-					label="Active"
-					value={loading ? "—" : users.length - pendingCount}
-					tone="success"
+					icon={UserX}
+					label="Access revoked"
+					value={loading ? "—" : revokedCount}
+					tone={revokedCount > 0 ? "danger" : "default"}
 				/>
 			</div>
 
@@ -308,13 +338,18 @@ export default function UserManagement({ currentUserId }: Props) {
 							{users.map((u, i) => (
 								<TableRow
 									key={u.id}
-									className="animate-in fade-in slide-in-from-bottom-1"
+									className={cn("animate-in fade-in slide-in-from-bottom-1", !u.isActive && "bg-muted/30")}
 									style={{ animationDelay: `${Math.min(i, 8) * 30}ms`, animationFillMode: "backwards" }}
 								>
 									<TableCell className="px-5 py-3">
-										<div className="flex items-center gap-3">
+										<div className={cn("flex items-center gap-3", !u.isActive && "opacity-60")}>
 											<Avatar className="size-8 shrink-0">
-												<AvatarFallback className="bg-gradient-to-br from-brand-teal to-primary text-xs font-bold text-white">
+												<AvatarFallback
+													className={cn(
+														"text-xs font-bold text-white",
+														u.isActive ? "bg-gradient-to-br from-brand-teal to-primary" : "bg-muted-foreground/60",
+													)}
+												>
 													{initialsOf(u)}
 												</AvatarFallback>
 											</Avatar>
@@ -329,13 +364,18 @@ export default function UserManagement({ currentUserId }: Props) {
 									<TableCell className="px-5 py-3">
 										<Badge
 											variant={u.role === "admin" ? "default" : "secondary"}
-											className={cn(u.role === "admin" && "bg-primary/15 text-primary")}
+											className={cn(u.role === "admin" && "bg-primary/15 text-primary", !u.isActive && "opacity-60")}
 										>
 											{u.role}
 										</Badge>
 									</TableCell>
 									<TableCell className="px-5 py-3">
-										{u.mustChangePassword ? (
+										{!u.isActive ? (
+											<span className="inline-flex items-center gap-1 font-medium text-destructive">
+												<UserX className="size-3.5" />
+												Access revoked
+											</span>
+										) : u.mustChangePassword ? (
 											<span className="text-amber-700 dark:text-amber-300">Pending first login</span>
 										) : (
 											<span className="text-brand-teal">Active</span>
@@ -353,7 +393,7 @@ export default function UserManagement({ currentUserId }: Props) {
 												)}
 												<span className="sr-only">Actions for {u.email}</span>
 											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-52">
+											<DropdownMenuContent align="end" className="w-56">
 												{u.role === "analyst" ? (
 													<DropdownMenuItem onClick={() => onSetRole(u, "admin")}>
 														<ShieldCheck className="size-4" />
@@ -361,17 +401,37 @@ export default function UserManagement({ currentUserId }: Props) {
 													</DropdownMenuItem>
 												) : (
 													<DropdownMenuItem
-														disabled={adminCount <= 1}
+														disabled={activeAdminCount <= 1}
 														onClick={() => onSetRole(u, "analyst")}
 													>
 														<ShieldOff className="size-4" />
-														{adminCount <= 1 ? "Can't remove last admin" : "Revoke admin"}
+														{activeAdminCount <= 1 ? "Can't remove last admin" : "Revoke admin"}
 													</DropdownMenuItem>
 												)}
 												<DropdownMenuItem onClick={() => onReset(u)}>
 													<KeyRound className="size-4" />
 													Reset password
 												</DropdownMenuItem>
+												<DropdownMenuSeparator />
+												{u.isActive ? (
+													<DropdownMenuItem
+														variant="destructive"
+														disabled={u.id === currentUserId || (u.role === "admin" && activeAdminCount <= 1)}
+														onClick={() => onSetActive(u, false)}
+													>
+														<UserX className="size-4" />
+														{u.id === currentUserId
+															? "That's you"
+															: u.role === "admin" && activeAdminCount <= 1
+																? "Can't revoke last admin"
+																: "Revoke access"}
+													</DropdownMenuItem>
+												) : (
+													<DropdownMenuItem onClick={() => onSetActive(u, true)}>
+														<RotateCcw className="size-4" />
+														Restore access
+													</DropdownMenuItem>
+												)}
 												<DropdownMenuSeparator />
 												<DropdownMenuItem
 													variant="destructive"
