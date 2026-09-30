@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { RefreshCw, Loader2, CircleCheck, TriangleAlert, CircleX } from "lucide-react";
+import { RefreshCw, Loader2, CircleCheck, TriangleAlert, CircleX, Users } from "lucide-react";
 import { createUserSchema, type CreateUserValues } from "@/lib/validators/user";
 import type { AuthUser } from "@/types/user";
+import PageHeader from "./layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -184,19 +185,15 @@ export default function UserManagement({ currentUserId }: Props) {
 	const BannerIcon = bannerStyle?.icon;
 
 	return (
-		<div>
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Configuration · Admin</p>
-					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">User Management</h1>
-					<p className="mt-2 max-w-2xl text-sm text-white/80">
-						Create analyst accounts. The system generates a one-time password and emails it; the analyst sets
-						their own password on first sign-in.
-					</p>
-				</div>
-			</header>
+		<div className="space-y-6 p-4 md:p-6">
+			<PageHeader
+				icon={Users}
+				eyebrow="Configuration · Admin"
+				title="User Management"
+				description="Create analyst accounts. The system generates a one-time password and emails it; the analyst sets their own password on first sign-in."
+			/>
 
-			<div className="space-y-6 px-6 py-8 sm:px-10">
+			<div className="space-y-6">
 				{banner && bannerStyle && BannerIcon && (
 					<Alert role="alert" className={cn(bannerStyle.wrapCls, bannerStyle.textCls)}>
 						<BannerIcon />

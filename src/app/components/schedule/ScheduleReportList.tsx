@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Copy, ArrowRight, FileText } from "lucide-react";
+import { Plus, Copy, ArrowRight, FileText, ClipboardList } from "lucide-react";
 import type { ScheduleReportListItem } from "@/lib/schedule/template";
+import PageHeader from "../layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -22,19 +23,15 @@ export default function ScheduleReportList({
 	};
 
 	return (
-		<div>
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Reports</p>
-					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Daily Schedule Reports</h1>
-					<p className="mt-2 max-w-2xl text-sm text-white/80">
-						Frauddesk shift-handover reports. Create a new one from the standard template or carry the last
-						shift forward, then export to Excel.
-					</p>
-				</div>
-			</header>
+		<div className="space-y-6 p-4 md:p-6">
+			<PageHeader
+				icon={ClipboardList}
+				eyebrow="Reports"
+				title="Daily Schedule Reports"
+				description="Frauddesk shift-handover reports. Create a new one from the standard template or carry the last shift forward, then export to Excel."
+			/>
 
-			<div className="space-y-4 px-6 py-8 sm:px-10">
+			<div className="space-y-4">
 				<div className="flex flex-wrap items-center gap-2">
 					<Button size="lg" render={<Link href="/daily-reports/new" />}>
 						<Plus className="size-4" />

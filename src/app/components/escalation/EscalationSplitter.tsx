@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Compass, AlertTriangle, Loader2 } from "lucide-react";
+import { Compass, AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
+import PageHeader from "@/app/components/layout/PageHeader";
 import FileDropzone from "@/app/components/FileDropzone";
 import BankGroupTable from "./BankGroupTable";
 import ColumnPicker from "./ColumnPicker";
@@ -279,7 +280,7 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 	const candidates = analysis?.columns.candidates ?? [];
 
 	return (
-		<div>
+		<div className="space-y-6 p-4 md:p-6">
 			<TourModal
 				open={tour.open}
 				title="Fraud Escalation"
@@ -287,38 +288,22 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 				onDone={tour.complete}
 			/>
 
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<div className="flex flex-wrap items-end justify-between gap-4">
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-								Bank Escalation
-							</p>
-							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-								Generate excel file for bank beneficiaries
-							</h1>
-							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Drop a spooled transaction file and get one escalation workbook per beneficiary bank,
-								ready to send for lien placement.
-							</p>
-						</div>
+			<PageHeader
+				icon={ShieldAlert}
+				eyebrow="Bank Escalation"
+				title="Generate excel file for bank beneficiaries"
+				description="Drop a spooled transaction file and get one escalation workbook per beneficiary bank, ready to send for lien placement."
+				actions={
+					/* Replay: the tour auto-shows once, but it has to stay
+					    reachable afterwards or it may as well not exist. */
+					<Button type="button" variant="outline" onClick={tour.replay}>
+						<Compass className="size-4" />
+						Show me around
+					</Button>
+				}
+			/>
 
-						{/* Replay: the tour auto-shows once, but it has to stay
-						    reachable afterwards or it may as well not exist. */}
-						<Button
-							type="button"
-							variant="secondary"
-							onClick={tour.replay}
-							className="no-print shrink-0 bg-white/15 text-white backdrop-blur hover:bg-white/25"
-						>
-							<Compass className="size-4" />
-							Show me around
-						</Button>
-					</div>
-				</div>
-			</header>
-
-			<div className="space-y-6 px-6 py-8 sm:px-10">
+			<div className="space-y-6">
 				<FileDropzone
 					title="Spooled fraudulent transactions"
 					subtitle="The export from the database — .xlsx, .xls or .csv"

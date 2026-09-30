@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2 } from "lucide-react";
+import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2, Settings } from "lucide-react";
 import type { MasterBank } from "@/lib/master";
 import { formatNaira } from "@/lib/format";
 import { mergeBanks, parseMasterFromRows } from "@/lib/importBanks";
+import PageHeader from "./layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,20 +167,19 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 	const totalCollateral = draft.reduce((s, b) => s + (Number(b.collateral) || 0), 0);
 
 	return (
-		<div>
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Configuration</p>
-					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">NIBBS Settings</h1>
-					<p className="mt-2 max-w-2xl text-sm text-white/80">
-						{canEdit
-							? "Master bank list and posted collateral used by the settlement audit. Edits are saved to the shared database and applied to every audit run."
-							: "Master bank list and posted collateral used by the settlement audit. This list is shared by the whole team, so only an admin can change it."}
-					</p>
-				</div>
-			</header>
+		<div className="space-y-6 p-4 md:p-6">
+			<PageHeader
+				icon={Settings}
+				eyebrow="Configuration"
+				title="NIBBS Settings"
+				description={
+					canEdit
+						? "Master bank list and posted collateral used by the settlement audit. Edits are saved to the shared database and applied to every audit run."
+						: "Master bank list and posted collateral used by the settlement audit. This list is shared by the whole team, so only an admin can change it."
+				}
+			/>
 
-			<div className="space-y-4 px-6 py-8 sm:px-10">
+			<div className="space-y-4">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<h2 className="text-base font-semibold text-foreground">Master bank list &amp; collateral</h2>

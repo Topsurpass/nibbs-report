@@ -102,7 +102,7 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 	// might be wrong is worse than showing nothing for one frame.
 	if (!now) {
 		return (
-			<Card className="m-6 p-6">
+			<Card className="p-6">
 				<div className="h-24 animate-pulse rounded-xl bg-muted" />
 			</Card>
 		);
@@ -147,7 +147,7 @@ export default function SignInCard({ initialNightDate, initialEntry, onChanged }
 	const dot = status.tone === "open" ? "bg-emerald-500" : status.tone === "done" ? "bg-primary" : "bg-muted-foreground/40";
 
 	return (
-		<Card className="m-6 gap-0 overflow-hidden py-0">
+		<Card className="gap-0 overflow-hidden py-0">
 			<div className="hero-gradient px-6 py-5 text-white">
 				<div className="flex flex-wrap items-center justify-between gap-4">
 					<div className="min-w-0">

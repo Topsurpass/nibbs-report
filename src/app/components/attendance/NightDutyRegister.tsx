@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Compass, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus } from "lucide-react";
+import { Compass, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus, Moon } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useTour } from "@/hooks/useTour";
+import PageHeader from "@/app/components/layout/PageHeader";
 import TourModal from "@/app/components/onboarding/TourModal";
 import AdminEntryDialog from "./AdminEntryDialog";
 import AttendanceCalendar from "./AttendanceCalendar";
@@ -204,36 +205,25 @@ export default function NightDutyRegister({
 	})();
 
 	return (
-		<main>
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<div className="flex flex-wrap items-end justify-between gap-4">
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Night Duty</p>
-							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Night Duty Register</h1>
-							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Sign in for your shift and see every night you have worked.
-							</p>
-						</div>
-
-						{/* Replay: the tour auto-shows once, but it has to stay
-						    reachable afterwards or it may as well not exist. */}
-						<Button
-							type="button"
-							variant="secondary"
-							onClick={tour.replay}
-							className="no-print shrink-0 bg-white/15 text-white backdrop-blur hover:bg-white/25"
-						>
-							<Compass className="size-4" />
-							Show me around
-						</Button>
-					</div>
-				</div>
-			</header>
+		<main className="space-y-6 p-4 md:p-6">
+			<PageHeader
+				icon={Moon}
+				eyebrow="Night Duty"
+				title="Night Duty Register"
+				description="Sign in for your shift and see every night you have worked."
+				actions={
+					/* Replay: the tour auto-shows once, but it has to stay
+					    reachable afterwards or it may as well not exist. */
+					<Button type="button" variant="outline" onClick={tour.replay}>
+						<Compass className="size-4" />
+						Show me around
+					</Button>
+				}
+			/>
 
 			<SignInCard initialNightDate={initialNightDate} initialEntry={initialEntry} onChanged={refresh} />
 
-			<Card className="m-6 gap-0 py-0">
+			<Card className="gap-0 py-0">
 				<div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
 					<div className="flex items-center gap-1">
 						<Button
@@ -323,7 +313,7 @@ export default function NightDutyRegister({
 				</div>
 			</Card>
 
-			<Card className="m-6 gap-0 py-0">
+			<Card className="gap-0 py-0">
 				<CardHeader className="border-b border-border py-4">
 					<CardTitle>{scope === "all" ? "Nights per analyst" : "Your month"}</CardTitle>
 					<CardDescription>
@@ -336,7 +326,7 @@ export default function NightDutyRegister({
 				</div>
 			</Card>
 
-			<Card className="m-6 gap-0 py-0">
+			<Card className="gap-0 py-0">
 				<CardHeader className="border-b border-border py-4">
 					<CardTitle>Every night</CardTitle>
 				</CardHeader>

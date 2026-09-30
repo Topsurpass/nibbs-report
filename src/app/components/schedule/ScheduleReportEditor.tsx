@@ -325,22 +325,23 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 
 	return (
 		<div>
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-8 sm:px-10">
-					<Link href="/daily-reports" className="inline-flex items-center gap-1 text-xs text-white/70 hover:text-white">
-						<ArrowLeft className="size-3.5" />
-						All reports
-					</Link>
-					<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-						{mode === "new" ? "New Daily Schedule Report" : "Edit Daily Schedule Report"}
-					</h1>
-					<p className="mt-1 text-sm text-white/80">
-						{report.cover.handoverType} · {report.cover.date || "no date"}
-					</p>
-				</div>
-			</header>
+			<div className="p-4 pb-0 md:p-6 md:pb-0">
+				<Link
+					href="/daily-reports"
+					className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+				>
+					<ArrowLeft className="size-3.5" />
+					All reports
+				</Link>
+				<h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+					{mode === "new" ? "New Daily Schedule Report" : "Edit Daily Schedule Report"}
+				</h1>
+				<p className="mt-1 text-sm text-muted-foreground">
+					{report.cover.handoverType} · {report.cover.date || "no date"}
+				</p>
+			</div>
 
-			<div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-border bg-card/90 px-6 py-3 backdrop-blur-sm sm:px-10">
+			<div className="sticky top-14 z-20 mt-4 flex flex-wrap items-center gap-2 border-y border-border bg-card/90 px-4 py-3 backdrop-blur-sm md:px-6">
 				<Tabs value={tab} onValueChange={(v) => setTab(v as TabId)}>
 					<TabsList>
 						{TABS.map((t) => (
@@ -377,7 +378,7 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 				</div>
 			</div>
 
-			<div className="px-6 py-6 sm:px-10">
+			<div className="p-4 md:p-6">
 				{error && (
 					<Alert variant="destructive" role="alert" className="mb-4">
 						<AlertCircle />

@@ -215,6 +215,18 @@ body {
   table {
     font-size: 10px;
   }
+  /* The dashboard shell's floating "inset" content card (margin, rounding,
+     shadow, dark surrounding chrome) is a screen-only affordance — a printed
+     report should read as a plain document. */
+  [data-slot="sidebar-wrapper"] {
+    background: #ffffff !important;
+    display: block !important;
+  }
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
 }
 
 @layer base {

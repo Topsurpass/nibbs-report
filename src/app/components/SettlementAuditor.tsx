@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Play, Download, AlertTriangle, CheckCircle2, TriangleAlert } from "lucide-react";
+import { Play, Download, AlertTriangle, CheckCircle2, TriangleAlert, Receipt } from "lucide-react";
+import PageHeader from "./layout/PageHeader";
 import FileDropzone from "./FileDropzone";
 import CheckSummary from "./CheckSummary";
 import ReconciliationTable from "./ReconciliationTable";
@@ -134,35 +135,28 @@ export default function SettlementAuditor() {
 	};
 
 	return (
-		<div>
-			{/* Hero */}
-			<header className="hero-gradient text-white">
-				<div className="px-6 py-9 sm:px-10">
-					<div className="flex flex-wrap items-end justify-between gap-4">
-						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Report</p>
-							<h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Settlement Audit</h1>
-							<p className="mt-2 max-w-xl text-sm text-white/80">
-								Drop the settlement HTML and eTranzact file — the app runs every NIBBS_CHECKER validation and
-								flags breaches for escalation.
-							</p>
-						</div>
-						<label className="no-print rounded-xl bg-white/15 px-4 py-3 backdrop-blur">
-							<span className="block text-[11px] font-medium uppercase tracking-wide text-white/70">
-								Report date
-							</span>
-							<Input
-								type="date"
-								value={reportDate}
-								onChange={(e) => setReportDate(e.target.value)}
-								className="mt-1 h-auto border-none bg-transparent p-0 text-sm font-semibold text-white shadow-none outline-none [color-scheme:dark] focus-visible:ring-0 dark:bg-transparent"
-							/>
-						</label>
-					</div>
-				</div>
-			</header>
+		<div className="space-y-6 p-4 md:p-6">
+			<PageHeader
+				icon={Receipt}
+				eyebrow="Report"
+				title="Settlement Audit"
+				description="Drop the settlement HTML and eTranzact file — the app runs every NIBBS_CHECKER validation and flags breaches for escalation."
+				actions={
+					<label className="flex flex-col rounded-lg border border-input bg-card px-3 py-1.5">
+						<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+							Report date
+						</span>
+						<Input
+							type="date"
+							value={reportDate}
+							onChange={(e) => setReportDate(e.target.value)}
+							className="h-auto border-none bg-transparent p-0 text-sm font-semibold shadow-none outline-none focus-visible:ring-0"
+						/>
+					</label>
+				}
+			/>
 
-			<div className="space-y-6 px-6 py-8 sm:px-10">
+			<div className="space-y-6">
 				{/* Uploads */}
 				<section className="no-print grid grid-cols-1 gap-4 md:grid-cols-2">
 					<FileDropzone
