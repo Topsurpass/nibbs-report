@@ -3,7 +3,7 @@
 // row has a "<TD COLSPAN=5>" bank cell holding "<Name> - <10-digit code>",
 // followed by OUTGOING SUM, INCOMING SUM and NET SETTLEMENT POSITION cells.
 
-import { parseMoney } from "./format";
+import { parseMoney } from "./format.ts";
 
 export interface FrameRow {
   /** Raw bank cell text, e.g. "Access Bank plc - 4000470158". */
@@ -52,13 +52,21 @@ function cellText(cell: Element): string {
 
 /**
  * Split "Access Bank plc - 4000470158" into name + 10-digit code.
- * The code is the last " - "-delimited segment when it is all digits.
+ * The code is the trailing run of 6+ digits in the last " - "-delimited
+ * segment — NOT a requirement that the whole segment be digits-only. NIBBS
+ * sometimes marks a legacy/merged settlement code with a non-digit prefix
+ * (e.g. "Access Bank Plc (Diamond) - ###4000630109"), and the code must
+ * still parse rather than silently vanish the row (and its amount) from
+ * every sum downstream. Exported for direct unit testing — parseSettlementHtml
+ * itself needs a browser DOMParser this project's plain-Node test runner
+ * doesn't have.
  */
-function splitBank(bankString: string): { name: string; code: string } {
+export function splitBank(bankString: string): { name: string; code: string } {
   const parts = bankString.split(" - ");
   const last = parts[parts.length - 1]?.trim() ?? "";
-  if (/^\d{6,}$/.test(last)) {
-    return { name: parts.slice(0, -1).join(" - ").trim(), code: last };
+  const match = /(\d{6,})\s*$/.exec(last);
+  if (match) {
+    return { name: parts.slice(0, -1).join(" - ").trim(), code: match[1] };
   }
   return { name: bankString.trim(), code: "" };
 }

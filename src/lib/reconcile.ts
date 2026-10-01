@@ -11,6 +11,7 @@ import type { TxtParseResult, FilenameCheck, TxtFormatIssue } from "./parseTxt";
 import { txtDatesMatchReport } from "./parseTxt.ts";
 import type { MasterBank } from "./master";
 import { resolveSession, sessionRowLabel, type SessionResolution } from "./session/nibbsSession.ts";
+import { LEGACY_BANK_CODE_MERGES } from "./legacyBankCodes.ts";
 
 export type CheckStatus = "pass" | "fail" | "warn";
 
@@ -37,6 +38,9 @@ export interface ReconRow {
   collateralBreach: boolean; // Q < 0
   /** In a source but not another in a way that blocks reconciliation. */
   presenceIssue: boolean;
+  /** Set when this row's Jive figure was adjusted by a legacy bank-code
+   * merge (see legacyBankCodes.ts) — surfaced so the merge is never silent. */
+  mergeNote: string | null;
 }
 
 export type BreachKind = "collateral" | "reconciliation";
@@ -102,6 +106,44 @@ export function reconcile(input: ReconInput): ReconResult {
   const frameByCode = new Map(frame.rows.map((r) => [r.code, r]));
   const smartByCode = new Map(txt.rows.map((r) => [r.code, r]));
 
+  // Legacy bank-code merges (see legacyBankCodes.ts): Smartdet already
+  // reports a merged bank under its current code only, while the Frame HTML
+  // can still carry a separate line for the old code. `effectiveFrameAmount`
+  // is the Jive check's Frame-side figure per code — each legacy code's
+  // amount rolled into its primary code's bucket — so the two sides compare
+  // the same combined money instead of disagreeing by exactly the legacy
+  // row's amount. Only codes that actually appear in *this* Frame file end
+  // up in `appliedMerges`, so the merge is reported only when it's real.
+  interface AppliedMerge {
+    legacyCode: string;
+    legacyName: string;
+    primaryCode: string;
+    primaryName: string;
+    amount: number;
+  }
+  const effectiveFrameAmount = new Map<string, number>();
+  const appliedMerges: AppliedMerge[] = [];
+  for (const r of frame.rows) {
+    const target = LEGACY_BANK_CODE_MERGES[r.code] ?? r.code;
+    effectiveFrameAmount.set(target, (effectiveFrameAmount.get(target) ?? 0) + r.netPosition);
+    if (target !== r.code) {
+      appliedMerges.push({
+        legacyCode: r.code,
+        legacyName: r.name,
+        primaryCode: target,
+        primaryName: frameByCode.get(target)?.name ?? masterByCode.get(target)?.name ?? target,
+        amount: r.netPosition,
+      });
+    }
+  }
+  const mergeByLegacyCode = new Map(appliedMerges.map((m) => [m.legacyCode, m]));
+  const mergesByPrimaryCode = new Map<string, AppliedMerge[]>();
+  for (const merge of appliedMerges) {
+    const list = mergesByPrimaryCode.get(merge.primaryCode) ?? [];
+    list.push(merge);
+    mergesByPrimaryCode.set(merge.primaryCode, list);
+  }
+
   // Row universe: every code seen anywhere, ordered by master position first.
   const orderedCodes: string[] = [];
   const seen = new Set<string>();
@@ -147,9 +189,18 @@ export function reconcile(input: ReconInput): ReconResult {
     const smartdetAmount = s ? s.amount : null;
     const name = m?.name ?? f?.name ?? code;
 
+    // A legacy code (e.g. Diamond's old code) doesn't get its own Jive
+    // check — its amount is already accounted for under its primary code
+    // below. Any other code uses the merge-adjusted Frame total, which is
+    // identical to its own frameAmount when no merge applies.
+    const isLegacyCode = mergeByLegacyCode.has(code);
+    const effectiveFrame = effectiveFrameAmount.get(code) ?? frameAmount;
+
     const codeMatch = inMaster && inSmartdet ? 0 : null; // J = A - G
     const jive =
-      inFrame && inSmartdet ? (smartdetAmount as number) - (frameAmount as number) : null;
+      !isLegacyCode && inFrame && inSmartdet
+        ? (smartdetAmount as number) - (effectiveFrame as number)
+        : null;
     const collateralCheck =
       inMaster && inSmartdet ? (collateral as number) + (smartdetAmount as number) : null;
 
@@ -157,6 +208,16 @@ export function reconcile(input: ReconInput): ReconResult {
     const collateralBreach = collateralCheck !== null && toCents(collateralCheck) < 0;
     const presenceIssue =
       (inSmartdet && !inFrame) || (inFrame && !inSmartdet) || (!inMaster && (inFrame || inSmartdet));
+
+    const legacyMerge = mergeByLegacyCode.get(code);
+    const primaryMerges = mergesByPrimaryCode.get(code);
+    const mergeNote = legacyMerge
+      ? `Merged into ${legacyMerge.primaryName} (${legacyMerge.primaryCode}) for the Jive check`
+      : primaryMerges
+        ? `Includes legacy code${primaryMerges.length > 1 ? "s" : ""} ${primaryMerges
+            .map((pm) => `${pm.legacyName} (${pm.legacyCode})`)
+            .join(", ")} for the Jive check`
+        : null;
 
     rows.push({
       code,
@@ -173,6 +234,7 @@ export function reconcile(input: ReconInput): ReconResult {
       jiveBreach,
       collateralBreach,
       presenceIssue,
+      mergeNote,
     });
 
     if (collateralBreach) {
@@ -302,6 +364,15 @@ export function reconcile(input: ReconInput): ReconResult {
 
   // Check 6 — Jive reconciliation (P = H - O = 0 for all).
   const jiveBreaches = rows.filter((r) => r.jiveBreach).length;
+  // Never silent: whenever a legacy bank-code merge actually applied this
+  // run, say so right here, since it's the one adjustment baked into this
+  // check instead of coming straight from the uploaded files.
+  const mergeSummary =
+    appliedMerges.length > 0
+      ? ` ${appliedMerges.length} legacy code${appliedMerges.length > 1 ? "s" : ""} merged for this check: ${appliedMerges
+          .map((m) => `${m.legacyName} (${m.legacyCode}) → ${m.primaryName}`)
+          .join(", ")}.`
+      : "";
   checks.push({
     id: "jive",
     label: "Jive check (Smartdet = Frame)",
@@ -312,9 +383,9 @@ export function reconcile(input: ReconInput): ReconResult {
           ? "pass"
           : "fail",
     detail:
-      jiveBreaches === 0
+      (jiveBreaches === 0
         ? "Every bank reconciles (H − O = 0)."
-        : `${jiveBreaches} bank(s) fail reconciliation (H − O ≠ 0).`,
+        : `${jiveBreaches} bank(s) fail reconciliation (H − O ≠ 0).`) + mergeSummary,
   });
 
   // Check 7 — Collateral coverage (Q = C + H ≥ 0).

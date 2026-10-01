@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, GitMerge } from "lucide-react";
 import type { ReconRow } from "@/lib/reconcile";
 import { formatNaira } from "@/lib/format";
 import { Card, CardHeader, CardTitle, CardDescription, CardAction } from "@/components/ui/card";
@@ -123,6 +123,12 @@ export default function ReconciliationTable({ rows }: { rows: ReconRow[] }) {
 									<TableCell className="px-4 py-2.5">
 										<div className="font-medium text-foreground">{r.name}</div>
 										<div className="tnum text-[11px] text-muted-foreground">{r.code}</div>
+										{r.mergeNote && (
+											<div className="mt-0.5 flex items-center gap-1 text-[11px] text-primary">
+												<GitMerge className="size-3" />
+												{r.mergeNote}
+											</div>
+										)}
 									</TableCell>
 									<TableCell className="px-3 py-2.5 text-right">
 										<Amount value={r.collateral} />
