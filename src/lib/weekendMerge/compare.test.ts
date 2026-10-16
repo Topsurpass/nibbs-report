@@ -27,14 +27,14 @@ test("a space instead of a tab is a spacing mismatch", () => {
   const r = theirs((l) => ((l[4] = l[4].replace("\t", " ")), l));
   assert.equal(r.pass, false);
   assert.deepEqual(kindsAt(r, 5), ["whitespace"]);
-  assert.match(r.rows[4].reasons[0], /expected "702⇥2026/);
-  assert.match(r.rows[4].reasons[0], /got "702·2026/);
+  assert.equal(r.rows[4].reasons[0], "Spacing: space used where a single tab is required");
   assert.equal(r.mismatched, 1);
 });
 
 test("trailing spaces on a row are a spacing mismatch", () => {
   const r = theirs((l) => ((l[0] = l[0] + "  "), l));
   assert.deepEqual(kindsAt(r, 1), ["whitespace"]);
+  assert.equal(r.rows[0].reasons[0], "Spacing: trailing space/tab after the amount");
 });
 
 test("a wrong date is a date mismatch", () => {
@@ -93,4 +93,20 @@ test("a different filename fails and names the differing part", () => {
   const c = r.checks.find((x) => x.id === "cmp-filename");
   assert.equal(c?.status, "fail");
   assert.match(c!.detail, /date 09062026 ≠ 08062026, session _2 ≠ _1/);
+});
+
+test("diffSegments marks only the fields and separators that differ", async () => {
+  const { diffSegments } = await import("./compare.ts");
+  const segs = diffSegments("702\t2026/06/08\t4000470158\t+1.00", "702 2026/06/08\t4000470159\t+1.00");
+  assert.deepEqual(
+    segs.filter((s) => s.changed).map((s) => s.text),
+    [" ", "4000470159"],
+  );
+  assert.ok(diffSegments(null, "702").every((s) => s.changed));
+});
+
+test("spacingReason names each separator problem", async () => {
+  const { spacingReason } = await import("./compare.ts");
+  assert.equal(spacingReason("702\t\t2026/06/08\tx\ty"), "Spacing: double tab between fields");
+  assert.equal(spacingReason(" 702\t2026/06/08\tx\ty"), "Spacing: leading space/tab before the record");
 });

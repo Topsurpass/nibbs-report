@@ -5,7 +5,7 @@
 import type { CheckResult } from "../reconcile.ts";
 import { validateTxtFormat } from "../parseTxt.ts";
 import { SOURCE_NAME_RE } from "./sourceFile.ts";
-import { amountToKobo, formatKobo, splitLinesExact, visibleWhitespace, ZERO, type SplitLine } from "./text.ts";
+import { amountToKobo, formatKobo, splitLinesExact, ZERO, type SplitLine } from "./text.ts";
 
 export type MismatchKind =
   | "whitespace"
@@ -57,6 +57,18 @@ export interface NamedText {
 
 const FIELD_NAMES: MismatchKind[] = ["type", "date", "code", "amount"];
 
+/** Say precisely what is wrong with a row's separators, in plain words. */
+export function spacingReason(line: string): string {
+  const problems: string[] = [];
+  if (/^\s/.test(line)) problems.push("leading space/tab before the record");
+  if (/[ \t]+$/.test(line)) problems.push("trailing space/tab after the amount");
+  const inner = line.trim();
+  if (/ /.test(inner)) problems.push("space used where a single tab is required");
+  if (/\t{2,}/.test(inner)) problems.push("double tab between fields");
+  if (/\r/.test(line)) problems.push("stray carriage return inside the row");
+  return problems.length ? `Spacing: ${problems.join("; ")}` : "Spacing: field separators differ";
+}
+
 function diffRow(i: number, o: SplitLine | undefined, t: SplitLine | undefined, ours: SplitLine[], theirs: SplitLine[]): RowDiff {
   const row = i + 1;
   if (!t) {
@@ -82,7 +94,7 @@ function diffRow(i: number, o: SplitLine | undefined, t: SplitLine | undefined, 
       const tokens = t.content.trim().split(/\s+/);
       if (tabFields.length !== 4 || /[ \r]/.test(t.content) || tabFields.some((f) => f === "")) {
         kinds.push("whitespace");
-        reasons.push(`Spacing differs: expected "${visibleWhitespace(o.content)}", got "${visibleWhitespace(t.content)}"`);
+        reasons.push(spacingReason(t.content));
       }
       FIELD_NAMES.forEach((name, k) => {
         if (tokens[k] !== expected[k]) {
@@ -218,4 +230,20 @@ export function compareWithSettlement(ours: NamedText, theirs: NamedText): Compa
     byKind,
     pass: !checks.some((c) => c.status === "fail"),
   };
+}
+
+export interface DiffSegment {
+  text: string;
+  changed: boolean;
+}
+
+/**
+ * Split `theirs` into fields and separators, marking each one that differs
+ * from the same position in `ours`. Used to highlight exactly what is wrong
+ * in a row (a space where a tab belongs, one wrong digit block, etc.).
+ */
+export function diffSegments(ours: string | null, theirs: string): DiffSegment[] {
+  const split = (s: string) => s.split(/(\s+)/).filter((p) => p !== "");
+  const a = ours === null ? [] : split(ours);
+  return split(theirs).map((text, i) => ({ text, changed: a[i] !== text }));
 }

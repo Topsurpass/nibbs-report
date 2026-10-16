@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment } from "react";
-import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toSlashDate } from "@/lib/format";
 import { weekdayName, type MergedRow } from "@/lib/weekendMerge";
@@ -9,8 +8,7 @@ import { weekdayName, type MergedRow } from "@/lib/weekendMerge";
 /** Every merged row, grouped by the source file it came from. */
 export default function MergedPreviewTable({ rows }: { rows: MergedRow[] }) {
 	return (
-		<Card className="gap-0 overflow-hidden py-0">
-			<div className="max-h-[28rem] overflow-auto">
+		<div className="max-h-[32rem] overflow-auto rounded-lg border border-border">
 				<Table>
 					<TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
 						<TableRow className="hover:bg-transparent">
@@ -48,7 +46,6 @@ export default function MergedPreviewTable({ rows }: { rows: MergedRow[] }) {
 						})}
 					</TableBody>
 				</Table>
-			</div>
-		</Card>
+		</div>
 	);
 }

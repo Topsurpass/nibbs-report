@@ -5,6 +5,7 @@ import { useWeekendMergeState } from "@/app/components/providers/WeekendMergePro
 import {
 	assessCollection,
 	buildMerge,
+	buildSessionBoard,
 	canMerge,
 	compareWithSettlement,
 	defaultMergeDate,
@@ -39,6 +40,11 @@ export function useWeekendMerge() {
 		const merge = ready && mergeDate ? buildMerge(sources, mergeDate, session) : null;
 		const outputChecks = merge && mergeDate ? mergeChecks(merge, mergeDate) : [];
 		const downloadable = merge !== null && !outputChecks.some((c) => c.status === "fail");
+		const readinessChecks = [...collectionChecks, ...outputChecks];
+
+		const board = buildSessionBoard(sources);
+		// Position of each valid file in merge order, for the "Merge #n" labels.
+		const orderOf = new Map(ordered.filter((f) => f.valid && f.date).map((f, i) => [f.id, i + 1]));
 
 		const comparison =
 			merge && settlement ? compareWithSettlement({ name: merge.fileName, text: merge.text }, settlement) : null;
@@ -52,6 +58,9 @@ export function useWeekendMerge() {
 			merge,
 			outputChecks,
 			downloadable,
+			readinessChecks,
+			board,
+			orderOf,
 			comparison,
 		};
 	}, [state, sources, mergeDateOverride, session, settlement]);

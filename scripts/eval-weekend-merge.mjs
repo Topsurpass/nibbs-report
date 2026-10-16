@@ -36,6 +36,10 @@ const fail = (message) => {
 	console.error(`  ✗ ${message}`);
 };
 const pass = (message) => console.log(`  ✓ ${message}`);
+const check = (ok, good, bad) => {
+	if (ok) pass(good);
+	else fail(bad);
+};
 
 if (!existsSync(dir)) {
 	console.error(`No corpus at ${dir}. Pass a folder of ETRANZACT_*.txt files.`);
@@ -65,9 +69,7 @@ let accepted = 0;
 for (const f of canonical) {
 	const expected = KNOWN_BAD[f.name];
 	if (expected) {
-		!f.valid && expected.test(failText(f)) && f.issues.filter((i) => i.severity === "fail").length === 1
-			? pass(`${f.name} rejected for the right reason: ${failText(f)}`)
-			: fail(`${f.name} should be rejected only for ${expected}, got: ${failText(f) || "accepted"}`);
+		check(!f.valid && expected.test(failText(f)) && f.issues.filter((i) => i.severity === "fail").length === 1, `${f.name} rejected for the right reason: ${failText(f)}`, `${f.name} should be rejected only for ${expected}, got: ${failText(f) || "accepted"}`);
 	} else if (f.valid) accepted++;
 	else fail(`${f.name} rejected: ${failText(f)}`);
 }
@@ -89,7 +91,7 @@ const expectedOrder = sortSources(valid).map((f) => f.name);
 const orderOk =
 	merged.sources.every((s, i) => s.name === expectedOrder[i]) &&
 	merged.sources.every((s, i, a) => i === 0 || a[i - 1].date.getTime() * 10 + a[i - 1].session < s.date.getTime() * 10 + s.session);
-orderOk ? pass(`${merged.sources.length} files merged in strict date → session order`) : fail("merge order is wrong");
+check(orderOk, `${merged.sources.length} files merged in strict date → session order`, "merge order is wrong");
 
 const expectedLines = sortSources(valid).flatMap((f) => f.records.map((r) => `702\t2026/06/08\t${r.code}\t${r.amountStr}`));
 const lines = merged.text.split("\r\n");
@@ -97,12 +99,16 @@ if (lines.length === expectedLines.length && lines.every((l, i) => l === expecte
 	pass(`${lines.length} rows: every source row once, only the date column rewritten`);
 } else fail(`row content mismatch (${lines.length} merged vs ${expectedLines.length} expected)`);
 
-/[^\r]\n/.test(merged.text) || merged.text.endsWith("\n") ? fail("output is not CRLF without trailing newline") : pass("CRLF line endings, no trailing newline");
-validateTxtFormat(merged.text).valid ? pass("merged file passes the record template") : fail("merged file breaks the template");
+check(
+	!/[^\r]\n/.test(merged.text) && !merged.text.endsWith("\n"),
+	"CRLF line endings, no trailing newline",
+	"output is not CRLF without trailing newline",
+);
+check(validateTxtFormat(merged.text).valid, "merged file passes the record template", "merged file breaks the template");
 const outChecks = mergeChecks(merged, mergeDate).filter((c) => c.status === "fail");
-outChecks.length === 0 ? pass("output checks: rows carried, net = 0, template") : fail(`output checks failed: ${outChecks.map((c) => c.id).join(", ")}`);
+check(outChecks.length === 0, "output checks: rows carried, net = 0, template", `output checks failed: ${outChecks.map((c) => c.id).join(", ")}`);
 const self = compareWithSettlement({ name: merged.fileName, text: merged.text }, { name: merged.fileName, text: merged.text });
-self.pass && self.mismatched === 0 ? pass("identical Settlement file compares clean") : fail("identical file did not compare clean");
+check(self.pass && self.mismatched === 0, "identical Settlement file compares clean", "identical file did not compare clean");
 
 // Complete real days (all 4 sessions) must pass the collection gate.
 const byDay = new Map();
@@ -110,15 +116,11 @@ for (const f of valid) byDay.set(f.dateSegment, [...(byDay.get(f.dateSegment) ??
 const completeDays = [...byDay.values()].filter((fs) => new Set(fs.map((f) => f.session)).size === 4);
 if (completeDays.length > 0) {
 	const set = completeDays.flat();
-	canMerge(assessCollection(set))
-		? pass(`collection gate accepts ${completeDays.length} complete real day(s)`)
-		: fail("collection gate rejected complete days");
+	check(canMerge(assessCollection(set)), `collection gate accepts ${completeDays.length} complete real day(s)`, "collection gate rejected complete days");
 }
 const partial = [...byDay.values()].find((fs) => fs.length < 4);
 if (partial) {
-	!canMerge(assessCollection(partial))
-		? pass(`collection gate blocks an incomplete day (${partial[0].dateSegment})`)
-		: fail("collection gate accepted an incomplete day");
+	check(!canMerge(assessCollection(partial)), `collection gate blocks an incomplete day (${partial[0].dateSegment})`, "collection gate accepted an incomplete day");
 }
 
 // --- 3. Mutation fuzz ---------------------------------------------------------
@@ -197,7 +199,7 @@ for (let m = 0; m < MUTATIONS; m++) {
 for (const k of kinds) {
 	const { n, caught } = stats[k];
 	const pct = ((caught / n) * 100).toFixed(1);
-	caught === n ? pass(`${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`) : fail(`${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`);
+	check(caught === n, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`);
 }
 
 console.log(failures === 0 ? "\nAll weekend-merge invariants hold." : `\n${failures} invariant failure(s).`);

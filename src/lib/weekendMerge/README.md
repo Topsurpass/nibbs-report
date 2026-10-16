@@ -43,3 +43,15 @@ Amounts are summed as `BigInt` kobo, so totals are exact at any size.
 
 - `npm test` runs the gate tests in `*.test.ts`. They use synthetic fixtures from `testFixtures.ts`.
 - `npm run eval:weekend-merge [dir]` runs over the real files, by default in `~/Downloads/Nibbs Portal`. Those files are never committed. The eval covers upload checks, a real-file merge round trip, and a seeded mutation fuzz. Every kind of mutation must be caught 100% of the time.
+
+## UI (`src/app/components/weekend-merge/`)
+
+- **Empty state** (`UploadHero`): one large multi-file drop target that says explicitly that many files can be uploaded at once. Includes a guide to the file name format and the session numbers.
+- **Session board** (`SessionFilesCard` → `SessionBoard` → `SessionSlotCard`):
+  - One row per day, with four session slots each: Ready, Check, Rejected, Duplicate or Missing. A "Merge #n" label shows each file's position.
+  - The whole card accepts more files, and dropping a file with the same name replaces it.
+  - Layout comes from `board.ts`.
+- **Merged file panel** (`MergeSummaryPanel`): output name, merge date, session, totals, readiness checklist and download. It is sticky on wide screens and sits directly under the files on narrow ones.
+- **Verify** (`VerifyPanel` → `RowDiffTable`):
+  - A pass or fail banner and file-level checks.
+  - A Differences / All rows switch. Each row shows the expected text against Settlement's, with the differing field or separator highlighted (`diffSegments`).
