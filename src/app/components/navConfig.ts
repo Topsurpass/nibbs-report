@@ -1,5 +1,6 @@
 import {
 	Receipt,
+	CalendarRange,
 	ClipboardList,
 	ShieldAlert,
 	Moon,
@@ -22,6 +23,7 @@ export interface NavItem {
  * can never drift apart. */
 export const REPORT_NAV: NavItem[] = [
 	{ href: "/", label: "Settlement Audit", icon: Receipt },
+	{ href: "/weekend-settlement", label: "Weekend Settlement", icon: CalendarRange },
 	{ href: "/daily-reports", label: "Daily Schedule", icon: ClipboardList },
 	{ href: "/escalations", label: "Fraud Escalation", icon: ShieldAlert },
 	{ href: "/attendance", label: "Night Duty", icon: Moon },

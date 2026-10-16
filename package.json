@@ -14,7 +14,8 @@
     "gen:nip-codes": "node scripts/gen-nip-codes.mjs",
     "db:create": "node scripts/db-create.mjs",
     "db:push": "node scripts/db-push.mjs",
-    "seed:admin": "node scripts/seed-admin.mjs"
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "eval:weekend-merge": "node --experimental-strip-types scripts/eval-weekend-merge.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
