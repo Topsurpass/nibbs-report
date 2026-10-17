@@ -56,17 +56,20 @@ Amounts are summed as `BigInt` kobo, so totals are exact at any size.
   - A pass or fail banner and file-level checks.
   - A Differences / All rows switch. Each row shows the expected text against Settlement's, with the differing field or separator highlighted (`diffSegments`).
 
-## Discrepancy workbook (for the Settlement team)
+## "What to fix" workbook (for the Settlement team)
 
-On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_discrepancies.xlsx` in the browser (exceljs is loaded on demand, so nothing is uploaded). It has four sheets:
+On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_problems.xlsx` in the browser (exceljs is loaded on demand, so nothing is uploaded). It is written for settlement analysts, not developers.
 
-| Sheet | Contents |
-| --- | --- |
-| Summary | The result, mismatch counts by kind, file checks, and how to read the workbook. |
-| Differences | Only the lines that differ. Our record sits next to Settlement's, the wrong field is in red, and each line has a "How to fix" hint that cites their line number. |
-| Side by side | Every line in merge order, broken into one block per session file (day · session · file · our line range). |
-| Merge order | The session files in compilation order, with each file's line range and how many of its lines differ. |
+- **What to fix**: a one-line verdict, then one row per problem: Line · Problem · In your file (red) · Should be (green) · Bank (name from NIBBS Settings) · Session. Problems are grouped the way a person thinks about them:
+  - two swapped lines become "Swap lines 61 and 62";
+  - a line left out becomes "A line is missing", not hundreds of shifted rows;
+  - an added line becomes "An extra line";
+  - spacing names the gap, for example "Space instead of TAB between 702 and the date";
+  - the file name and an empty last line are listed too.
 
-Line endings (LF vs CRLF) are treated as equivalent everywhere.
+  Below that is the correct order of the session files, with their line ranges.
+- **All lines**: every line, with our date and amount next to theirs. Wrong cells are red, and a grey bar marks where each session file starts.
 
-Code: `discrepancyReport.ts` (pure content model, tested) and `discrepancyExcel.ts` (exceljs painter, round-trip tested).
+Grouping compares line content, not reason text: real files repeat identical lines, so "belongs at row N" can point at any copy. Line endings (LF vs CRLF) are treated as equivalent everywhere.
+
+Code: `discrepancyReport.ts` (`findProblems` and the sheet model, tested) and `discrepancyExcel.ts` (exceljs painter, round-trip tested). `eval:weekend-merge` requires each single planted error to come out as exactly one problem that covers every flagged line.

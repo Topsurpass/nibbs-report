@@ -14,8 +14,8 @@
 //      and an LF swapped in for a CRLF is NOT flagged (they are equivalent).
 //   4. Settlement-style join: real session bodies joined with a bare LF (how
 //      Settlement's tool builds its file) compare as a full match.
-//   Every mutation's discrepancy workbook must list exactly the differing
-//   lines, each with its source file and a fix hint.
+//   Every mutation's "What to fix" list must be one plain problem covering
+//   every flagged line (none for an LF/CRLF swap).
 //
 //   npm run eval:weekend-merge                 # ~/Downloads/Nibbs Portal
 //   npm run eval:weekend-merge -- path/to/dir  # another folder of .txt files
@@ -31,7 +31,7 @@ import { join } from "node:path";
 const { inspectSourceFile, buildMerge, mergeChecks, compareWithSettlement, sortSources, assessCollection, canMerge } =
 	await import("../src/lib/weekendMerge/index.ts");
 const { validateTxtFormat } = await import("../src/lib/parseTxt.ts");
-const { buildDiscrepancyReport } = await import("../src/lib/weekendMerge/discrepancyReport.ts");
+const { findProblems } = await import("../src/lib/weekendMerge/discrepancyReport.ts");
 
 const dir = process.argv[2] ?? join(homedir(), "Downloads", "Nibbs Portal");
 const MUTATIONS = Number(process.env.EVAL_MUTATIONS ?? 600);
@@ -206,18 +206,23 @@ for (let m = 0; m < MUTATIONS; m++) {
 	if (caught) s.caught++;
 	else if (s.n - s.caught <= 3) fail(`${kind} at row ${mut.row ?? "-"} not handled correctly`);
 
-	// The discrepancy workbook must list exactly the differing lines, each with
-	// a fix hint and its source file, and never list a line that matches.
-	const report = buildDiscrepancyReport({ merge: merged, comparison: r, settlementName: name, generatedAt: new Date(0) });
-	const diffRows = report.sheets.find((x) => x.name === "Differences").rows;
-	const listed = diffRows.map((row) => row.cells[0].value);
-	const expected = r.rows.filter((x) => !x.ok).map((x) => x.row);
+	// The "What to fix" list must turn ONE planted error into ONE plain problem
+	// that covers every line the comparison flagged (a missing line must not
+	// become dozens of "out of order" rows), and list nothing for LF/CRLF.
+	const problems = findProblems({ merge: merged, comparison: r });
+	const flagged = r.rows.filter((x) => !x.ok).map((x) => x.row);
+	const covered = new Set(problems.flatMap((p) => p.rows));
 	const reportOk =
-		JSON.stringify(listed) === JSON.stringify(expected) &&
-		diffRows.every((row) => String(row.cells[14].value).length > 0 && String(row.cells[3].value).length > 0);
+		kind === "lf-equivalent"
+			? problems.length === 0
+			: problems.length >= 1 &&
+				problems.length <= (kind === "date" || kind === "code" || kind === "amount" ? 1 : 2) &&
+				flagged.every((row) => covered.has(row)) &&
+				problems.every((p) => p.problem && p.shouldBe);
 	reportStats.n++;
-	if (reportOk) reportStats.ok++;
-	else if (reportStats.n - reportStats.ok <= 3) fail(`discrepancy report wrong for ${kind}: listed ${listed} expected ${expected}`);
+	if (reportStats.n && reportOk) reportStats.ok++;
+	else if (reportStats.n - reportStats.ok <= 3)
+		fail(`What-to-fix wrong for ${kind}: ${problems.length} problem(s) ${JSON.stringify(problems.map((p) => [p.lines, p.problem]))}, flagged ${flagged.slice(0, 6)}`);
 }
 for (const k of kinds) {
 	const { n, caught } = stats[k];
@@ -231,8 +236,8 @@ for (const k of kinds) {
 
 check(
 	reportStats.ok === reportStats.n,
-	`discrepancy report lists exactly the differing lines, with source + fix: ${reportStats.ok}/${reportStats.n}`,
-	`discrepancy report correct on ${reportStats.ok}/${reportStats.n}`,
+	`"What to fix": one plain problem per planted error, covering every flagged line: ${reportStats.ok}/${reportStats.n}`,
+	`"What to fix" correct on ${reportStats.ok}/${reportStats.n}`,
 );
 
 console.log("\n4. Settlement-style join (session files glued with a bare LF)");

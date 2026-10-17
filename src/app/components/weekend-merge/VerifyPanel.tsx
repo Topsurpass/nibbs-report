@@ -145,11 +145,11 @@ export default function VerifyPanel({
 					</div>
 					<div className="space-y-0.5">
 						<p className="text-sm font-semibold text-foreground">
-							{comparison.pass ? "Comparison workbook" : "Send the discrepancy report to Settlement"}
+							{comparison.pass ? "Comparison workbook" : "Send Settlement a list of what to fix"}
 						</p>
 						<p className="text-xs text-muted-foreground">
-							Excel with our compilation next to theirs, line by line in merge order, every wrong field in red and
-							what to fix on each line.
+							One row per problem in plain words: the line, the bank, what their file has and what it should be.
+							Plus every line side by side for reference.
 						</p>
 						{reportError && <p className="text-xs font-medium text-destructive">{reportError}</p>}
 					</div>

@@ -13,9 +13,11 @@ import SessionFilesCard from "./SessionFilesCard";
 import UploadHero from "./UploadHero";
 import VerifyPanel from "./VerifyPanel";
 import { downloadDiscrepancyReport } from "./downloadDiscrepancyReport";
+import { useMaster } from "@/app/components/providers/MasterProvider";
 
 export default function WeekendSettlement() {
 	const m = useWeekendMerge();
+	const { master } = useMaster();
 	const hasFiles = m.sources.length > 0;
 
 	return (
@@ -97,7 +99,8 @@ export default function WeekendSettlement() {
 												onClear={m.clearSettlement}
 												onDownloadReport={async () => {
 													if (m.merge && m.comparison && m.settlement) {
-														await downloadDiscrepancyReport(m.merge, m.comparison, m.settlement.name);
+														const names = new Map(master.map((b) => [b.code, b.name]));
+														await downloadDiscrepancyReport(m.merge, m.comparison, m.settlement.name, (code) => names.get(code));
 													}
 												}}
 											/>

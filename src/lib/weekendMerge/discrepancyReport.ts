@@ -1,16 +1,11 @@
-// Content model for the discrepancy workbook sent to the Settlement team.
-//
-// Pure, so what the report says is testable; `discrepancyExcel.ts` only paints
-// it. The workbook puts our compilation and Settlement's side by side, row by
-// row, in merge order (which session file and line each row came from), and
-// marks every cell that differs so Settlement can find and fix it themselves.
+// Content model for the workbook sent to the Settlement team when their merged
+// file differs from ours. Written for settlement analysts, not developers:
+// one row per problem, in plain words, with what their file has and what it
+// should be. Pure, so the wording and grouping are testable; the exceljs
+// painter in `discrepancyExcel.ts` only decides looks.
 
-import { toSlashDate } from "../format.ts";
-import type { CheckResult } from "../reconcile.ts";
-import { MISMATCH_LABELS, type ComparisonResult, type MismatchKind, type RowDiff } from "./compare.ts";
+import type { ComparisonResult, RowDiff } from "./compare.ts";
 import type { MergeResult, MergedRow } from "./merge.ts";
-import { weekdayName } from "./sourceFile.ts";
-import { visibleWhitespace } from "./text.ts";
 
 export type CellTone = "bad" | "good" | "warn" | "muted";
 
@@ -18,26 +13,32 @@ export interface ReportCell {
 	value: string | number;
 	tone?: CellTone;
 	bold?: boolean;
-	/** Fixed-width font, for record fields. */
+	/** Fixed-width font, for file content. */
 	mono?: boolean;
 }
 
-export type RowStyle = "plain" | "mismatch" | "match" | "group" | "total";
+export type RowStyle = "plain" | "problem" | "ok" | "group";
 
 export interface ReportRow {
 	cells: ReportCell[];
 	style: RowStyle;
 }
 
+export interface ReportTable {
+	/** Bold heading above the table, if any. */
+	title?: string;
+	header: string[];
+	rows: ReportRow[];
+}
+
 export interface ReportSheet {
 	name: string;
-	/** Lines above the table: first is the title. */
+	/** Title, then one-line notes. */
 	preamble: string[];
-	header: string[];
-	/** Optional banner above the header, spanning column groups: [label, firstCol, lastCol] (1-based). */
-	headerGroups?: [string, number, number][];
+	/** Tone of the second preamble line (the verdict). */
+	verdictTone?: CellTone;
 	widths: number[];
-	rows: ReportRow[];
+	tables: ReportTable[];
 }
 
 export interface DiscrepancyReport {
@@ -45,267 +46,390 @@ export interface DiscrepancyReport {
 	sheets: ReportSheet[];
 }
 
+/** 10-digit settlement code → bank name, when known. */
+export type BankNameLookup = (code: string) => string | undefined;
+
 export interface DiscrepancyInput {
 	merge: MergeResult;
 	comparison: ComparisonResult;
 	settlementName: string;
 	generatedAt: Date;
+	bankName?: BankNameLookup;
 }
 
-const FIELD_KIND: MismatchKind[] = ["type", "date", "code", "amount"];
-
-function longDate(d: Date): string {
-	return `${weekdayName(d)} ${toSlashDate(d)}`;
+/** One thing the Settlement team has to fix, in plain words. */
+export interface Problem {
+	/** "10", "61 and 62", "40 to 320", or "File name" */
+	lines: string;
+	/** Their line numbers this problem covers (empty for file-level problems). */
+	rows: number[];
+	session: string;
+	bank: string;
+	problem: string;
+	yours: string;
+	shouldBe: string;
 }
 
-function sessionText(r: MergedRow): string {
-	return `${longDate(r.sourceDate)} · ${r.sourceSessionLabel} (_${r.sourceSession})`;
+const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function sessionLabel(r: MergedRow): string {
+	const d = r.sourceDate;
+	return `${DAY[d.getDay()]} ${String(d.getDate()).padStart(2, "0")} ${MONTH[d.getMonth()]} · ${r.sourceSessionLabel}`;
+}
+
+/**
+ * "702 [SPACE] 2026/07/02 [TAB] …" so a non-developer can see the separators.
+ * The spaces around each marker are only there so Excel can wrap long lines.
+ */
+export function showSpacing(line: string): string {
+	return line
+		.split(/(\t| )/)
+		.map((part) => (part === "\t" ? "[TAB]" : part === " " ? "[SPACE]" : part))
+		.filter((part) => part !== "")
+		.join(" ");
+}
+
+function fields(line: string | null): string[] {
+	if (line === null) return ["", "", "", ""];
+	const t = line.trim().split(/\s+/);
+	return [0, 1, 2, 3].map((i) => t[i] ?? "");
+}
+
+function bankText(code: string, bankName?: BankNameLookup): string {
+	if (!code) return "";
+	const name = bankName?.(code);
+	return name ? `${name} (${code})` : code;
+}
+
+const GAPS = ["702 and the date", "the date and the bank code", "the bank code and the amount"];
+
+/** "Space instead of TAB between 702 and the date", in plain words. */
+export function spacingProblem(line: string): string {
+	if (/^\s/.test(line)) return "Space or TAB before 702 at the start";
+	if (/[ \t]$/.test(line)) return "Space or TAB after the amount at the end";
+	const seps = line.match(/\s+/g) ?? [];
+	const at = seps.findIndex((sep) => sep !== "\t");
+	if (at === -1) return "Wrong spacing";
+	const gap = GAPS[at] ? ` between ${GAPS[at]}` : "";
+	return seps[at].includes(" ") ? `Space instead of TAB${gap}` : `Extra TAB${gap}`;
+}
+
+/** Their row r "belongs at row N" → N, else null. */
+function orderTarget(diff: RowDiff): number | null {
+	if (!diff.kinds.includes("order")) return null;
+	const m = diff.reasons.join(" ").match(/row (\d+)/);
+	return m ? Number(m[1]) : null;
+}
+
+const FIELD_PROBLEM: [kind: "type" | "date" | "code" | "amount", index: number, label: string][] = [
+	["type", 0, "Wrong record type"],
+	["date", 1, "Wrong date"],
+	["code", 2, "Wrong bank code"],
+	["amount", 3, "Wrong amount"],
+];
+
+/** Turn the line-by-line comparison into the short list of things to fix. */
+export function findProblems(input: Pick<DiscrepancyInput, "merge" | "comparison" | "bankName">): Problem[] {
+	const { merge, comparison, bankName } = input;
+	const problems: Problem[] = [];
+	const src = (row: number) => merge.rows[row - 1];
+	const where = (row: number) => {
+		const s = src(row);
+		return {
+			session: s ? sessionLabel(s) : "Not in our file",
+			bank: bankText(s?.code ?? fields(comparison.rows[row - 1]?.theirs ?? null)[2], bankName),
+		};
+	};
+
+	if (!comparison.checks.find((c) => c.id === "cmp-filename" && c.status === "pass")) {
+		const detail = comparison.checks.find((c) => c.id === "cmp-filename")?.detail ?? "";
+		const [, should, got] = detail.match(/Expected "([^"]+)", got "([^"]+)"/) ?? [];
+		problems.push({
+			lines: "File name",
+			rows: [],
+			session: "",
+			bank: "",
+			problem: "Wrong file name",
+			yours: got ?? "",
+			shouldBe: should ?? merge.fileName,
+		});
+	}
+
+	const bad = comparison.rows.filter((r) => !r.ok);
+	const handled = new Set<number>();
+	const total = comparison.rows.length;
+	// Content-based, not reason-text-based: real files repeat identical lines,
+	// so "belongs at row N" can point at any copy. What matters is whether
+	// their line N is our line N±1.
+	const ourAt = (row: number) => comparison.rows[row - 1]?.ours ?? null;
+	const theirAt = (row: number) => comparison.rows[row - 1]?.theirs ?? null;
+	const shifted = (row: number, by: number) => theirAt(row) !== null && theirAt(row) === ourAt(row + by);
+	/** Last row of a run where their line r is our line r+by, from `start`. */
+	const runEnd = (start: number, by: number) => {
+		let r = start;
+		while (r + 1 <= total && shifted(r + 1, by)) r++;
+		return r;
+	};
+	/** Mark rows from..to handled (plus a trailing missing/extra line) and return them. */
+	const markThrough = (from: number, to: number): number[] => {
+		const rows = Array.from({ length: to - from + 1 }, (_, k) => from + k);
+		// The end-of-file "missing"/"extra" line is a consequence of the same slip.
+		const tail = bad.find((x) => x.row === to + 1 && x.kinds.some((k) => k === "missing" || k === "extra"));
+		if (tail) rows.push(tail.row);
+		rows.forEach((r) => handled.add(r));
+		return rows;
+	};
+
+	for (let i = 0; i < bad.length; i++) {
+		const d = bad[i];
+		if (handled.has(d.row)) continue;
+
+		// Two lines swapped with each other: one problem.
+		const partner =
+			d.theirs !== null
+				? bad
+						.filter((x) => x.row !== d.row && !handled.has(x.row) && x.theirs === d.ours && d.theirs === x.ours)
+						.sort((x, y) => Math.abs(x.row - d.row) - Math.abs(y.row - d.row))[0]
+				: undefined;
+		if (partner) {
+			handled.add(d.row).add(partner.row);
+			const a = Math.min(d.row, partner.row);
+			const b = Math.max(d.row, partner.row);
+			problems.push({
+				lines: `${a} and ${b}`,
+				rows: [a, b],
+				...where(a),
+				bank: where(a).bank === where(b).bank ? where(a).bank : `${where(a).bank}; ${where(b).bank}`,
+				problem: "Lines in the wrong order",
+				yours: `Line ${a} and line ${b} are swapped`,
+				shouldBe: `Swap lines ${a} and ${b}`,
+			});
+			continue;
+		}
+
+		// A line left out: from here on, their line r is our line r+1.
+		if (shifted(d.row, 1) && (d.row + 1 > total || shifted(d.row + 1, 1) || ourAt(d.row + 1) === null)) {
+			const rows = markThrough(d.row, runEnd(d.row, 1));
+			problems.push({
+				lines: `${d.row} onwards`,
+				rows,
+				...where(d.row),
+				problem: "A line is missing",
+				yours: `Not there (every line after it moved up by one)`,
+				shouldBe: `Insert at line ${d.row}: ${showSpacing(ourAt(d.row) ?? "")}`,
+			});
+			continue;
+		}
+
+		// A line added: the lines after this one are our line r-1.
+		if (d.theirs !== null && d.row + 1 <= total && shifted(d.row + 1, -1) && (d.row + 2 > total || shifted(d.row + 2, -1))) {
+			const rows = markThrough(d.row, runEnd(d.row + 1, -1));
+			problems.push({
+				lines: String(d.row),
+				rows,
+				...where(d.row),
+				problem: "An extra line",
+				yours: showSpacing(d.theirs),
+				shouldBe: `Delete line ${d.row} (every line after it moved down by one)`,
+			});
+			continue;
+		}
+
+		const target = orderTarget(d);
+		if (target !== null) {
+			handled.add(d.row);
+			problems.push({
+				lines: String(d.row),
+				rows: [d.row],
+				...where(d.row),
+				problem: "Line in the wrong place",
+				yours: `This line is at line ${d.row}`,
+				shouldBe: `Move it to line ${target}`,
+			});
+			continue;
+		}
+
+		handled.add(d.row);
+		if (d.kinds.includes("missing")) {
+			problems.push({
+				lines: String(d.row),
+				rows: [d.row],
+				...where(d.row),
+				problem: "Line missing",
+				yours: "(no line)",
+				shouldBe: `Add: ${showSpacing(d.ours ?? "")}`,
+			});
+			continue;
+		}
+		if (d.kinds.includes("extra")) {
+			problems.push({
+				lines: String(d.row),
+				rows: [d.row],
+				...where(d.row),
+				problem: "Extra line",
+				yours: showSpacing(d.theirs ?? ""),
+				shouldBe: "Delete this line",
+			});
+			continue;
+		}
+
+		// Content problems on one line: one entry per wrong part.
+		const ours = fields(d.ours);
+		const theirs = fields(d.theirs);
+		if (d.kinds.includes("whitespace")) {
+			problems.push({
+				lines: String(d.row),
+				rows: [d.row],
+				...where(d.row),
+				problem: spacingProblem(d.theirs ?? ""),
+				yours: showSpacing(d.theirs ?? ""),
+				shouldBe: showSpacing(d.ours ?? ""),
+			});
+		}
+		for (const [kind, idx, label] of FIELD_PROBLEM) {
+			if (!d.kinds.includes(kind)) continue;
+			problems.push({
+				lines: String(d.row),
+				rows: [d.row],
+				...where(d.row),
+				problem: label,
+				yours: theirs[idx],
+				shouldBe: ours[idx],
+			});
+		}
+	}
+
+	if (comparison.checks.find((c) => c.id === "cmp-trailing-newline" && c.status !== "pass")) {
+		problems.push({
+			lines: "End of file",
+			rows: [],
+			session: "",
+			bank: "",
+			problem: "Empty line at the end",
+			yours: "The file ends with an empty line",
+			shouldBe: "Remove the empty last line",
+		});
+	}
+	return problems;
 }
 
 function stamp(d: Date): string {
 	const p = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-/** Our four fields: our lines are always exactly tab-separated. */
-function ourFields(line: string | null): string[] {
-	return line === null ? ["", "", "", ""] : line.split("\t");
-}
-
-/** Settlement's fields as best we can read them, whatever separated them. */
-function theirFields(line: string | null): string[] {
-	if (line === null) return ["", "", "", ""];
-	const tokens = line.trim().split(/\s+/);
-	return [0, 1, 2, 3].map((i) => tokens[i] ?? "");
-}
-
-/** Which of Settlement's four fields to mark as wrong on this row. */
-export function badFields(diff: RowDiff): boolean[] {
-	if (diff.ok) return [false, false, false, false];
-	// A row out of place, missing or extra is wrong as a whole row.
-	if (diff.kinds.some((k) => k === "order" || k === "missing" || k === "extra")) return [true, true, true, true];
-	return FIELD_KIND.map((k) => diff.kinds.includes(k));
-}
-
-function resultLabel(diff: RowDiff): string {
-	return diff.ok ? "Match" : diff.kinds.map((k) => MISMATCH_LABELS[k]).join(" + ");
-}
-
-/** "What to do" in plain words, pointing at Settlement's own line number. */
-export function fixHint(diff: RowDiff): string {
-	if (diff.ok) return "";
-	if (diff.kinds.includes("missing")) return `Add this row as line ${diff.row} of your file.`;
-	if (diff.kinds.includes("extra")) return `Remove line ${diff.row} from your file; we have no such row.`;
-	if (diff.kinds.includes("order")) {
-		const target = diff.reasons.join(" ").match(/row (\d+)/)?.[1];
-		return target
-			? `Line ${diff.row} is in the wrong place; it belongs at line ${target}. Check the session order.`
-			: `Line ${diff.row} is in the wrong place. Check the session order.`;
-	}
-	return `Correct line ${diff.row}: ${diff.reasons.join("; ")}.`;
-}
-
-function sideBySideRow(diff: RowDiff, src: MergedRow | undefined): ReportRow {
-	const ours = ourFields(diff.ours);
-	const theirs = theirFields(diff.theirs);
-	const bad = badFields(diff);
-	const spacingBad = diff.kinds.includes("whitespace");
-	return {
-		style: diff.ok ? "match" : "mismatch",
-		cells: [
-			{ value: diff.row, mono: true },
-			{ value: resultLabel(diff), tone: diff.ok ? "good" : "bad", bold: !diff.ok },
-			{ value: src ? sessionText(src) : "—", tone: src ? undefined : "muted" },
-			{ value: src ? `${src.sourceName} line ${src.sourceLine}` : "Not in our compilation", tone: src ? "muted" : "bad" },
-			...ours.map((v): ReportCell => ({ value: v, mono: true })),
-			...theirs.map((v, i): ReportCell => ({ value: v, mono: true, tone: bad[i] ? "bad" : undefined, bold: bad[i] })),
-			{
-				value: diff.theirs === null ? "(no line)" : visibleWhitespace(diff.theirs),
-				mono: true,
-				tone: spacingBad ? "bad" : "muted",
-				bold: spacingBad,
-			},
-			{ value: diff.ok ? "" : diff.reasons.join("; ") },
-			{ value: fixHint(diff) },
-		],
-	};
-}
-
-function groupRow(src: MergedRow, firstRow: number, lastRow: number, width: number): ReportRow {
-	const text = `${sessionText(src)} · ${src.sourceName} · our lines ${firstRow}–${lastRow}`;
-	return { style: "group", cells: [{ value: text, bold: true }, ...Array.from({ length: width - 1 }, () => ({ value: "" }))] };
-}
-
-const SIDE_HEADER = [
-	"Line",
-	"Result",
-	"Session (merge order)",
-	"Source file & line",
-	"Record type",
-	"Date",
-	"Bank code",
-	"Amount",
-	"Record type",
-	"Date",
-	"Bank code",
-	"Amount",
-	"Settlement line as sent (⇥ tab · space)",
-	"What's different",
-	"How to fix",
-];
-const SIDE_WIDTHS = [7, 18, 30, 34, 11, 12, 14, 24, 11, 12, 14, 24, 60, 50, 50];
-const SIDE_GROUPS: [string, number, number][] = [
-	["Where the row came from", 3, 4],
-	["Our compilation", 5, 8],
-	["Settlement's file", 9, 13],
-];
-
-/** Row-by-row sheet, broken into session blocks so merge order reads top to bottom. */
-function sideBySide(input: DiscrepancyInput, onlyDifferences: boolean): ReportRow[] {
-	const { merge, comparison } = input;
-	const rows: ReportRow[] = [];
-	let currentSource: string | null = null;
-	for (const diff of comparison.rows) {
-		if (onlyDifferences && diff.ok) continue;
-		const src = merge.rows[diff.row - 1];
-		if (!onlyDifferences && src && src.sourceName !== currentSource) {
-			currentSource = src.sourceName;
-			const block = merge.rows.filter((r) => r.sourceName === src.sourceName);
-			rows.push(groupRow(src, block[0].row, block[block.length - 1].row, SIDE_HEADER.length));
-		}
-		if (!onlyDifferences && !src && currentSource !== "__extra__") {
-			currentSource = "__extra__";
-			rows.push({
-				style: "group",
-				cells: [
-					{ value: "Lines only in Settlement's file (not in our compilation)", bold: true },
-					...Array.from({ length: SIDE_HEADER.length - 1 }, () => ({ value: "" })),
-				],
-			});
-		}
-		rows.push(sideBySideRow(diff, src));
-	}
-	return rows;
-}
-
-function checkRows(checks: CheckResult[]): ReportRow[] {
-	return checks.map((c) => ({
-		style: "plain" as const,
-		cells: [
-			{ value: c.label },
-			{
-				value: c.status === "pass" ? "PASS" : c.status === "fail" ? "FAIL" : "CHECK",
-				tone: c.status === "pass" ? ("good" as const) : c.status === "fail" ? ("bad" as const) : ("warn" as const),
-				bold: true,
-			},
-			{ value: c.detail },
-		],
-	}));
+	return `${p(d.getDate())} ${MONTH[d.getMonth()]} ${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyReport {
-	const { merge, comparison, settlementName, generatedAt } = input;
-	const differing = comparison.rows.filter((r) => !r.ok);
-	const verdict = comparison.pass
-		? "MATCH: Settlement's file agrees with our compilation."
-		: `MISMATCH: ${comparison.mismatched} of ${comparison.rows.length} lines differ.`;
+	const { merge, comparison, settlementName, generatedAt, bankName } = input;
+	const problems = findProblems(input);
+	const problemRows = new Set(problems.flatMap((p) => p.rows));
+	const n = problems.length;
+	const verdict =
+		n === 0
+			? "No problems found. Your file matches ours."
+			: `${n} problem${n === 1 ? "" : "s"} found in your file. Please fix ${n === 1 ? "it" : "them"} and send it again.`;
 
-	// ---- Summary ----
-	const kinds = Object.keys(comparison.byKind) as MismatchKind[];
-	const summaryRows: ReportRow[] = [
-		{ style: "plain", cells: [{ value: "Our compilation" }, { value: merge.fileName, mono: true }, { value: `${merge.rows.length} lines` }] },
-		{ style: "plain", cells: [{ value: "Settlement's file" }, { value: settlementName, mono: true }, { value: `${comparison.rows.length - comparison.rows.filter((r) => r.theirs === null).length} lines` }] },
-		{
-			style: "total",
-			cells: [
-				{ value: "Result" },
-				{ value: comparison.pass ? "MATCH" : "MISMATCH", tone: comparison.pass ? "good" : "bad", bold: true },
-				{ value: verdict },
-			],
-		},
-		...kinds.map((k) => ({
-			style: "plain" as const,
-			cells: [{ value: `  ${MISMATCH_LABELS[k]}` }, { value: comparison.byKind[k] ?? 0, tone: "bad" as const, bold: true }, { value: "line(s)" }],
-		})),
-		{ style: "group", cells: [{ value: "File checks", bold: true }, { value: "" }, { value: "" }] },
-		...checkRows(comparison.checks),
-		{ style: "group", cells: [{ value: "How to read this workbook", bold: true }, { value: "" }, { value: "" }] },
-		{ style: "plain", cells: [{ value: "Side by side" }, { value: "Every line, ours next to yours, grouped by session in merge order." }, { value: "" }] },
-		{ style: "plain", cells: [{ value: "Differences" }, { value: "Only the lines that differ, with what to fix." }, { value: "" }] },
-		{ style: "plain", cells: [{ value: "Merge order" }, { value: "The order the session files are compiled in." }, { value: "" }] },
-		{ style: "plain", cells: [{ value: "Red cells" }, { value: "The exact field in your file that differs from ours.", tone: "bad" }, { value: "" }] },
-		{ style: "plain", cells: [{ value: "Line numbers" }, { value: "Line N is the Nth line of your file and of ours." }, { value: "" }] },
-	];
+	// ---- Sheet 1: What to fix ----
+	const fixRows: ReportRow[] = problems.map((p, i) => ({
+		style: "problem",
+		cells: [
+			{ value: i + 1 },
+			{ value: p.lines, bold: true },
+			{ value: p.problem, tone: "bad", bold: true },
+			{ value: p.yours, mono: true, tone: "bad" },
+			{ value: p.shouldBe, mono: true, tone: "good" },
+			{ value: p.bank },
+			{ value: p.session },
+		],
+	}));
 
-	// ---- Merge order ----
 	const orderRows: ReportRow[] = merge.sources.map((s, i) => {
 		const block = merge.rows.filter((r) => r.sourceName === s.name);
-		const lines = block.map((r) => r.row);
-		const bad = differing.filter((d) => lines.includes(d.row)).length;
 		return {
-			style: bad > 0 ? ("mismatch" as const) : ("plain" as const),
+			style: "plain",
 			cells: [
 				{ value: i + 1 },
+				{ value: block.length ? `${block[0].row} to ${block[block.length - 1].row}` : "" },
+				{ value: block[0] ? sessionLabel(block[0]) : "" },
 				{ value: s.name, mono: true },
-				{ value: s.date ? longDate(s.date) : "—" },
-				{ value: `${s.sessionLabel ?? "—"} (_${s.session ?? "?"})` },
-				{ value: block.length },
-				{ value: lines.length ? `${lines[0]}–${lines[lines.length - 1]}` : "—", mono: true },
-				{ value: bad, tone: bad > 0 ? "bad" : "good", bold: bad > 0 },
+				{ value: "" },
+				{ value: "" },
+				{ value: "" },
 			],
 		};
 	});
 
+	// ---- Sheet 2: All lines ----
+	const allRows: ReportRow[] = [];
+	let current = "";
+	for (const d of comparison.rows) {
+		const s = merge.rows[d.row - 1];
+		const label = s ? `${sessionLabel(s)}  ·  ${s.sourceName}` : "Lines only in your file";
+		if (label !== current) {
+			current = label;
+			allRows.push({ style: "group", cells: [{ value: label, bold: true }, ...Array.from({ length: 6 }, () => ({ value: "" }))] });
+		}
+		const o = fields(d.ours);
+		const t = fields(d.theirs);
+		const wrongLine = !d.ok;
+		const diffAt = (k: number) => wrongLine && (o[k] !== t[k] || d.kinds.some((x) => x === "order" || x === "missing" || x === "extra"));
+		allRows.push({
+			style: d.ok ? "ok" : "problem",
+			cells: [
+				{ value: d.row },
+				{ value: bankText(s?.code ?? t[2], bankName), tone: diffAt(2) ? "bad" : undefined, bold: diffAt(2) },
+				{ value: o[1], mono: true },
+				{ value: o[3], mono: true },
+				{ value: t[1], mono: true, tone: diffAt(1) ? "bad" : undefined, bold: diffAt(1) },
+				{ value: t[3], mono: true, tone: diffAt(3) ? "bad" : undefined, bold: diffAt(3) },
+				{
+					value: d.ok && !problemRows.has(d.row) ? "OK" : "Fix",
+					tone: d.ok ? "good" : "bad",
+					bold: !d.ok,
+				},
+			],
+		});
+	}
+
 	const base = merge.fileName.replace(/\.txt$/i, "");
 	return {
-		fileName: `${base}_discrepancies.xlsx`,
+		fileName: `${base}_problems.xlsx`,
 		sheets: [
 			{
-				name: "Summary",
+				name: "What to fix",
 				preamble: [
-					`Weekend settlement comparison: ${merge.fileName}`,
+					`Weekend settlement file check: ${settlementName}`,
 					verdict,
-					`Generated ${stamp(generatedAt)} (Africa/Lagos) · Audit Toolkit`,
+					`Compared with our compilation ${merge.fileName} on ${stamp(generatedAt)}. Line numbers are the lines in your file.`,
 				],
-				header: ["Item", "Value", "Detail"],
-				widths: [26, 44, 90],
-				rows: summaryRows,
+				verdictTone: n === 0 ? "good" : "bad",
+				widths: [4, 12, 26, 36, 36, 30, 18],
+				tables: [
+					{
+						header: ["#", "Line", "Problem", "In your file", "Should be", "Bank", "Session"],
+						rows: fixRows,
+					},
+					{
+						title: "Correct order of the session files (by date, then 8am, 11am, 2pm, 5pm)",
+						header: ["#", "Lines", "Session", "File", "", "", ""],
+						rows: orderRows,
+					},
+				],
 			},
 			{
-				name: "Differences",
+				name: "All lines",
 				preamble: [
-					`Lines that differ (${differing.length})`,
-					differing.length === 0
-						? "No differences: every line matches."
-						: "Red cells are the fields in Settlement's file that differ from our compilation.",
+					"Every line: ours next to yours",
+					"Red cells are where your file differs from ours. Grey bars show where each session file starts.",
 				],
-				header: SIDE_HEADER,
-				headerGroups: SIDE_GROUPS,
-				widths: SIDE_WIDTHS,
-				rows: sideBySide(input, true),
-			},
-			{
-				name: "Side by side",
-				preamble: [
-					"Every line, ours next to Settlement's, in merge order",
-					"Grey bars mark where each session file starts.",
+				widths: [7, 36, 13, 24, 13, 24, 8],
+				tables: [
+					{
+						header: ["Line", "Bank", "Our date", "Our amount", "Your date", "Your amount", "Status"],
+						rows: allRows,
+					},
 				],
-				header: SIDE_HEADER,
-				headerGroups: SIDE_GROUPS,
-				widths: SIDE_WIDTHS,
-				rows: sideBySide(input, false),
-			},
-			{
-				name: "Merge order",
-				preamble: [
-					"Order of compilation",
-					"Sessions are compiled by date, then 8am → 11am → 2pm → 5pm. Every line takes the merge date.",
-				],
-				header: ["#", "Session file", "Day", "Session", "Lines", "Our lines", "Lines that differ"],
-				widths: [5, 32, 22, 16, 8, 12, 16],
-				rows: orderRows,
 			},
 		],
 	};
 }
-

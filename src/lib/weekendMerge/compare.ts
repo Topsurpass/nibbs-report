@@ -84,7 +84,12 @@ function diffRow(i: number, o: SplitLine | undefined, t: SplitLine | undefined, 
   if (o.content !== t.content) {
     // A row that exactly matches one of our rows whose slot isn't already
     // satisfied is in the wrong position, not wrong content.
-    const home = ours.findIndex((l, j) => j !== i && l.content === t.content && theirs[j]?.content !== l.content);
+    // Real files repeat identical lines, so pick the NEAREST unsatisfied match.
+    let home = -1;
+    for (let j = 0; j < ours.length; j++) {
+      if (j === i || ours[j].content !== t.content || theirs[j]?.content === ours[j].content) continue;
+      if (home === -1 || Math.abs(j - i) < Math.abs(home - i)) home = j;
+    }
     if (home !== -1) {
       kinds.push("order");
       reasons.push(`Out of order: this row belongs at row ${home + 1}`);
