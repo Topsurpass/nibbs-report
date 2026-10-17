@@ -17,6 +17,7 @@ function night(userId: string, date: string, hours: number | null): AttendanceEn
 	return {
 		id: `${userId}-${date}`,
 		userId,
+		shift: "night",
 		nightDate: date,
 		signedInAt: inAt.toISOString(),
 		signedOutAt: hours === null ? null : new Date(inAt.getTime() + hours * 3_600_000).toISOString(),
@@ -158,4 +159,44 @@ test("the JPEG model reports exactly the same totals as the workbook", () => {
 	// Column count must match the row shape or the painter draws ragged cells.
 	assert.ok(image.rows.every((r) => r.length === image.columns.length));
 	assert.equal(image.totals.length, image.columns.length);
+});
+
+test("an afternoon export names the shift in title, columns, sheet and file", () => {
+	const afternoon = (userId: string, date: string, hours: number): AttendanceEntry => {
+		const inAt = new Date(`${date}T11:30:00.000Z`); // 12:30 Lagos
+		return {
+			id: `${userId}-${date}-pm`,
+			userId,
+			shift: "afternoon",
+			nightDate: date,
+			signedInAt: inAt.toISOString(),
+			signedOutAt: new Date(inAt.getTime() + hours * 3_600_000).toISOString(),
+			source: "self",
+			note: null,
+			recordedBy: null,
+		};
+	};
+	const pm = [afternoon("u1", "2026-09-04", 8), afternoon("u1", "2026-09-07", 8), afternoon("u2", "2026-09-04", 8)];
+	const model = buildAttendanceExport({
+		month: "2026-09",
+		people: [ada, bode],
+		entries: pm,
+		scope: "all",
+		shift: "afternoon",
+		generatedAt: GENERATED,
+	});
+	assert.equal(model.title, "Afternoon Duty Attendance — September 2026");
+	assert.equal(model.fileName, "afternoon-duty-2026-09-all-analysts.xlsx");
+	assert.equal(model.nights.name, "Afternoons");
+	const header = model.summary.aoa[model.summary.headerRow - 1];
+	assert.equal(header[2], "Afternoons");
+	assert.equal(header[6], "Average per afternoon");
+	// Afternoon counts per person: Ada 2, Bode 1.
+	const rows = model.summary.aoa.slice(model.summary.headerRow, (model.summary.totalsRow ?? 0) - 1);
+	assert.deepEqual(rows.map((r) => [r[0], r[2]]), [["Ada Obi", 2], ["Bode Ayo", 1]]);
+
+	const image = buildSummaryImage({ month: "2026-09", people: [ada, bode], entries: pm, scope: "all", shift: "afternoon", generatedAt: GENERATED });
+	assert.equal(image.title, "Afternoon Duty — September 2026");
+	assert.equal(image.columns[1].label, "Afternoons");
+	assert.equal(image.fileName, "afternoon-duty-2026-09-all-analysts.jpg");
 });

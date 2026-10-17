@@ -31,6 +31,7 @@ function entry(
 	return {
 		id: `${userId}-${nightDate}`,
 		userId,
+		shift: "night",
 		nightDate,
 		signedInAt: `${nightDate}T19:30:00.000Z`,
 		signedOutAt: null,

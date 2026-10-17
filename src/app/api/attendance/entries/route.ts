@@ -1,9 +1,5 @@
-import {
-	durationMinutes,
-	instantForNight,
-	isWithinNight,
-	parseClock,
-} from "@/lib/attendance/nightWindow";
+import { durationMinutes, parseClock } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, instantForDuty, isWithinDuty, shiftHours } from "@/lib/attendance/shifts";
 import { adminEntrySchema, deleteEntrySchema } from "@/lib/validators/attendance";
 import { requireAdmin } from "@/services/auth/guards";
 import { getUserById } from "@/services/auth/users-repository";
@@ -16,7 +12,7 @@ function badRequest(error: string) {
 }
 
 /**
- * Add or correct one night on an analyst's behalf. Admins only.
+ * Add or correct one shift (night or afternoon) on an analyst's behalf. Admins only.
  *
  * Every row written here is stamped `source = 'admin'` with who wrote it, so a
  * corrected register still distinguishes what an analyst recorded themselves
@@ -33,25 +29,30 @@ export async function POST(request: Request) {
 		return badRequest("Invalid request.");
 	}
 
-	const parsed = adminEntrySchema.safeParse(payload);
+	// Clients from before afternoon duty send no shift: they meant a night.
+	const parsed = adminEntrySchema.safeParse(
+		payload && typeof payload === "object" ? { shift: "night", ...payload } : payload,
+	);
 	if (!parsed.success) {
 		return badRequest(parsed.error.issues[0]?.message ?? "Some fields are invalid.");
 	}
-	const { userId, nightDate, signedIn, signedOut, note } = parsed.data;
+	const { userId, nightDate, shift, signedIn, signedOut, note } = parsed.data;
+	const meta = SHIFT_META[shift];
+	const outside = `falls outside the ${meta.noun} shift (${shiftHours(shift, nightDate)}).`;
 
 	const target = await getUserById(userId);
 	if (!target) return badRequest("That analyst no longer exists.");
 
-	const signedInAt = instantForNight(nightDate, parseClock(signedIn)!);
-	if (!isWithinNight(nightDate, signedInAt)) {
-		return badRequest("That sign-in time falls outside the night shift (20:30–08:30).");
+	const signedInAt = instantForDuty(shift, nightDate, parseClock(signedIn)!);
+	if (!isWithinDuty(shift, nightDate, signedInAt)) {
+		return badRequest(`That sign-in time ${outside}`);
 	}
 
 	let signedOutAt: Date | null = null;
 	if (signedOut) {
-		signedOutAt = instantForNight(nightDate, parseClock(signedOut)!);
-		if (!isWithinNight(nightDate, signedOutAt)) {
-			return badRequest("That sign-out time falls outside the night shift (20:30–08:30).");
+		signedOutAt = instantForDuty(shift, nightDate, parseClock(signedOut)!);
+		if (!isWithinDuty(shift, nightDate, signedOutAt)) {
+			return badRequest(`That sign-out time ${outside}`);
 		}
 		if (durationMinutes(signedInAt, signedOutAt) === null) {
 			return badRequest("Sign-out has to come after sign-in.");
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
 		const entry = await upsertAdminEntry({
 			userId,
 			nightDate,
+			shift,
 			signedInAt,
 			signedOutAt,
 			note: note?.trim() ? note.trim() : null,
@@ -71,13 +73,13 @@ export async function POST(request: Request) {
 	} catch (err) {
 		console.error("[attendance] admin upsert failed", err);
 		return Response.json(
-			{ ok: false, error: "Couldn't save that night. Try again." },
+			{ ok: false, error: `Couldn't save that ${meta.noun}. Try again.` },
 			{ status: 503 },
 		);
 	}
 }
 
-/** Remove a night from the register. Admins only. */
+/** Remove one shift from the register. Admins only. */
 export async function DELETE(request: Request) {
 	const auth = await requireAdmin();
 	if ("response" in auth) return auth.response;
@@ -86,13 +88,14 @@ export async function DELETE(request: Request) {
 	const parsed = deleteEntrySchema.safeParse({
 		userId: url.searchParams.get("userId") ?? "",
 		nightDate: url.searchParams.get("nightDate") ?? "",
+		shift: url.searchParams.get("shift") ?? undefined,
 	});
 	if (!parsed.success) {
 		return badRequest(parsed.error.issues[0]?.message ?? "Some fields are invalid.");
 	}
 
 	try {
-		const removed = await deleteEntry(parsed.data.userId, parsed.data.nightDate);
+		const removed = await deleteEntry(parsed.data.userId, parsed.data.nightDate, parsed.data.shift);
 		return Response.json({ ok: true, removed });
 	} catch (err) {
 		console.error("[attendance] delete failed", err);

@@ -11,6 +11,7 @@ import {
 	isNightDate,
 	type NightDate,
 } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, shiftEndClock, shiftHoursSummary, shiftStartClock, type Shift } from "@/lib/attendance/shifts";
 import { personName } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import { requestNightRemoval } from "./removeNight";
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * Admin correction for one night.
+ * Admin correction for one night or afternoon.
  *
  * Validates against `adminEntrySchema` — the exact contract the route re-checks
  * server-side — so the field-level message an admin sees is the same rule that
@@ -42,6 +43,8 @@ import {
 
 interface Props {
 	open: boolean;
+	/** Which register this dialog edits: nights or afternoons. */
+	shift: Shift;
 	nightDate: NightDate;
 	/** Preselect an analyst, when opened from an existing row rather than a day. */
 	initialUserId?: string;
@@ -52,15 +55,15 @@ interface Props {
 	onSaved: () => void;
 }
 
-/**
- * A full night, prefilled. Almost every correction is a standard 20:30 → 08:30
- * shift, so the admin adjusts the exception rather than typing the norm.
+/*
+ * A full standard shift is prefilled (20:30 → 08:30 for a night; 12:30 or, at
+ * weekends, 14:30 → 20:30 for an afternoon). Almost every correction is the
+ * standard shift, so the admin adjusts the exception rather than typing the norm.
  */
-const DEFAULT_IN = "20:30";
-const DEFAULT_OUT = "08:30";
 
 export default function AdminEntryDialog({
 	open,
+	shift,
 	nightDate,
 	initialUserId,
 	people,
@@ -70,6 +73,7 @@ export default function AdminEntryDialog({
 }: Props) {
 	const [serverError, setServerError] = useState<string | null>(null);
 	const [removing, setRemoving] = useState(false);
+	const meta = SHIFT_META[shift];
 
 	const {
 		register,
@@ -83,8 +87,9 @@ export default function AdminEntryDialog({
 		defaultValues: {
 			userId: people[0]?.id ?? "",
 			nightDate,
-			signedIn: DEFAULT_IN,
-			signedOut: DEFAULT_OUT,
+			shift,
+			signedIn: shiftStartClock(shift, nightDate),
+			signedOut: shiftEndClock(shift),
 			note: "",
 		},
 	});
@@ -103,11 +108,12 @@ export default function AdminEntryDialog({
 		return {
 			userId,
 			nightDate: night,
-			signedIn: row ? formatLagosTime(new Date(row.signedInAt)) : DEFAULT_IN,
+			shift,
+			signedIn: row ? formatLagosTime(new Date(row.signedInAt)) : shiftStartClock(shift, night),
 			// An existing row shows what is actually on the register: an open night
 			// stays blank rather than being prefilled with a sign-out that never
 			// happened. Only a brand-new entry gets the standard shift.
-			signedOut: row ? (row.signedOutAt ? formatLagosTime(new Date(row.signedOutAt)) : "") : DEFAULT_OUT,
+			signedOut: row ? (row.signedOutAt ? formatLagosTime(new Date(row.signedOutAt)) : "") : shiftEndClock(shift),
 			note: row?.note ?? "",
 		};
 	};
@@ -116,7 +122,7 @@ export default function AdminEntryDialog({
 	// prop-change pattern) so no frame ever shows another night's times. Three
 	// triggers: opening on a new night, switching analyst, and editing the date —
 	// each must reveal the row that actually exists for that pair.
-	const openKey = `${open}|${nightDate}|${initialUserId ?? ""}`;
+	const openKey = `${open}|${shift}|${nightDate}|${initialUserId ?? ""}`;
 	const [seed, setSeed] = useState(() => ({
 		openKey,
 		userId: initialUserId ?? people[0]?.id ?? "",
@@ -147,7 +153,7 @@ export default function AdminEntryDialog({
 			});
 			const data = (await res.json()) as { ok: boolean; error?: string };
 			if (!res.ok || !data.ok) {
-				setServerError(data.error ?? "Couldn't save that night.");
+				setServerError(data.error ?? `Couldn't save that ${meta.noun}.`);
 				return;
 			}
 			onSaved();
@@ -164,7 +170,7 @@ export default function AdminEntryDialog({
 		// somebody's attendance record. Name both before doing it.
 		if (
 			!window.confirm(
-				`Remove ${who ? personName(who) : "this analyst"}'s night of ${formatNightLabel(formNight)}? This cannot be undone.`,
+				`Remove ${who ? personName(who) : "this analyst"}'s ${meta.noun} of ${formatNightLabel(formNight)}? This cannot be undone.`,
 			)
 		) {
 			return;
@@ -173,11 +179,11 @@ export default function AdminEntryDialog({
 		setRemoving(true);
 		setServerError(null);
 		try {
-			await requestNightRemoval(selectedUser, formNight);
+			await requestNightRemoval(selectedUser, formNight, shift);
 			onSaved();
 			onClose();
 		} catch (err) {
-			setServerError(err instanceof Error ? err.message : "Couldn't remove that night.");
+			setServerError(err instanceof Error ? err.message : `Couldn't remove that ${meta.noun}.`);
 		} finally {
 			setRemoving(false);
 		}
@@ -187,7 +193,7 @@ export default function AdminEntryDialog({
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent className="no-print sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>{existing ? "Correct this night" : "Add a night"}</DialogTitle>
+					<DialogTitle>{existing ? `Correct this ${meta.noun}` : `Add ${shift === "afternoon" ? "an" : "a"} ${meta.noun}`}</DialogTitle>
 					<DialogDescription>
 						{formatNightLabel(formNight)} · saved as an admin entry, stamped with your name
 					</DialogDescription>
@@ -201,7 +207,7 @@ export default function AdminEntryDialog({
 					)}
 
 					<div className="space-y-1.5">
-						<Label htmlFor="nightDate">Night</Label>
+						<Label htmlFor="nightDate">{shift === "night" ? "Night" : "Date"}</Label>
 						<Input id="nightDate" type="date" aria-invalid={!!errors.nightDate} {...register("nightDate")} />
 						{errors.nightDate && <p className="text-xs text-destructive">{errors.nightDate.message}</p>}
 					</div>
@@ -237,9 +243,9 @@ export default function AdminEntryDialog({
 						</div>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						Prefilled with a standard 20:30 → 08:30 shift — adjust either time if it was different. Clear
-						sign-out to record the night as still open, which leaves the hours unknown rather than counting
-						them as zero.
+						Prefilled with the standard {meta.noun} shift ({shiftHoursSummary(shift)}). Adjust either time if
+						it was different. Clear sign-out to record the {meta.noun} as still open, which leaves the hours
+						unknown rather than counting them as zero.
 					</p>
 
 					<div className="space-y-1.5">
@@ -261,7 +267,7 @@ export default function AdminEntryDialog({
 							className="border-destructive/40 text-destructive hover:bg-destructive/10"
 						>
 							{removing && <Loader2 className="animate-spin" />}
-							{removing ? "Removing…" : "Remove night"}
+							{removing ? "Removing…" : `Remove ${meta.noun}`}
 						</Button>
 					) : (
 						<span />
@@ -273,7 +279,7 @@ export default function AdminEntryDialog({
 						</Button>
 						<Button type="button" onClick={onSubmit} disabled={isSubmitting || removing}>
 							{isSubmitting && <Loader2 className="animate-spin" />}
-							{isSubmitting ? "Saving…" : "Save night"}
+							{isSubmitting ? "Saving…" : `Save ${meta.noun}`}
 						</Button>
 					</div>
 				</DialogFooter>

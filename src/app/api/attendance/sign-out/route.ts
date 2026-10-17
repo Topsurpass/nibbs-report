@@ -1,39 +1,41 @@
-import { signOutNightFor } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, parseShift, signOutDutyFor } from "@/lib/attendance/shifts";
 import { requireUser } from "@/services/auth/guards";
 import { signOut } from "@/services/attendance/repository";
 
 export const runtime = "nodejs";
 
 /**
- * Sign out of the shift that is still open.
+ * Sign out of the shift that is still open (`?shift=night|afternoon`).
  *
- * Uses `signOutNightFor`, not `nightDateFor`: the sign-in window shuts at 08:30
+ * Uses `signOutDutyFor`, not `dutyDateFor`: sign-in shuts when the shift ends
  * but a shift that runs over must still be closeable during the grace period.
  */
-export async function POST() {
+export async function POST(request: Request) {
 	const auth = await requireUser();
 	if ("response" in auth) return auth.response;
 
+	const shift = parseShift(new URL(request.url).searchParams.get("shift"));
+	const meta = SHIFT_META[shift];
 	const now = new Date();
-	const nightDate = signOutNightFor(now);
+	const dutyDate = signOutDutyFor(shift, now);
 
-	if (!nightDate) {
+	if (!dutyDate) {
 		return Response.json(
-			{ ok: false, error: "There's no open shift to sign out of." },
+			{ ok: false, error: `There's no open ${meta.noun} shift to sign out of.` },
 			{ status: 403 },
 		);
 	}
 
 	try {
-		const { updated, entry } = await signOut(auth.user.id, nightDate, now);
+		const { updated, entry } = await signOut(auth.user.id, dutyDate, shift, now);
 
 		if (!entry) {
 			return Response.json(
-				{ ok: false, error: "You didn't sign in for this night, so there's nothing to close." },
+				{ ok: false, error: `You didn't sign in for this ${meta.noun}, so there's nothing to close.` },
 				{ status: 409 },
 			);
 		}
-		// A closed night is final for the person who worked it. The database guard
+		// A closed shift is final for the person who worked it. The database guard
 		// (`signed_out_at is null`) already refuses the write; this turns that into
 		// an explicit refusal rather than a no-op reported as success, so a stale
 		// tab or a replayed request cannot look like it changed something.
@@ -43,8 +45,7 @@ export async function POST() {
 					ok: false,
 					locked: true,
 					entry,
-					error:
-						"You've already signed out of this night, so it's locked. Ask an admin if the times need changing.",
+					error: `You've already signed out of this ${meta.noun}, so it's locked. Ask an admin if the times need changing.`,
 				},
 				{ status: 409 },
 			);
@@ -54,7 +55,7 @@ export async function POST() {
 			ok: true,
 			updated,
 			entry,
-			message: "Signed out. Have a good rest.",
+			message: shift === "night" ? "Signed out. Have a good rest." : "Signed out. Thanks for covering the afternoon.",
 		});
 	} catch (err) {
 		console.error("[attendance] sign-out failed", err);

@@ -120,7 +120,9 @@ create table if not exists nibbs_nip_bank_codes (
   updated_at  timestamptz not null default now()
 );
 
--- Night-duty attendance register. One row per analyst per night worked.
+-- Duty attendance register (night and afternoon shifts). One row per analyst
+-- per shift per day worked. The table keeps its original name; `shift`
+-- distinguishes the two (existing rows are nights).
 --
 -- `night_date` is the Africa/Lagos date the shift STARTED, not the date of the
 -- timestamp: the window runs 20:30 → 08:30, so a 02:00 sign-in belongs to the
@@ -139,10 +141,25 @@ create table if not exists nibbs_night_attendance (
                  check (source in ('self', 'admin')),
   note           text,                        -- why an admin added or changed it
   recorded_by    uuid references nibbs_users(id) on delete set null,
+  shift          text not null default 'night'
+                 check (shift in ('night', 'afternoon')),
   created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now(),
-  unique (user_id, night_date)
+  updated_at     timestamptz not null default now()
 );
+
+-- Afternoon duty (expand step, safe for code that predates it). Existing
+-- databases gain the column with every current row as a night; the per-shift
+-- unique index is created BEFORE the legacy (user_id, night_date) constraint
+-- is dropped, so the table is never without a uniqueness guard. Dropping that
+-- legacy constraint is the separate contract step in
+-- scripts/db-drop-legacy-night-unique.mjs, run only once code that writes
+-- `on conflict (user_id, night_date, shift)` is deployed.
+alter table nibbs_night_attendance
+  add column if not exists shift text not null default 'night'
+  check (shift in ('night', 'afternoon'));
+
+create unique index if not exists nibbs_night_attendance_user_date_shift_key
+  on nibbs_night_attendance (user_id, night_date, shift);
 
 create index if not exists nibbs_night_attendance_night_idx
   on nibbs_night_attendance (night_date desc);

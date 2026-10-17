@@ -1,10 +1,12 @@
 import { requireSql } from "@/services/db/client";
 import { withRetry } from "@/services/db/retry";
 import { monthBounds, type MonthKey, type NightDate } from "@/lib/attendance/nightWindow";
+import type { Shift } from "@/lib/attendance/shifts";
 import type { AttendanceEntry, AttendanceSource } from "@/lib/attendance/types";
 
 /**
- * Persistence for the night-duty register (`nibbs_night_attendance`).
+ * Persistence for the duty register (`nibbs_night_attendance`, night and
+ * afternoon shifts, distinguished by `shift`).
  *
  * No clock logic lives here — which night an instant belongs to is decided by
  * `lib/attendance/nightWindow.ts` and passed in. This module only reads and
@@ -14,6 +16,7 @@ import type { AttendanceEntry, AttendanceSource } from "@/lib/attendance/types";
 interface Row {
 	id: string;
 	user_id: string;
+	shift: Shift;
 	night_date: string;
 	signed_in_at: string | Date;
 	signed_out_at: string | Date | null;
@@ -31,6 +34,7 @@ interface Row {
 const SELECT_COLUMNS = `
 	id,
 	user_id,
+	shift,
 	to_char(night_date, 'YYYY-MM-DD') as night_date,
 	signed_in_at,
 	signed_out_at,
@@ -47,6 +51,7 @@ function toEntry(row: Row): AttendanceEntry {
 	return {
 		id: row.id,
 		userId: row.user_id,
+		shift: row.shift,
 		nightDate: row.night_date,
 		signedInAt: toIso(row.signed_in_at),
 		signedOutAt: row.signed_out_at === null ? null : toIso(row.signed_out_at),
@@ -62,7 +67,7 @@ export interface ListOptions {
 	userId?: string;
 }
 
-/** Every night in a month, for one analyst or for everyone. */
+/** Every shift (night and afternoon) in a month, for one analyst or for everyone. */
 export async function listAttendance({ month, userId }: ListOptions): Promise<AttendanceEntry[]> {
 	const sql = requireSql();
 	const { first, last } = monthBounds(month);
@@ -73,30 +78,31 @@ export async function listAttendance({ month, userId }: ListOptions): Promise<At
 				select ${sql.unsafe(SELECT_COLUMNS)}
 				from nibbs_night_attendance
 				where night_date between ${first} and ${last} and user_id = ${userId}
-				order by night_date desc
+				order by night_date desc, shift
 			`
 			: sql`
 				select ${sql.unsafe(SELECT_COLUMNS)}
 				from nibbs_night_attendance
 				where night_date between ${first} and ${last}
-				order by night_date desc
+				order by night_date desc, shift
 			`,
 	)) as Row[];
 
 	return rows.map(toEntry);
 }
 
-/** The row for one analyst on one night, if any. */
+/** The row for one analyst on one shift, if any. */
 export async function getEntry(
 	userId: string,
 	nightDate: NightDate,
+	shift: Shift,
 ): Promise<AttendanceEntry | null> {
 	const sql = requireSql();
 	const rows = (await withRetry(
 		() => sql`
 			select ${sql.unsafe(SELECT_COLUMNS)}
 			from nibbs_night_attendance
-			where user_id = ${userId} and night_date = ${nightDate}
+			where user_id = ${userId} and night_date = ${nightDate} and shift = ${shift}
 			limit 1
 		`,
 	)) as Row[];
@@ -118,21 +124,22 @@ export interface SignInResult {
 export async function signIn(
 	userId: string,
 	nightDate: NightDate,
+	shift: Shift,
 	at: Date,
 ): Promise<SignInResult> {
 	const sql = requireSql();
 	const inserted = (await withRetry(
 		() => sql`
-			insert into nibbs_night_attendance (user_id, night_date, signed_in_at, source)
-			values (${userId}, ${nightDate}, ${at.toISOString()}, 'self')
-			on conflict (user_id, night_date) do nothing
+			insert into nibbs_night_attendance (user_id, night_date, shift, signed_in_at, source)
+			values (${userId}, ${nightDate}, ${shift}, ${at.toISOString()}, 'self')
+			on conflict (user_id, night_date, shift) do nothing
 			returning ${sql.unsafe(SELECT_COLUMNS)}
 		`,
 	)) as Row[];
 
 	if (inserted[0]) return { created: true, entry: toEntry(inserted[0]) };
 
-	const existing = await getEntry(userId, nightDate);
+	const existing = await getEntry(userId, nightDate, shift);
 	if (!existing) {
 		// The conflicting row vanished between the insert and the read. Vanishingly
 		// unlikely, but returning a fake success would be worse than a clear error.
@@ -154,6 +161,7 @@ export interface SignOutResult {
 export async function signOut(
 	userId: string,
 	nightDate: NightDate,
+	shift: Shift,
 	at: Date,
 ): Promise<SignOutResult> {
 	const sql = requireSql();
@@ -163,18 +171,20 @@ export async function signOut(
 			set signed_out_at = ${at.toISOString()}, updated_at = now()
 			where user_id = ${userId}
 			  and night_date = ${nightDate}
+			  and shift = ${shift}
 			  and signed_out_at is null
 			returning ${sql.unsafe(SELECT_COLUMNS)}
 		`,
 	)) as Row[];
 
 	if (rows[0]) return { updated: true, entry: toEntry(rows[0]) };
-	return { updated: false, entry: await getEntry(userId, nightDate) };
+	return { updated: false, entry: await getEntry(userId, nightDate, shift) };
 }
 
 export interface AdminEntryInput {
 	userId: string;
 	nightDate: NightDate;
+	shift: Shift;
 	signedInAt: Date;
 	signedOutAt: Date | null;
 	note: string | null;
@@ -190,17 +200,18 @@ export async function upsertAdminEntry(input: AdminEntryInput): Promise<Attendan
 	const rows = (await withRetry(
 		() => sql`
 			insert into nibbs_night_attendance
-				(user_id, night_date, signed_in_at, signed_out_at, source, note, recorded_by)
+				(user_id, night_date, shift, signed_in_at, signed_out_at, source, note, recorded_by)
 			values (
 				${input.userId},
 				${input.nightDate},
+				${input.shift},
 				${input.signedInAt.toISOString()},
 				${input.signedOutAt ? input.signedOutAt.toISOString() : null},
 				'admin',
 				${input.note},
 				${input.recordedBy}
 			)
-			on conflict (user_id, night_date) do update
+			on conflict (user_id, night_date, shift) do update
 			set signed_in_at  = excluded.signed_in_at,
 			    signed_out_at = excluded.signed_out_at,
 			    source        = 'admin',
@@ -213,13 +224,13 @@ export async function upsertAdminEntry(input: AdminEntryInput): Promise<Attendan
 	return toEntry(rows[0]);
 }
 
-/** Remove a night. Returns false when there was nothing to remove. */
-export async function deleteEntry(userId: string, nightDate: NightDate): Promise<boolean> {
+/** Remove one shift. Returns false when there was nothing to remove. */
+export async function deleteEntry(userId: string, nightDate: NightDate, shift: Shift): Promise<boolean> {
 	const sql = requireSql();
 	const rows = (await withRetry(
 		() => sql`
 			delete from nibbs_night_attendance
-			where user_id = ${userId} and night_date = ${nightDate}
+			where user_id = ${userId} and night_date = ${nightDate} and shift = ${shift}
 			returning id
 		`,
 	)) as { id: string }[];

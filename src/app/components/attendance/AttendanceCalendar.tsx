@@ -5,10 +5,11 @@ import {
 	buildMonthGrid,
 	formatDuration,
 	formatLagosTime,
-	nightDateFor,
+	toLagos,
 	type MonthKey,
 	type NightDate,
 } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, activeDutyDate, shiftHoursSummary, type Shift } from "@/lib/attendance/shifts";
 import { entryMinutes, indexByNight } from "@/lib/attendance/summary";
 import type { AttendanceEntry } from "@/lib/attendance/types";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
  */
 
 interface Props {
+	/** Which shift's entries these are; decides "tonight" vs "today" and the footnote. */
+	shift: Shift;
 	month: MonthKey;
 	entries: AttendanceEntry[];
 	/** "me" shows hours per night; "all" shows how many analysts signed in. */
@@ -35,10 +38,12 @@ interface Props {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default function AttendanceCalendar({ month, entries, scope, onPickNight, now }: Props) {
+export default function AttendanceCalendar({ shift, month, entries, scope, onPickNight, now }: Props) {
 	const weeks = useMemo(() => buildMonthGrid(month), [month]);
 	const byNight = useMemo(() => indexByNight(entries), [entries]);
-	const tonight = now ? nightDateFor(now) : null;
+	// The highlighted day: the running shift's date, or today for afternoons.
+	const tonight = now ? (activeDutyDate(shift, now) ?? (shift === "afternoon" ? toLagos(now).date : null)) : null;
+	const meta = SHIFT_META[shift];
 
 	return (
 		<div>
@@ -60,7 +65,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 					const tone = !day.inMonth
 						? "border-transparent bg-transparent text-muted-foreground/40"
 						: worked
-							? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
+							? "border-success/40 bg-success/10 text-foreground"
 							: "border-border bg-background text-muted-foreground";
 
 					const label = `${day.date}${worked ? `, ${nights.length} sign-in${nights.length === 1 ? "" : "s"}` : ", no sign-in"}`;
@@ -73,7 +78,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 
 							{day.inMonth && worked && scope === "me" && (
 								<span className="mt-auto text-[10px] leading-tight">
-									<span className="block font-semibold text-emerald-700 dark:text-emerald-300">
+									<span className="block font-semibold text-success">
 										{formatLagosTime(new Date(nights[0].signedInAt))}
 									</span>
 									<span className="block text-muted-foreground">
@@ -83,7 +88,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 							)}
 
 							{day.inMonth && worked && scope === "all" && (
-								<span className="mt-auto inline-flex w-fit items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+								<span className="mt-auto inline-flex w-fit items-center rounded-full bg-success px-1.5 py-0.5 text-[10px] font-bold text-success-foreground">
 									{nights.length}
 								</span>
 							)}
@@ -103,7 +108,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 								key={day.date}
 								type="button"
 								onClick={() => onPickNight(day.date)}
-								aria-label={`${label}. Add or correct this night.`}
+								aria-label={`${label}. Add or correct this ${meta.noun}.`}
 								className={cellCls}
 							>
 								{content}
@@ -121,7 +126,7 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 
 			<div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
 				<span className="flex items-center gap-1.5">
-					<span className="size-2.5 rounded-sm border border-emerald-500/40 bg-emerald-500/20" />
+					<span className="size-2.5 rounded-sm border border-success/40 bg-success/20" />
 					Signed in
 				</span>
 				<span className="flex items-center gap-1.5">
@@ -130,9 +135,13 @@ export default function AttendanceCalendar({ month, entries, scope, onPickNight,
 				</span>
 				<span className="flex items-center gap-1.5">
 					<span className="size-2.5 rounded-sm ring-2 ring-primary" />
-					Tonight
+					{shift === "night" ? "Tonight" : "Today"}
 				</span>
-				<span className="ml-auto">A night runs 20:30 → 08:30 and is shown on the day it started.</span>
+				<span className="ml-auto">
+					{shift === "night"
+						? "A night runs 20:30 → 08:30 and is shown on the day it started."
+						: `An ${meta.noun} runs ${shiftHoursSummary(shift)}.`}
+				</span>
 			</div>
 		</div>
 	);

@@ -1,34 +1,38 @@
+import { formatLagosTime, formatNightLabel } from "@/lib/attendance/nightWindow";
 import {
-	formatLagosTime,
-	nextOpenAfter,
-	nightDateFor,
-	windowClosesAt,
-} from "@/lib/attendance/nightWindow";
+	SHIFT_META,
+	dutyDateFor,
+	nextShiftOpenAfter,
+	parseShift,
+	shiftClosesAt,
+} from "@/lib/attendance/shifts";
 import { requireUser } from "@/services/auth/guards";
 import { signIn } from "@/services/attendance/repository";
 
 export const runtime = "nodejs";
 
 /**
- * Sign in for tonight.
+ * Sign in for the current shift (`?shift=night|afternoon`, default night).
  *
- * The night is computed here from the server clock — never taken from the
+ * The shift date is computed here from the server clock — never taken from the
  * request. A client that lies about the time, or one whose machine clock is
- * simply wrong, cannot book a night it did not work.
+ * simply wrong, cannot book a shift it did not work.
  */
-export async function POST() {
+export async function POST(request: Request) {
 	const auth = await requireUser();
 	if ("response" in auth) return auth.response;
 
+	const shift = parseShift(new URL(request.url).searchParams.get("shift"));
+	const meta = SHIFT_META[shift];
 	const now = new Date();
-	const nightDate = nightDateFor(now);
+	const dutyDate = dutyDateFor(shift, now);
 
-	if (!nightDate) {
-		const opensAt = nextOpenAfter(now);
+	if (!dutyDate) {
+		const opensAt = nextShiftOpenAfter(shift, now);
 		return Response.json(
 			{
 				ok: false,
-				error: `Sign-in opens at ${formatLagosTime(opensAt)}.`,
+				error: `${meta.label} sign-in opens at ${formatLagosTime(opensAt)}.`,
 				opensAt: opensAt.toISOString(),
 			},
 			{ status: 403 },
@@ -36,21 +40,21 @@ export async function POST() {
 	}
 
 	try {
-		const { created, entry } = await signIn(auth.user.id, nightDate, now);
+		const { created, entry } = await signIn(auth.user.id, dutyDate, shift, now);
 		return Response.json({
 			ok: true,
 			created,
 			entry,
-			closesAt: windowClosesAt(nightDate).toISOString(),
+			closesAt: shiftClosesAt(shift, dutyDate).toISOString(),
 			locked: Boolean(entry.signedOutAt),
 			message: created
-				? `Signed in for the night of ${nightDate}.`
+				? `Signed in for the ${meta.noun} of ${formatNightLabel(dutyDate)}.`
 				: entry.signedOutAt
 					// Nothing was written either way — the unique constraint saw to that —
-					// but say plainly that the night is closed rather than implying it is
+					// but say plainly that the shift is closed rather than implying it is
 					// still running.
-					? "Tonight is already signed out and locked. Ask an admin if it needs changing."
-					: "You already signed in for tonight.",
+					? `This ${meta.noun} is already signed out and locked. Ask an admin if it needs changing.`
+					: `You already signed in for ${meta.current}.`,
 		});
 	} catch (err) {
 		console.error("[attendance] sign-in failed", err);

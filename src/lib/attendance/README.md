@@ -1,4 +1,33 @@
-# Night-duty attendance
+# Duty attendance (night and afternoon)
+
+Page: `/attendance` (sidebar: **Duty Register**). An analyst signs in when their
+shift starts and signs out when it ends. There are two shifts:
+
+| Shift | Hours (Africa/Lagos) | Key |
+|---|---|---|
+| Night | 20:30 → 08:30 every day | the date the night started |
+| Afternoon | 12:30 → 20:30 Mon-Fri, 14:30 → 20:30 Sat-Sun | its own date |
+
+Weekday public holidays use weekday afternoon hours. Both shifts have the same
+30-minute sign-out grace. `shifts.ts` owns the afternoon rules and wraps
+`nightWindow.ts` (unchanged) so every caller uses one shift-aware API; routes
+take `?shift=night|afternoon` and default to night, so older clients keep
+working. Rows live in the same table with a `shift` column; the register,
+calendar, per-analyst counts ("Afternoons" per person), Excel and JPEG are all
+per shift.
+
+### Migration (expand / contract)
+
+`npm run db:push` adds the `shift` column (existing rows become nights) and a
+unique index on `(user_id, night_date, shift)`. The legacy `(user_id,
+night_date)` constraint stays until the new code is deployed, because older
+deployed code still writes `on conflict (user_id, night_date)`. After deploy,
+run `npm run db:contract-afternoon` once to drop it. Until then one analyst
+cannot hold a night and an afternoon on the same date.
+
+The rest of this document describes the night rules, which apply unchanged.
+
+---
 
 An analyst signs in when their night shift starts and signs out when it ends.
 The register shows each analyst their own months; an admin sees the whole team,
@@ -41,6 +70,7 @@ change if that ever stops being true.
 | File | Does |
 |---|---|
 | `nightWindow.ts` | Window, night keys, durations, calendar grid, formatting. Pure. |
+| `shifts.ts` | Afternoon window + one shift-aware API over both shifts. Pure. |
 | `summary.ts` | Per-analyst roll-ups over a month. Pure. |
 | `exportAttendance.ts` | Content model for the workbook and the JPEG. Pure. |
 | `excel.ts` | exceljs painter. Server only — decides looks, never content. |

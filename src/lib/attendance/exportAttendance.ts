@@ -14,10 +14,11 @@ import {
 	totalsOf,
 	withNights,
 } from "./summary.ts";
+import { SHIFT_META, type Shift } from "./shifts.ts";
 import type { AttendanceEntry, AttendancePerson } from "./types.ts";
 
 /**
- * Pure content model for the night-duty exports.
+ * Pure content model for the duty exports (one shift per file: night or afternoon).
  *
  * Same split as `lib/schedule/exportSchedule.ts` → `lib/schedule/excel.ts`: this
  * decides *what* the workbook says and is fully unit-testable, the exceljs
@@ -69,32 +70,37 @@ export interface ExportInput {
 	entries: AttendanceEntry[];
 	/** Whose register this is: one analyst, or the whole team. */
 	scope: "me" | "all";
+	/** Which shift these entries are. Defaults to night. */
+	shift?: Shift;
 	/** When the file was produced, for the footer. */
 	generatedAt: Date;
 }
 
-const SUMMARY_HEADER = [
-	"Analyst",
-	"Email",
-	"Nights",
-	"Signed out",
-	"Still open",
-	"Total hours",
-	"Average per night",
-];
+function summaryHeader(shift: Shift): string[] {
+	const m = SHIFT_META[shift];
+	return ["Analyst", "Email", m.plural, "Signed out", "Still open", "Total hours", `Average per ${m.noun}`];
+}
 
-const NIGHTS_HEADER = [
-	"Night",
-	"Analyst",
-	"Signed in",
-	"Signed out",
-	"Hours",
-	"Source",
-	"Note",
-];
+function detailHeader(shift: Shift): string[] {
+	return [SHIFT_META[shift].label, "Analyst", "Signed in", "Signed out", "Hours", "Source", "Note"];
+}
+
+/** Night keeps its original wording; afternoon names the shift. */
+function nobodyNote(shift: Shift, label: string): string {
+	return shift === "night"
+		? `No analyst signed in during ${label}.`
+		: `No analyst signed in for afternoon duty during ${label}.`;
+}
+
+/** `night-duty` / `afternoon-duty`, the file name stem. */
+function fileStem(shift: Shift): string {
+	return `${shift}-duty`;
+}
 
 export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	const { month, people, entries, scope, generatedAt } = input;
+	const shift = input.shift ?? "night";
+	const meta = SHIFT_META[shift];
 	// Totals stay over the whole roster so the TOTAL row can still say "3 of 11
 	// signed in"; only the listed rows are narrowed to the people who worked.
 	const roster = summarizeMonth(people, entries);
@@ -102,7 +108,7 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	const totals = totalsOf(roster);
 	const label = formatMonth(month);
 	const who = scope === "all" ? "All analysts" : personName(people[0] ?? fallbackPerson());
-	const title = `Night Duty Attendance — ${label}`;
+	const title = `${meta.label} Duty Attendance — ${label}`;
 
 	// ---- Summary sheet ----
 	const summaryAoa: Cell[][] = [
@@ -110,7 +116,7 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 		[`Register: ${who}`],
 		[`Generated: ${formatLagosStamp(generatedAt.toISOString())} (Africa/Lagos)`],
 		[],
-		SUMMARY_HEADER,
+		summaryHeader(shift),
 	];
 	const summaryHeaderRow = summaryAoa.length;
 
@@ -127,7 +133,7 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	}
 
 	if (summaries.length === 0) {
-		summaryAoa.push([`No analyst signed in during ${label}.`, "", "", "", "", "", ""]);
+		summaryAoa.push([nobodyNote(shift, label), "", "", "", "", "", ""]);
 	}
 
 	summaryAoa.push([
@@ -143,9 +149,9 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	// ---- Nights sheet ----
 	const nameById = new Map(people.map((p) => [p.id, personName(p)]));
 	const nightsAoa: Cell[][] = [
-		[`${title} — every night`],
+		[`${title} — every ${meta.noun}`],
 		[],
-		NIGHTS_HEADER,
+		detailHeader(shift),
 	];
 	const nightsHeaderRow = nightsAoa.length;
 
@@ -162,13 +168,13 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 	}
 
 	if (entries.length === 0) {
-		nightsAoa.push([`No nights recorded in ${label}.`]);
+		nightsAoa.push([`No ${meta.plural.toLowerCase()} recorded in ${label}.`]);
 	}
 
 	const fileName =
 		scope === "all"
-			? `night-duty-${month}-all-analysts.xlsx`
-			: `night-duty-${month}-${slug(who)}.xlsx`;
+			? `${fileStem(shift)}-${month}-all-analysts.xlsx`
+			: `${fileStem(shift)}-${month}-${slug(who)}.xlsx`;
 
 	return {
 		title,
@@ -180,7 +186,7 @@ export function buildAttendanceExport(input: ExportInput): AttendanceExport {
 			aoa: summaryAoa,
 		},
 		nights: {
-			name: "Nights",
+			name: meta.plural,
 			widths: [24, 28, 20, 20, 12, 16, 40],
 			headerRow: nightsHeaderRow,
 			aoa: nightsAoa,
@@ -216,11 +222,13 @@ export interface ImageModel {
 	fileName: string;
 }
 
-const IMAGE_COLUMNS: ImageColumn[] = [
-	{ label: "Analyst", weight: 3, align: "left" },
-	{ label: "Nights", weight: 1, align: "right" },
-	{ label: "Total hours", weight: 1.4, align: "right" },
-];
+function imageColumns(shift: Shift): ImageColumn[] {
+	return [
+		{ label: "Analyst", weight: 3, align: "left" },
+		{ label: SHIFT_META[shift].plural, weight: 1, align: "right" },
+		{ label: "Total hours", weight: 1.4, align: "right" },
+	];
+}
 
 /**
  * Deliberately just three columns — name, nights worked, total hours. A JPEG
@@ -233,6 +241,8 @@ const IMAGE_COLUMNS: ImageColumn[] = [
  */
 export function buildSummaryImage(input: ExportInput): ImageModel {
 	const { month, people, entries, scope, generatedAt } = input;
+	const shift = input.shift ?? "night";
+	const meta = SHIFT_META[shift];
 	const roster = summarizeMonth(people, entries);
 	const summaries = withNights(roster);
 	const totals = totalsOf(roster);
@@ -242,17 +252,17 @@ export function buildSummaryImage(input: ExportInput): ImageModel {
 			: personName(people[0] ?? fallbackPerson());
 
 	return {
-		title: `Night Duty — ${formatMonth(month)}`,
+		title: `${meta.label} Duty — ${formatMonth(month)}`,
 		subtitle: who,
 		emptyNote:
-			summaries.length === 0 ? `No analyst signed in during ${formatMonth(month)}.` : undefined,
+			summaries.length === 0 ? nobodyNote(shift, formatMonth(month)) : undefined,
 		footer: `Generated ${formatLagosStamp(generatedAt.toISOString())} Africa/Lagos · Audit Toolkit`,
-		columns: IMAGE_COLUMNS,
+		columns: imageColumns(shift),
 		rows: summaries.map((s) => [personName(s.person), String(s.nights), formatDuration(s.totalMinutes)]),
 		totals: ["TOTAL", String(totals.nights), formatDuration(totals.totalMinutes)],
 		fileName:
 			scope === "all"
-				? `night-duty-${month}-all-analysts.jpg`
-				: `night-duty-${month}-${slug(who)}.jpg`,
+				? `${fileStem(shift)}-${month}-all-analysts.jpg`
+				: `${fileStem(shift)}-${month}-${slug(who)}.jpg`,
 	};
 }

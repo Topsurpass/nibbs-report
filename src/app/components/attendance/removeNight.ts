@@ -1,7 +1,8 @@
 import type { NightDate } from "@/lib/attendance/nightWindow";
+import type { Shift } from "@/lib/attendance/shifts";
 
 /**
- * Delete one analyst's night from the register.
+ * Delete one analyst's shift (night or afternoon) from the register.
  *
  * Shared by the correction dialog and the Remove button on each row, so the two
  * paths cannot drift on error handling. The route re-checks the caller is an
@@ -14,8 +15,9 @@ import type { NightDate } from "@/lib/attendance/nightWindow";
 export async function requestNightRemoval(
 	userId: string,
 	nightDate: NightDate,
+	shift: Shift,
 ): Promise<boolean> {
-	const params = new URLSearchParams({ userId, nightDate });
+	const params = new URLSearchParams({ userId, nightDate, shift });
 
 	let res: Response;
 	try {

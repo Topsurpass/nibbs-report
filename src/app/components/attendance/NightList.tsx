@@ -8,6 +8,7 @@ import {
 	formatNightLabel,
 	type NightDate,
 } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, type Shift } from "@/lib/attendance/shifts";
 import { entryMinutes, groupNights, personName } from "@/lib/attendance/summary";
 import type { AttendanceEntry, AttendancePerson } from "@/lib/attendance/types";
 import { paginate } from "@/lib/paginate";
@@ -25,6 +26,8 @@ import { cn } from "@/lib/utils";
  */
 
 interface Props {
+	/** Labels rows "night" or "afternoon". */
+	shift: Shift;
 	entries: AttendanceEntry[];
 	people: AttendancePerson[];
 	/** Show who worked the night. Redundant on a single analyst's own register. */
@@ -46,8 +49,8 @@ function DurationBadge({ minutes }: { minutes: number | null }) {
 			className={cn(
 				"tnum shrink-0",
 				minutes === null
-					? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-					: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+					? "bg-warning/15 text-warning"
+					: "bg-success/15 text-success",
 			)}
 		>
 			{minutes === null ? "Still open" : formatDuration(minutes)}
@@ -56,6 +59,7 @@ function DurationBadge({ minutes }: { minutes: number | null }) {
 }
 
 export default function NightList({
+	shift,
 	entries,
 	people,
 	showAnalyst,
@@ -84,7 +88,7 @@ export default function NightList({
 	if (groups.length === 0) {
 		return (
 			<p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-				No nights recorded this month.
+				No {SHIFT_META[shift].plural.toLowerCase()} recorded this month.
 			</p>
 		);
 	}
@@ -207,7 +211,7 @@ export default function NightList({
 													size="sm"
 													onClick={() => onRemove(entry)}
 													disabled={removingId === entry.id}
-													aria-label={`Remove ${nameById.get(entry.userId) ?? "analyst"}'s night of ${entry.nightDate}`}
+													aria-label={`Remove ${nameById.get(entry.userId) ?? "analyst"}'s ${SHIFT_META[shift].noun} of ${entry.nightDate}`}
 													className="border-destructive/40 text-destructive hover:bg-destructive/10"
 												>
 													{removingId === entry.id && <Loader2 className="animate-spin" />}
@@ -226,7 +230,7 @@ export default function NightList({
 			{view.pageCount > 1 && (
 				<div className="flex flex-wrap items-center gap-3 border-t border-border py-3">
 					<p className="text-xs text-muted-foreground">
-						Nights {view.from}–{view.to} of {view.total}
+						{SHIFT_META[shift].plural} {view.from}–{view.to} of {view.total}
 					</p>
 					<div className="ml-auto flex items-center gap-2">
 						<Button type="button" variant="outline" size="sm" onClick={() => setPage(view.page - 1)} disabled={!view.hasPrevious}>

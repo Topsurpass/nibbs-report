@@ -1,4 +1,4 @@
-// End-to-end check for the night-duty register.
+// End-to-end check for the duty register (night and afternoon shifts).
 //
 // The gate tests in src/lib/attendance/*.test.ts cover the clock maths in
 // isolation. This harness closes the gap they cannot: it drives the real HTTP
@@ -213,7 +213,8 @@ ok("the totals row still counts the whole roster",
    String(totalRow?.[1]));
 
 const nights = XLSX.utils.sheet_to_json(wb.Sheets.Nights, { header: 1 });
-const added = nights.find((r) => String(r[0] ?? "").startsWith(night));
+// Real analysts may also have worked this date; match the test analyst's row.
+const added = nights.find((r) => String(r[0] ?? "").startsWith(night) && r[1] === "Test Analystuser");
 ok("the corrected night appears with its hours and note",
    added?.[4] === "10h 15m" && added?.[5] === "Added by admin" && added?.[6] === "Forgot to sign in.",
    JSON.stringify(added));
@@ -248,25 +249,28 @@ await call("/api/attendance/entries", {
   body: JSON.stringify({ userId: who.admin.id, nightDate: shared, signedIn: "21:00", signedOut: "07:00" }),
 }, "admin");
 
-const html = await (await call("/attendance")).text();
-// React SSR separates adjacent text nodes with <!-- -->, so collapse markup to
-// single spaces before matching prose.
-const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-ok("the list is paged, not one long scroll", /Page 1 of 2/.test(text));
-ok("...and it says which nights are on screen", /Nights 1 [–-] 8 of 12/.test(text), text.match(/Nights[^.]{0,30}/)?.[0]);
-
-// Dates as element TEXT belong to the list. The calendar only puts them in
-// aria-labels and renders bare day numbers, so this counts the list alone.
-const shown = [...html.matchAll(/>(\d{4}-\d{2}-\d{2})</g)].map((m) => m[1]);
+// The list lives in a tab that is not server-rendered until opened, so check
+// the paging through the exact modules NightList renders with, fed by the API.
+const { paginate } = await import("../src/lib/paginate.ts");
+const { groupNights } = await import("../src/lib/attendance/summary.ts");
+const PER_PAGE = 8; // NIGHTS_PER_PAGE in NightList.tsx
+const minePage = await (await call(`/api/attendance?month=${month}`)).json();
+const view = paginate(groupNights(minePage.entries), 1, PER_PAGE);
+ok("the list is paged, not one long scroll", view.pageCount === 2, `${view.pageCount} pages`);
+ok("...and it says which nights are on screen", view.from === 1 && view.to === 8 && view.total === 12,
+   `${view.from}–${view.to} of ${view.total}`);
+const shown = view.items.map((g) => g.nightDate);
 ok("exactly one page of nights is rendered", shown.length === 8, `${shown.length}: ${shown.join(",")}`);
 ok("the newest nights come first, oldest pushed to page 2",
    shown[0] === `${month}-12` && !shown.includes(`${month}-01`), shown.join(","));
 
 const team = await (await call(`/api/attendance?month=${month}&scope=all`, {}, "admin")).json();
-const onShared = team.entries.filter((e) => e.nightDate === shared);
+// Real analysts may share this date too; count only the two test users.
+const testIds = new Set([who.analyst.id, who.admin.id]);
+const onShared = team.entries.filter((e) => e.nightDate === shared && testIds.has(e.userId));
 ok("two analysts share the same night in the data", onShared.length === 2, `${onShared.length}`);
 ok("both belong to the same night key, so they group under one heading",
-   new Set(onShared.map((e) => e.nightDate)).size === 1);
+   groupNights(onShared).length === 1);
 
 for (const n of seeded) {
   await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${n}`, { method: "DELETE" }, "admin");
@@ -274,6 +278,88 @@ for (const n of seeded) {
 await call(`/api/attendance/entries?userId=${who.admin.id}&nightDate=${shared}`, { method: "DELETE" }, "admin");
 
 
+
+console.log("\nH. afternoon duty");
+// Mirrored independently of src/lib/attendance/shifts.ts: weekdays open 12:30,
+// weekends 14:30, both close 20:30, sign-out grace until 21:00.
+const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
+const pmOpen = dow === 0 || dow === 6 ? 870 : 750;
+const pmOpenNow = mod >= pmOpen && mod < 1230;
+const pmSi = await call("/api/attendance/sign-in?shift=afternoon", { method: "POST" });
+const pmSiBody = await pmSi.json();
+if (pmOpenNow) {
+  ok("afternoon sign-in accepted inside its window", pmSi.status === 200 && pmSiBody.ok, JSON.stringify(pmSiBody));
+  ok("...booked as an afternoon on today's date",
+     pmSiBody.entry?.shift === "afternoon" && pmSiBody.entry?.nightDate === day, JSON.stringify(pmSiBody.entry));
+  const pmSo = await (await call("/api/attendance/sign-out?shift=afternoon", { method: "POST" })).json();
+  ok("afternoon sign-out closes it", pmSo.ok && pmSo.entry?.signedOutAt);
+  await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${day}&shift=afternoon`, { method: "DELETE" }, "admin");
+} else {
+  ok("afternoon sign-in refused outside its window", pmSi.status === 403 && !pmSiBody.ok, JSON.stringify(pmSiBody));
+  ok("...and it says when the afternoon opens", /Afternoon sign-in opens at \d\d:\d\d/.test(pmSiBody.error ?? ""), pmSiBody.error);
+}
+
+// Known weekday and weekend dates in this month.
+const dates = Array.from({ length: 28 }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+const isWknd = (d) => [0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay());
+const weekday = dates.find((d) => !isWknd(d) && d >= `${month}-10`);
+const weekend = dates.find((d) => isWknd(d));
+const post = (body) => call("/api/attendance/entries", {
+  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+}, "admin");
+
+const pmAdd = await post({ userId: who.analyst.id, nightDate: weekday, shift: "afternoon", signedIn: "12:30", signedOut: "20:30" });
+const pmAddBody = await pmAdd.json();
+ok("admin can add a weekday afternoon 12:30 → 20:30", pmAdd.status === 200 && pmAddBody.ok, JSON.stringify(pmAddBody));
+ok("...stored as an afternoon on that same date",
+   pmAddBody.entry?.shift === "afternoon" && pmAddBody.entry?.signedInAt === `${weekday}T11:30:00.000Z` &&
+   pmAddBody.entry?.signedOutAt === `${weekday}T19:30:00.000Z`, JSON.stringify(pmAddBody.entry));
+
+const pmEarlyWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "12:30", signedOut: "20:30" });
+ok("a weekend afternoon starting 12:30 is rejected (weekends open 14:30)", pmEarlyWknd.status === 400,
+   `${pmEarlyWknd.status} ${JSON.stringify(await pmEarlyWknd.json())}`);
+const pmWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "14:30", signedOut: "20:30" });
+ok("a weekend afternoon 14:30 → 20:30 is accepted", pmWknd.status === 200);
+const pmNightTime = await post({ userId: who.analyst.id, nightDate: weekday, shift: "afternoon", signedIn: "22:00" });
+ok("a night-time sign-in on the afternoon register is rejected", pmNightTime.status === 400);
+
+const pmList = await (await call(`/api/attendance?month=${month}&scope=all`, {}, "admin")).json();
+const mine = pmList.entries.filter((e) => e.userId === who.analyst.id && e.shift === "afternoon");
+ok("the register returns both afternoons, tagged by shift", mine.length === 2, JSON.stringify(mine.map((e) => e.nightDate)));
+ok("every entry carries a shift", pmList.entries.every((e) => e.shift === "night" || e.shift === "afternoon"));
+
+const pmXl = await call(`/api/attendance/export?month=${month}&scope=all&shift=afternoon`, {}, "admin");
+ok("afternoon export is named for the shift",
+   /afternoon-duty-\d{4}-\d{2}-all-analysts\.xlsx/.test(pmXl.headers.get("content-disposition") ?? ""),
+   pmXl.headers.get("content-disposition"));
+const pmWb = XLSX.read(Buffer.from(await pmXl.arrayBuffer()), { type: "buffer" });
+ok("it has Summary and Afternoons sheets", pmWb.SheetNames.join(",") === "Summary,Afternoons", pmWb.SheetNames.join(","));
+const pmSummary = XLSX.utils.sheet_to_json(pmWb.Sheets.Summary, { header: 1 });
+const pmHeader = pmSummary.find((r) => r[0] === "Analyst");
+ok("the count column is headed Afternoons", pmHeader?.[2] === "Afternoons", JSON.stringify(pmHeader));
+const pmMe = pmSummary.find((r) => r[1] === who.analyst.email);
+ok("it counts the analyst's afternoons (2)", Number(pmMe?.[2]) === 2, JSON.stringify(pmMe));
+ok("...and their 14 hours", pmMe?.[5] === "14h 00m", JSON.stringify(pmMe));
+const nightXl = XLSX.read(Buffer.from(await (await call(`/api/attendance/export?month=${month}&scope=all`, {}, "admin")).arrayBuffer()), { type: "buffer" });
+const nightMe = XLSX.utils.sheet_to_json(nightXl.Sheets.Summary, { header: 1 }).find((r) => r[1] === who.analyst.email);
+ok("afternoons never leak into the night export", nightMe === undefined, JSON.stringify(nightMe));
+
+// A night and an afternoon on the same date need the contract step
+// (npm run db:contract-afternoon) to have dropped the legacy date-only constraint.
+const [legacy] = await sql`
+  select count(*)::int as n from pg_constraint
+  where conname = 'nibbs_night_attendance_user_id_night_date_key'`;
+if (legacy.n === 0) {
+  const both = await post({ userId: who.analyst.id, nightDate: weekday, shift: "night", signedIn: "20:30", signedOut: "08:30" });
+  ok("a night and an afternoon can share a date", both.status === 200, String(both.status));
+  await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${weekday}&shift=night`, { method: "DELETE" }, "admin");
+} else {
+  console.log("  – same-date night + afternoon skipped: run `npm run db:contract-afternoon` after deploy");
+}
+
+const pmDel = await (await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${weekday}&shift=afternoon`, { method: "DELETE" }, "admin")).json();
+ok("deleting with shift=afternoon removes the afternoon", pmDel.removed === true, JSON.stringify(pmDel));
+await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${weekend}&shift=afternoon`, { method: "DELETE" }, "admin");
 
 // ---- clean up --------------------------------------------------------------
 for (const k of Object.keys(who)) {

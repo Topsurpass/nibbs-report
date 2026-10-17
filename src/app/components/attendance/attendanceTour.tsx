@@ -97,11 +97,11 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 		visual: (
 			<Mock>
 				<div className="flex items-center gap-2">
-					<span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
+					<span className="rounded-full bg-success/15 px-2 py-0.5 font-semibold text-success">
 						12h 00m
 					</span>
 					<span className="text-muted-foreground">20:30 → 08:30</span>
-					<span className="ml-auto rounded-full bg-amber-500/15 px-2 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
+					<span className="ml-auto rounded-full bg-warning/15 px-2 py-0.5 font-semibold text-warning">
 						Still open
 					</span>
 				</div>
@@ -131,7 +131,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 							key={day}
 							className={`rounded-md border px-1 py-2 ${
 								[4, 5, 8].includes(day)
-									? "border-emerald-500/40 bg-emerald-500/10 font-semibold text-foreground"
+									? "border-success/40 bg-success/10 font-semibold text-foreground"
 									: "border-border bg-card text-muted-foreground"
 							}`}
 						>

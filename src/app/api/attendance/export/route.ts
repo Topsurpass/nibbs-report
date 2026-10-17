@@ -1,12 +1,13 @@
 import { currentMonth } from "@/lib/attendance/nightWindow";
 import { buildAttendanceXlsxBuffer } from "@/lib/attendance/excel";
+import { parseShift } from "@/lib/attendance/shifts";
 import { requireUser } from "@/services/auth/guards";
 import { loadRegister, parseMonth, parseScope } from "@/services/attendance/service";
 
 export const runtime = "nodejs";
 
 /**
- * The month's register as a styled `.xlsx`.
+ * The month's register for one shift (`?shift=`) as a styled `.xlsx`.
  *
  * Reads through the same `loadRegister` the screen uses, so the download can
  * never show a scope the viewer is not allowed to see — and never disagrees with
@@ -19,14 +20,16 @@ export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const month = parseMonth(url.searchParams.get("month"), currentMonth(new Date()));
 	const scope = parseScope(url.searchParams.get("scope"), auth.user.role === "admin");
+	const shift = parseShift(url.searchParams.get("shift"));
 
 	try {
 		const register = await loadRegister(auth.user, month, scope);
 		const { buffer, fileName } = await buildAttendanceXlsxBuffer({
 			month,
 			scope,
+			shift,
 			people: register.people,
-			entries: register.entries,
+			entries: register.entries.filter((e) => e.shift === shift),
 			generatedAt: new Date(),
 		});
 

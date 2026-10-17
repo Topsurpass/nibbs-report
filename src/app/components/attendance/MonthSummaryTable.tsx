@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDuration } from "@/lib/attendance/nightWindow";
+import { SHIFT_META, type Shift } from "@/lib/attendance/shifts";
 import { personName, totalsOf } from "@/lib/attendance/summary";
 import type { PersonMonthSummary } from "@/lib/attendance/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from "@/components/ui/table";
@@ -18,9 +19,12 @@ interface Props {
 	summaries: PersonMonthSummary[];
 	/** Hide the email column when the table is one person's own register. */
 	showEmail: boolean;
+	/** Labels the count column "Nights" or "Afternoons". */
+	shift: Shift;
 }
 
-export default function MonthSummaryTable({ summaries, showEmail }: Props) {
+export default function MonthSummaryTable({ summaries, showEmail, shift }: Props) {
+	const meta = SHIFT_META[shift];
 	const totals = totalsOf(summaries);
 
 	return (
@@ -30,11 +34,11 @@ export default function MonthSummaryTable({ summaries, showEmail }: Props) {
 					<TableRow className="hover:bg-transparent">
 						<TableHead className="text-[11px] uppercase tracking-wide">Analyst</TableHead>
 						{showEmail && <TableHead className="text-[11px] uppercase tracking-wide">Email</TableHead>}
-						<TableHead className="text-right text-[11px] uppercase tracking-wide">Nights</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">{meta.plural}</TableHead>
 						<TableHead className="text-right text-[11px] uppercase tracking-wide">Signed out</TableHead>
 						<TableHead className="text-right text-[11px] uppercase tracking-wide">Still open</TableHead>
 						<TableHead className="text-right text-[11px] uppercase tracking-wide">Total hours</TableHead>
-						<TableHead className="text-right text-[11px] uppercase tracking-wide">Avg / night</TableHead>
+						<TableHead className="text-right text-[11px] uppercase tracking-wide">Avg / {meta.noun}</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -47,7 +51,7 @@ export default function MonthSummaryTable({ summaries, showEmail }: Props) {
 							<TableCell
 								className={cn(
 									"tnum text-right",
-									s.openNights > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+									s.openNights > 0 ? "text-warning" : "text-muted-foreground",
 								)}
 							>
 								{s.openNights}

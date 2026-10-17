@@ -108,7 +108,7 @@ export function isWindowOpen(at: Date): boolean {
 }
 
 /** Instant a Lagos wall-clock minute falls on, for a given Lagos date. */
-function lagosInstant(date: NightDate, minuteOfDay: number): Date {
+export function lagosInstant(date: NightDate, minuteOfDay: number): Date {
 	const [y, m, d] = date.split("-").map(Number);
 	const ms =
 		Date.UTC(y, m - 1, d) +
