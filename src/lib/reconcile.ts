@@ -5,7 +5,7 @@
 //   Q = C + H  (Collateral + net position)          → < 0 is a collateral breach
 // Plus the HTML net-settlement-sum = 0 check and file naming/date checks.
 
-import { centsEqual, toCents } from "./format.ts";
+import { centsEqual, formatNaira, toCents } from "./format.ts";
 import type { FrameParseResult } from "./parseHtml";
 import type { TxtParseResult, FilenameCheck, TxtFormatIssue } from "./parseTxt";
 import { txtDatesMatchReport } from "./parseTxt.ts";
@@ -286,7 +286,7 @@ export function reconcile(input: ReconInput): ReconResult {
     detail:
       frame.rows.length === 0
         ? "No settlement rows parsed from the HTML."
-        : `Sum of ${frame.rows.length} banks = ${frame.netSum.toFixed(2)}${
+        : `Sum of ${frame.rows.length} banks = ${formatNaira(frame.netSum)}${
             netSumZero ? " (balanced)" : " — should be 0.00"
           }`,
   });

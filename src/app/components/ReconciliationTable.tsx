@@ -21,7 +21,7 @@ function Amount({ value, breach }: { value: number | null; breach?: boolean }) {
 				breach
 					? "font-bold text-destructive"
 					: negative
-						? "text-amber-600 dark:text-amber-400"
+						? "text-warning"
 						: "text-foreground",
 			)}
 		>
@@ -35,7 +35,7 @@ function PresenceDot({ ok, label }: { ok: boolean; label: string }) {
 	return (
 		<span
 			title={label}
-			className={cn("inline-block size-2.5 rounded-full", ok ? "bg-emerald-500" : "bg-destructive/70")}
+			className={cn("inline-block size-2.5 rounded-full", ok ? "bg-success" : "bg-destructive/70")}
 		/>
 	);
 }
@@ -160,7 +160,7 @@ export default function ReconciliationTable({ rows }: { rows: ReconRow[] }) {
 								<TableCell colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
 									{filter === "breaches" ? (
 										<span className="inline-flex items-center gap-1.5">
-											<CheckCircle2 className="size-4 text-emerald-500" />
+											<CheckCircle2 className="size-4 text-success" />
 											No breaches — switch to &ldquo;All banks&rdquo; to see every row.
 										</span>
 									) : (

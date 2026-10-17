@@ -161,7 +161,7 @@ export default function SignInCard({ shift, initialNightDate, initialEntry, onCh
 	// might be wrong is worse than showing nothing for one frame.
 	if (!now) {
 		return (
-			<Card className="m-6 p-6">
+			<Card className="p-6">
 				<div className="h-24 animate-pulse rounded-xl bg-muted" />
 			</Card>
 		);
@@ -210,7 +210,7 @@ export default function SignInCard({ shift, initialNightDate, initialEntry, onCh
 	const dot = status.tone === "open" ? "bg-success" : status.tone === "done" ? "bg-primary" : "bg-muted-foreground/40";
 
 	return (
-		<div className="m-6 space-y-3">
+		<div className="space-y-3">
 			{missedShift && (
 				<Alert variant="destructive">
 					<AlertTriangle />

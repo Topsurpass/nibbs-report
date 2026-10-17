@@ -1,20 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, FileSearch, RefreshCw, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, FileSearch, RefreshCw, Upload, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CheckList from "@/app/components/CheckList";
 import { useFileDrop } from "@/hooks/useFileDrop";
-import type { CheckStatus } from "@/lib/reconcile";
 import { MISMATCH_LABELS, type ComparisonResult, type MismatchKind, type NamedText } from "@/lib/weekendMerge";
 import { cn } from "@/lib/utils";
-import DropOverlay from "./DropOverlay";
+import DropOverlay from "@/app/components/DropOverlay";
 import RowDiffTable from "./RowDiffTable";
-
-const CHECK_ICON: Record<CheckStatus, { icon: typeof CheckCircle2; cls: string }> = {
-	pass: { icon: CheckCircle2, cls: "text-success" },
-	warn: { icon: AlertTriangle, cls: "text-warning" },
-	fail: { icon: XCircle, cls: "text-destructive" },
-};
 
 interface VerifyPanelProps {
 	expectedName: string;
@@ -117,20 +111,7 @@ export default function VerifyPanel({ expectedName, settlement, comparison, onFi
 				</div>
 			</div>
 
-			<ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-				{comparison.checks.map((c) => {
-					const s = CHECK_ICON[c.status];
-					return (
-						<li key={c.id} className="flex items-start gap-2">
-							<s.icon className={cn("mt-0.5 size-4 shrink-0", s.cls)} aria-label={c.status} />
-							<div className="min-w-0">
-								<p className="text-sm font-medium text-foreground">{c.label}</p>
-								<p className="text-xs text-muted-foreground">{c.detail}</p>
-							</div>
-						</li>
-					);
-				})}
-			</ul>
+			<CheckList checks={comparison.checks} />
 
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div role="tablist" aria-label="Rows to show" className="inline-flex rounded-lg bg-muted p-0.5">

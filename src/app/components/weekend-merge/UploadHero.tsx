@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Kbd } from "@/components/ui/kbd";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { cn } from "@/lib/utils";
-import DropOverlay from "./DropOverlay";
+import DropOverlay from "@/app/components/DropOverlay";
 import NamingGuide from "./NamingGuide";
 
 const HOW_IT_WORKS = [

@@ -152,3 +152,12 @@ test("no legacy codes present → mergeNote absent and Jive detail has no merge 
 	const row = r.rows.find((x) => x.code === PRIMARY_CODE)!;
 	assert.equal(row.mergeNote, null);
 });
+
+test("a balanced frame never reports its net sum as -0.00", () => {
+	const r = run({
+		frame: { ...emptyFrame, rows: [frameRow("4000470158", "Access", 0.1), frameRow("4000460155", "GTB", -0.1000001)], netSum: -0.0000001 },
+	});
+	const c = r.checks.find((x) => x.id === "net-sum-zero");
+	assert.equal(c?.status, "pass");
+	assert.match(c!.detail, /= 0\.00 \(balanced\)/);
+});

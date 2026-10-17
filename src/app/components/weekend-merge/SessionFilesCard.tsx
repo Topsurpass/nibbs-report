@@ -7,7 +7,7 @@ import { useFileDrop } from "@/hooks/useFileDrop";
 import type { CheckResult } from "@/lib/reconcile";
 import type { SessionBoard as Board } from "@/lib/weekendMerge";
 import { cn } from "@/lib/utils";
-import DropOverlay from "./DropOverlay";
+import DropOverlay from "@/app/components/DropOverlay";
 import ProblemsPanel from "./ProblemsPanel";
 import SessionBoard from "./SessionBoard";
 import UnplacedFiles from "./UnplacedFiles";

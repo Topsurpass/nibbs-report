@@ -84,9 +84,9 @@ export default function BreachSection({
 
 	if (breaches.length === 0) {
 		return (
-			<Card className="print-block border-emerald-500/25 bg-emerald-500/5 py-8 text-center ring-1 ring-inset ring-emerald-500/20">
-				<CheckCircle2 className="mx-auto size-7 text-emerald-600 dark:text-emerald-400" />
-				<p className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+			<Card className="print-block border-success/25 bg-success/5 py-8 text-center ring-1 ring-inset ring-success/20">
+				<CheckCircle2 className="mx-auto size-7 text-success" />
+				<p className="mt-1 text-sm font-semibold text-success">
 					No breaches — nothing to escalate
 				</p>
 				<p className="text-xs text-muted-foreground">All banks reconcile and collateral coverage is intact.</p>
@@ -139,7 +139,7 @@ export default function BreachSection({
 				<div className="no-print px-5 pt-3 text-sm">
 					{addError && <span className="text-destructive">{addError}</span>}
 					{added && (
-						<span className="text-emerald-700 dark:text-emerald-300">
+						<span className="text-success">
 							{added.added > 0
 								? `Added ${added.added} row${added.added === 1 ? "" : "s"} to the ${
 										added.created ? "new " : ""

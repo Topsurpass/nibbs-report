@@ -41,13 +41,14 @@ const nairaFormatter = new Intl.NumberFormat("en-US", {
 /** Format an amount with thousands separators and 2 decimals, e.g. -157,598,787,534.90. */
 export function formatNaira(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return nairaFormatter.format(n);
+  // Float noise such as -1e-7 (sums of tens of billions) must not print "-0.00".
+  return nairaFormatter.format(toCents(n) === 0 ? 0 : n);
 }
 
 /** Format with a leading ₦ for headline figures. */
 export function formatNairaSymbol(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return `₦${nairaFormatter.format(n)}`;
+  return `₦${formatNaira(n)}`;
 }
 
 /** Parse a "YYYY/MM/DD" string (eTranzact in-file date) into a Date, or null. */

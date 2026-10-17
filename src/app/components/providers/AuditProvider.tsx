@@ -42,12 +42,12 @@ interface AuditContextValue {
 	txt: TxtParseResult | null;
 	htmlError?: string;
 	txtError?: string;
-	armed: boolean;
-	setArmed: (v: boolean) => void;
 	breachEdits: BreachEdits;
 	setBreachEdits: React.Dispatch<React.SetStateAction<BreachEdits>>;
 	onHtml: (file: File) => Promise<void>;
 	onTxt: (file: File) => Promise<void>;
+	/** Clear both files, any breach edits and the date back to today. */
+	reset: () => void;
 }
 
 const AuditContext = createContext<AuditContextValue | null>(null);
@@ -60,7 +60,6 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 	const [txt, setTxt] = useState<TxtParseResult | null>(null);
 	const [htmlError, setHtmlError] = useState<string>();
 	const [txtError, setTxtError] = useState<string>();
-	const [armed, setArmed] = useState(false);
 	const [breachEdits, setBreachEdits] = useState<BreachEdits>({});
 
 	// Set today's date after mount to avoid an SSR/CSR hydration mismatch.
@@ -94,13 +93,24 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 			if (parsed.rows.length === 0) setTxtError("No records parsed from the TXT.");
 			else if (!parsed.format.valid)
 				setTxtError(
-					`⚠ ${parsed.format.issues.length} line(s) break the required format — see “Format deviations” after running the audit.`,
+					`${parsed.format.issues.length} line(s) break the required format. See "Format deviations" below.`,
 				);
 		} catch (e) {
 			setTxtFile(file);
 			setTxt(null);
 			setTxtError(e instanceof Error ? e.message : "Failed to read TXT.");
 		}
+	}, []);
+
+	const reset = useCallback(() => {
+		setHtmlFile(null);
+		setTxtFile(null);
+		setFrame(null);
+		setTxt(null);
+		setHtmlError(undefined);
+		setTxtError(undefined);
+		setBreachEdits({});
+		setReportDate(todayStr());
 	}, []);
 
 	return (
@@ -114,12 +124,11 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 				txt,
 				htmlError,
 				txtError,
-				armed,
-				setArmed,
 				breachEdits,
 				setBreachEdits,
 				onHtml,
 				onTxt,
+				reset,
 			}}
 		>
 			{children}
