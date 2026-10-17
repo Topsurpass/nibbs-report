@@ -3,7 +3,7 @@ import {
 	CalendarRange,
 	ClipboardList,
 	ShieldAlert,
-	Moon,
+	CalendarClock,
 	Lock,
 	Archive,
 	Settings,
@@ -19,17 +19,40 @@ export interface NavItem {
 	soon?: boolean;
 }
 
-/** Primary nav — shared by the sidebar and the command palette, so the two
- * can never drift apart. */
-export const REPORT_NAV: NavItem[] = [
-	{ href: "/", label: "Settlement Audit", icon: Receipt },
-	{ href: "/weekend-settlement", label: "Weekend Settlement", icon: CalendarRange },
-	{ href: "/daily-reports", label: "Daily Schedule", icon: ClipboardList },
-	{ href: "/escalations", label: "Fraud Escalation", icon: ShieldAlert },
-	{ href: "/attendance", label: "Night Duty", icon: Moon },
-	{ label: "Lien Safe", icon: Lock, soon: true },
-	{ label: "Fraud Bucket", icon: Archive, soon: true },
+export interface NavSection {
+	label: string;
+	items: NavItem[];
+}
+
+/** Primary nav, grouped the way the team works. Shared by the sidebar and the
+ * command palette, so the two can never drift apart. */
+export const NAV_SECTIONS: NavSection[] = [
+	{
+		label: "Settlement",
+		items: [
+			{ href: "/", label: "Settlement Audit", icon: Receipt },
+			{ href: "/weekend-settlement", label: "Weekend Settlement", icon: CalendarRange },
+		],
+	},
+	{
+		label: "Operations",
+		items: [
+			{ href: "/daily-reports", label: "Daily Schedule", icon: ClipboardList },
+			{ href: "/escalations", label: "Fraud Escalation", icon: ShieldAlert },
+			{ href: "/attendance", label: "Duty Register", icon: CalendarClock },
+		],
+	},
+	{
+		label: "Coming soon",
+		items: [
+			{ label: "Lien Safe", icon: Lock, soon: true },
+			{ label: "Fraud Bucket", icon: Archive, soon: true },
+		],
+	},
 ];
+
+/** Every primary nav item, flat. */
+export const REPORT_NAV: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
 export function configNav(user: AuthUser): NavItem[] {
 	return [

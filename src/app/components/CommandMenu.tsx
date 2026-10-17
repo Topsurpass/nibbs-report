@@ -13,7 +13,7 @@ import {
 	CommandList,
 	CommandSeparator,
 } from "@/components/ui/command";
-import { REPORT_NAV, configNav } from "./navConfig";
+import { NAV_SECTIONS, configNav } from "./navConfig";
 import { useTheme } from "@/hooks/useTheme";
 import type { AuthUser } from "@/types/user";
 
@@ -61,14 +61,18 @@ export default function CommandMenu({ open, onOpenChange, user }: Props) {
 				<CommandInput placeholder="Jump to a screen or run a command…" />
 				<CommandList>
 					<CommandEmpty>No matches.</CommandEmpty>
-					<CommandGroup heading="Reports">
-						{REPORT_NAV.filter((item) => item.href).map((item) => (
-							<CommandItem key={item.label} value={item.label} disabled={item.soon} onSelect={() => go(item.href!)}>
-								<item.icon />
-								{item.label}
-							</CommandItem>
-						))}
-					</CommandGroup>
+					{NAV_SECTIONS.map((section) => (
+						<CommandGroup key={section.label} heading={section.label}>
+							{section.items
+								.filter((item) => item.href)
+								.map((item) => (
+									<CommandItem key={item.label} value={item.label} disabled={item.soon} onSelect={() => go(item.href!)}>
+										<item.icon />
+										{item.label}
+									</CommandItem>
+								))}
+						</CommandGroup>
+					))}
 					<CommandGroup heading="Configuration">
 						{configNav(user).map((item) => (
 							<CommandItem key={item.label} value={item.label} onSelect={() => go(item.href!)}>

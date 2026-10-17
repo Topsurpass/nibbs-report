@@ -6,6 +6,7 @@ import { Landmark } from "lucide-react";
 import {
 	Sidebar,
 	SidebarContent,
+	SidebarFooter,
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarGroupLabel,
@@ -15,19 +16,35 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarRail,
+	SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { REPORT_NAV, configNav, isNavActive, type NavItem } from "../navConfig";
+import { cn } from "@/lib/utils";
+import { NAV_SECTIONS, configNav, isNavActive, type NavItem, type NavSection } from "../navConfig";
 import type { AuthUser } from "@/types/user";
+
+/**
+ * Roomy rows (40px) with a clear active state: tinted background, brand icon
+ * and a left indicator bar. Overrides ride on className so components/ui stays
+ * untouched; icon-collapsed mode keeps the primitive's square button.
+ */
+const ROW_CLS = cn(
+	"relative h-10 gap-3 rounded-lg px-3 text-[13.5px] font-medium text-sidebar-foreground/75 transition-colors",
+	"hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+	"[&_svg]:size-[18px] [&_svg]:text-sidebar-foreground/55 hover:[&_svg]:text-sidebar-accent-foreground",
+	"data-active:bg-sidebar-primary/15 data-active:text-white data-active:[&_svg]:text-sidebar-ring",
+	"before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-sidebar-ring before:opacity-0 before:transition-opacity data-active:before:opacity-100",
+	"group-data-[collapsible=icon]:before:hidden",
+);
 
 function NavRow({ item, active }: { item: NavItem; active: boolean }) {
 	if (item.soon || !item.href) {
 		return (
 			<SidebarMenuItem>
-				<SidebarMenuButton disabled tooltip={`${item.label} (soon)`}>
+				<SidebarMenuButton disabled tooltip={`${item.label} (soon)`} className={cn(ROW_CLS, "opacity-60")}>
 					<item.icon />
 					<span>{item.label}</span>
 				</SidebarMenuButton>
-				<SidebarMenuBadge className="text-[9px] font-semibold uppercase tracking-wide text-sidebar-foreground/50">
+				<SidebarMenuBadge className="top-2.5! right-2 rounded-full bg-sidebar-accent px-1.5 text-[9px] font-semibold uppercase tracking-wide text-sidebar-foreground/60">
 					Soon
 				</SidebarMenuBadge>
 			</SidebarMenuItem>
@@ -35,7 +52,7 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
 	}
 	return (
 		<SidebarMenuItem>
-			<SidebarMenuButton isActive={active} tooltip={item.label} render={<Link href={item.href} />}>
+			<SidebarMenuButton isActive={active} tooltip={item.label} className={ROW_CLS} render={<Link href={item.href} />}>
 				<item.icon />
 				<span>{item.label}</span>
 			</SidebarMenuButton>
@@ -43,49 +60,70 @@ function NavRow({ item, active }: { item: NavItem; active: boolean }) {
 	);
 }
 
+function NavGroup({ section, pathname }: { section: NavSection; pathname: string }) {
+	return (
+		<SidebarGroup className="px-3 py-2">
+			<SidebarGroupLabel className="mb-1 h-6 px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/40">
+				{section.label}
+			</SidebarGroupLabel>
+			<SidebarGroupContent>
+				<SidebarMenu className="gap-1.5">
+					{section.items.map((item) => (
+						<NavRow key={item.label} item={item} active={isNavActive(pathname, item.href)} />
+					))}
+				</SidebarMenu>
+			</SidebarGroupContent>
+		</SidebarGroup>
+	);
+}
+
+function initials(user: AuthUser): string {
+	return `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase() || user.email[0].toUpperCase();
+}
+
 export default function AppSidebar({ user }: { user: AuthUser }) {
 	const pathname = usePathname();
-	const config = configNav(user);
+	const sections: NavSection[] = [...NAV_SECTIONS, { label: "Configuration", items: configNav(user) }];
 
 	return (
 		<Sidebar collapsible="icon" variant="inset" className="no-print">
-			<SidebarHeader>
+			<SidebarHeader className="px-3 pt-4 pb-2">
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton size="lg" render={<Link href="/" />}>
-							<div className="hero-gradient flex size-8 shrink-0 items-center justify-center rounded-lg text-white">
-								<Landmark className="size-4" strokeWidth={2.25} />
+						<SidebarMenuButton size="lg" className="h-12 rounded-xl hover:bg-sidebar-accent" render={<Link href="/" />}>
+							<div className="hero-gradient flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-sidebar-primary/30">
+								<Landmark className="size-[18px]" strokeWidth={2.25} />
 							</div>
 							<div className="grid flex-1 text-left leading-tight">
-								<span className="truncate text-sm font-semibold text-sidebar-foreground">Audit Toolkit</span>
-								<span className="truncate text-xs text-sidebar-foreground/60">Settlement toolkit</span>
+								<span className="truncate text-[15px] font-semibold tracking-tight text-white">Audit Toolkit</span>
+								<span className="truncate text-xs text-sidebar-foreground/55">NIBBS settlement</span>
 							</div>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 				</SidebarMenu>
 			</SidebarHeader>
-			<SidebarContent>
-				<SidebarGroup>
-					<SidebarGroupLabel>Reports</SidebarGroupLabel>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							{REPORT_NAV.map((item) => (
-								<NavRow key={item.label} item={item} active={isNavActive(pathname, item.href)} />
-							))}
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
-				<SidebarGroup>
-					<SidebarGroupLabel>Configuration</SidebarGroupLabel>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							{config.map((item) => (
-								<NavRow key={item.label} item={item} active={isNavActive(pathname, item.href)} />
-							))}
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
+
+			<SidebarSeparator className="mx-5 my-1 bg-sidebar-border" />
+
+			<SidebarContent className="gap-3 py-2">
+				{sections.map((section) => (
+					<NavGroup key={section.label} section={section} pathname={pathname} />
+				))}
 			</SidebarContent>
+
+			<SidebarFooter className="px-3 pb-4">
+				<div className="flex items-center gap-3 rounded-xl border border-sidebar-border bg-sidebar-accent/60 p-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+					<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/25 text-xs font-semibold text-white">
+						{initials(user)}
+					</div>
+					<div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
+						<p className="truncate text-sm font-medium text-white">
+							{user.firstName} {user.lastName}
+						</p>
+						<p className="truncate text-xs capitalize text-sidebar-foreground/55">{user.role}</p>
+					</div>
+				</div>
+			</SidebarFooter>
 			<SidebarRail className="no-print" />
 		</Sidebar>
 	);
