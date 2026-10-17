@@ -14,8 +14,8 @@ interface StatTileProps {
 
 const TONE_CLS: Record<NonNullable<StatTileProps["tone"]>, string> = {
 	default: "bg-primary/10 text-primary",
-	warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-	success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+	warning: "bg-warning/10 text-warning",
+	success: "bg-success/10 text-success",
 	danger: "bg-destructive/10 text-destructive",
 };
 

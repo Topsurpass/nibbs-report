@@ -14,6 +14,11 @@ import {
 	AlertCircle,
 	CheckCircle2,
 	Loader2,
+	FileText,
+	ListChecks,
+	ShieldAlert,
+	Lightbulb,
+	ClipboardList,
 } from "lucide-react";
 import {
 	CATEGORY_PRESETS,
@@ -33,7 +38,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Select,
 	SelectContent,
@@ -78,12 +82,23 @@ const fullName = (u: DirectoryUser) => `${u.firstName} ${u.lastName}`.trim();
 const defaultScheduleMessage = (firstName: string) =>
 	`Dear ${firstName || "team"},\n\nKindly find attached daily schedule report.`;
 
-const TABS: { id: TabId; label: string }[] = [
-	{ id: "cover", label: "Cover page" },
-	{ id: "summary", label: "Report Summary" },
-	{ id: "fraud", label: "Fraud Alerts" },
-	{ id: "recs", label: "Recommendations" },
+const TABS: { id: TabId; label: string; hint: string; icon: typeof FileText }[] = [
+	{ id: "cover", label: "Cover page", hint: "Shift, date and officers", icon: FileText },
+	{ id: "summary", label: "Report summary", hint: "Checks done this shift", icon: ListChecks },
+	{ id: "fraud", label: "Fraud alerts", hint: "Incidents logged", icon: ShieldAlert },
+	{ id: "recs", label: "Recommendations", hint: "Notes for the next shift", icon: Lightbulb },
 ];
+
+const LONG_DATE = (iso: string) => {
+	const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!m) return "No date";
+	return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-GB", {
+		weekday: "long",
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	});
+};
 
 /** Extracted from the shadcn Input styling, for the dense per-row grid cells
  * where a raw control keeps the tables compact — a full `Select`/`Input`
@@ -323,91 +338,162 @@ export default function ScheduleReportEditor({ mode, initial, reportId, users, c
 		setShowSend(true); // instant; the report is saved inside the modal on send
 	};
 
+	const counts: Record<TabId, string> = {
+		cover: (() => {
+			const n = report.cover.outgoingOfficers.filter(Boolean).length + report.cover.incomingOfficers.filter(Boolean).length;
+			return `${n} officer${n === 1 ? "" : "s"}`;
+		})(),
+		summary: (() => {
+			const n = report.summary.reduce((sum, c) => sum + c.rows.length, 0);
+			return `${n} item${n === 1 ? "" : "s"}`;
+		})(),
+		fraud: `${report.fraudAlerts.length}`,
+		recs: `${report.recommendations.length}`,
+	};
+
 	return (
 		<div>
-			<div className="p-4 pb-0 md:p-6 md:pb-0">
-				<Link
-					href="/daily-reports"
-					className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-				>
-					<ArrowLeft className="size-3.5" />
-					All reports
-				</Link>
-				<h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
-					{mode === "new" ? "New Daily Schedule Report" : "Edit Daily Schedule Report"}
-				</h1>
-				<p className="mt-1 text-sm text-muted-foreground">
-					{report.cover.handoverType} · {report.cover.date || "no date"}
-				</p>
-			</div>
-
-			<div className="sticky top-14 z-20 mt-4 flex flex-wrap items-center gap-2 border-y border-border bg-card/90 px-4 py-3 backdrop-blur-sm md:px-6">
-				<Tabs value={tab} onValueChange={(v) => setTab(v as TabId)}>
-					<TabsList>
-						{TABS.map((t) => (
-							<TabsTrigger key={t.id} value={t.id}>
-								{t.label}
-							</TabsTrigger>
-						))}
-					</TabsList>
-				</Tabs>
-				<div className="ml-auto flex flex-wrap items-center gap-2">
-					<Button type="button" variant="outline" size="sm" onClick={exportXlsx} disabled={exporting}>
-						{exporting ? <Loader2 className="animate-spin" /> : <Download />}
-						{exporting ? "Building…" : "Export .xlsx"}
-					</Button>
-					<Button type="button" variant="outline" size="sm" onClick={openSend} disabled={saving}>
-						<Mail />
-						Send
-					</Button>
-					{mode === "edit" && (
-						<Button type="button" variant="destructive" size="sm" onClick={remove} disabled={deleting}>
-							<Trash2 />
-							{deleting ? "Deleting…" : "Delete"}
+			{/* Sticky bar: where you are, whether it's saved, and every action. */}
+			<div className="sticky top-14 z-20 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-sm md:px-6">
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+					<div className="flex min-w-0 items-center gap-3">
+						<Link
+							href="/daily-reports"
+							aria-label="All reports"
+							className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						>
+							<ArrowLeft className="size-4" />
+						</Link>
+						<div className="hero-gradient hidden size-9 shrink-0 items-center justify-center rounded-lg text-white sm:flex">
+							<ClipboardList className="size-4" />
+						</div>
+						<div className="min-w-0">
+							<div className="flex items-center gap-2">
+								<h1 className="truncate text-base font-semibold text-foreground">
+									{mode === "new" ? "New handover report" : "Handover report"}
+								</h1>
+								<span
+									className={cn(
+										"inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+										dirty ? "bg-warning/15 text-warning" : "bg-success/15 text-success",
+									)}
+								>
+									<span className="size-1.5 rounded-full bg-current" />
+									{dirty ? "Unsaved changes" : "Saved"}
+								</span>
+							</div>
+							<p className="truncate text-xs text-muted-foreground">
+								{report.cover.handoverType} · {LONG_DATE(report.cover.date)}
+							</p>
+						</div>
+					</div>
+					<div className="ml-auto flex flex-wrap items-center gap-2">
+						<Button type="button" variant="outline" size="sm" onClick={exportXlsx} disabled={exporting}>
+							{exporting ? <Loader2 className="animate-spin" /> : <Download />}
+							{exporting ? "Building…" : "Export .xlsx"}
 						</Button>
-					)}
-					<Button
-						type="button"
-						size="sm"
-						onClick={() => saveReport(true)}
-						disabled={saving || (!dirty && persistedRef.current)}
-					>
-						{saving ? <Loader2 className="animate-spin" /> : dirty ? null : <Check />}
-						{saving ? "Saving…" : dirty ? "Save" : savedFlag ? "Saved" : "Saved"}
-					</Button>
+						<Button type="button" variant="outline" size="sm" onClick={openSend} disabled={saving}>
+							<Mail />
+							Send
+						</Button>
+						{mode === "edit" && (
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={remove}
+								disabled={deleting}
+								className="border-destructive/40 text-destructive hover:bg-destructive/10"
+							>
+								<Trash2 />
+								{deleting ? "Deleting…" : "Delete"}
+							</Button>
+						)}
+						<Button
+							type="button"
+							size="sm"
+							onClick={() => saveReport(true)}
+							disabled={saving || !dirty}
+						>
+							{saving ? <Loader2 className="animate-spin" /> : dirty ? null : <Check />}
+							{saving ? "Saving…" : dirty ? "Save" : savedFlag ? "Saved" : "Saved"}
+						</Button>
+					</div>
 				</div>
 			</div>
 
-			<div className="p-4 md:p-6">
-				{error && (
-					<Alert variant="destructive" role="alert" className="mb-4">
-						<AlertCircle />
-						<AlertDescription>{error}</AlertDescription>
-					</Alert>
-				)}
-				{notice && (
-					<Alert className="mb-4 border-emerald-500/30 bg-emerald-500/5">
-						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
-						<AlertDescription className="text-emerald-700 dark:text-emerald-300">{notice}</AlertDescription>
-					</Alert>
-				)}
+			<div className="grid grid-cols-[minmax(0,1fr)] gap-6 p-4 md:p-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+				<nav aria-label="Report sections" className="lg:sticky lg:top-36 lg:self-start">
+					<ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+						{TABS.map((t) => {
+							const active = tab === t.id;
+							return (
+								<li key={t.id} className="shrink-0">
+									<button
+										type="button"
+										onClick={() => setTab(t.id)}
+										aria-current={active ? "page" : undefined}
+										className={cn(
+											"flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+											active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+										)}
+									>
+										<t.icon className="size-4 shrink-0" />
+										<span className="min-w-0 flex-1">
+											<span className={cn("block text-sm font-medium", active ? "text-primary" : "text-foreground")}>{t.label}</span>
+											<span className="hidden text-[11px] text-muted-foreground lg:block">{t.hint}</span>
+										</span>
+										<span
+											className={cn(
+												"tnum rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+												active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+											)}
+										>
+											{counts[t.id]}
+										</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</nav>
 
-				{tab === "cover" && (
-					<CoverTab report={report} setCover={setCover} setOfficers={setOfficers} officerNames={officerNames} currentUserName={currentUserName} />
-				)}
-				{tab === "summary" && (
-					<SummaryTab
-						report={report}
-						setCategory={setCategory}
-						setRow={setRow}
-						addRow={addRow}
-						removeRow={removeRow}
-						addCategory={addCategory}
-						removeCategory={removeCategory}
-					/>
-				)}
-				{tab === "fraud" && <FraudTab report={report} setAlert={setAlert} addAlert={addAlert} removeAlert={removeAlert} />}
-				{tab === "recs" && <RecsTab report={report} setRec={setRec} addRec={addRec} removeRec={removeRec} />}
+				<div className="min-w-0">
+					{error && (
+						<Alert variant="destructive" role="alert" className="mb-4">
+							<AlertCircle />
+							<AlertDescription>{error}</AlertDescription>
+						</Alert>
+					)}
+					{notice && (
+						<Alert className="mb-4 border-success/30 bg-success/5">
+							<CheckCircle2 className="text-success" />
+							<AlertDescription className="text-success">{notice}</AlertDescription>
+						</Alert>
+					)}
+
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold tracking-tight text-foreground">{TABS.find((t) => t.id === tab)?.label}</h2>
+						<p className="text-sm text-muted-foreground">{TABS.find((t) => t.id === tab)?.hint}</p>
+					</div>
+
+					{tab === "cover" && (
+						<CoverTab report={report} setCover={setCover} setOfficers={setOfficers} officerNames={officerNames} currentUserName={currentUserName} />
+					)}
+					{tab === "summary" && (
+						<SummaryTab
+							report={report}
+							setCategory={setCategory}
+							setRow={setRow}
+							addRow={addRow}
+							removeRow={removeRow}
+							addCategory={addCategory}
+							removeCategory={removeCategory}
+						/>
+					)}
+					{tab === "fraud" && <FraudTab report={report} setAlert={setAlert} addAlert={addAlert} removeAlert={removeAlert} />}
+					{tab === "recs" && <RecsTab report={report} setRec={setRec} addRec={addRec} removeRec={removeRec} />}
+				</div>
 			</div>
 
 			{showSend && (
@@ -502,7 +588,7 @@ function CoverTab({
 	// Ensure the signed-in officer is always an option even if not in the directory.
 	const outgoingOpts = currentUserName && !officerNames.includes(currentUserName) ? [currentUserName, ...officerNames] : officerNames;
 	return (
-		<Card className="max-w-2xl space-y-4 p-6">
+		<Card className="space-y-4 p-6">
 			<Field label="Department">
 				<Input value={c.department} onChange={(e) => setCover({ department: e.target.value })} />
 			</Field>
@@ -730,7 +816,7 @@ function RecsTab({
 	removeRec: (id: string) => void;
 }) {
 	return (
-		<div className="max-w-2xl space-y-3">
+		<div className="space-y-3">
 			<p className="text-sm text-muted-foreground">Suggestions or priority actions for the incoming shift.</p>
 			<Card className="space-y-2 p-4">
 				{report.recommendations.map((rec, i) => (

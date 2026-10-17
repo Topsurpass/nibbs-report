@@ -48,9 +48,9 @@ export default function ForgotPasswordForm() {
 
 	if (sent) {
 		return (
-			<Alert className="border-emerald-500/30 bg-emerald-500/5">
-				<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
-				<AlertDescription className="text-emerald-700 dark:text-emerald-300">
+			<Alert className="border-success/30 bg-success/5">
+				<CheckCircle2 className="text-success" />
+				<AlertDescription className="text-success">
 					If that email belongs to an account, a reset link is on its way. It expires in 1 hour.
 				</AlertDescription>
 			</Alert>

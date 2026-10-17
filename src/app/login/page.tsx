@@ -11,7 +11,7 @@ export default async function LoginPage() {
 	if (user) redirect(user.mustChangePassword ? "/change-password" : "/");
 
 	return (
-		<AuthShell icon={Landmark} title="Audit Toolkit" subtitle="Sign in to continue">
+		<AuthShell icon={Landmark} title="Welcome back" subtitle="Sign in with your work email to continue.">
 			<LoginForm />
 		</AuthShell>
 	);

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2, Settings, Landmark, Wallet, Scale } from "lucide-react";
+import { Upload, Plus, RotateCcw, Check, Lock, X, Loader2, Settings, Landmark, Wallet, Scale, Search } from "lucide-react";
 import type { MasterBank } from "@/lib/master";
 import { formatNaira } from "@/lib/format";
 import { mergeBanks, parseMasterFromRows } from "@/lib/importBanks";
@@ -11,6 +11,7 @@ import StatTile from "./layout/StatTile";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -34,8 +35,33 @@ interface ImportMsg {
 	errors: string[];
 }
 
+/** Reads as text until hovered or focused, so a 28-row table isn't a wall of boxes. */
 const cellInputCls =
-	"h-8 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+	"h-8 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive/60";
+
+const CODE_RE = /^\d{10}$/;
+
+/**
+ * Collateral shown with separators (₦1,200,000,000.00) while reading, and as
+ * the raw number while editing, so the figure is legible but still typeable.
+ */
+function CollateralInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+	const [editing, setEditing] = useState(false);
+	return (
+		<input
+			inputMode="decimal"
+			value={editing ? String(value) : formatNaira(value)}
+			onFocus={(e) => {
+				setEditing(true);
+				requestAnimationFrame(() => e.target.select());
+			}}
+			onBlur={() => setEditing(false)}
+			onChange={(e) => onChange(Number(e.target.value.replace(/[^\d.]/g, "")) || 0)}
+			aria-label="Collateral"
+			className={cn(cellInputCls, "tnum w-48 text-right")}
+		/>
+	);
+}
 
 /**
  * NIBBS configuration screen: the master bank list plus each bank's posted
@@ -169,6 +195,16 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 
 	const avgCollateral = draft.length > 0 ? totalCollateral / draft.length : 0;
 
+	const [query, setQuery] = useState("");
+	// Keep each row's index into `draft`, so filtering never edits the wrong bank.
+	const rows = useMemo(() => {
+		const q = query.trim().toLowerCase();
+		return draft
+			.map((b, i) => ({ b, i }))
+			.filter(({ b }) => !q || b.name.toLowerCase().includes(q) || b.code.includes(q));
+	}, [draft, query]);
+	const invalidCodes = draft.filter((b) => !CODE_RE.test(b.code)).length;
+
 	return (
 		<div className="space-y-6 p-4 md:p-6">
 			<PageHeader
@@ -182,27 +218,17 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 				}
 				actions={
 					canEdit ? (
-						<div className="flex flex-wrap items-center gap-2">
-							<input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onImportFile} className="hidden" />
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={() => fileRef.current?.click()}
-								title='Upload a 2-column sheet: "Bank name - 10-digit code" | collateral'
+						<div className="flex flex-wrap items-center gap-3">
+							<span
+								className={cn(
+									"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+									dirty ? "bg-warning/15 text-warning" : "bg-success/15 text-success",
+								)}
 							>
-								<Upload />
-								Import Excel
-							</Button>
-							<Button type="button" variant="outline" size="sm" onClick={add}>
-								<Plus />
-								Add bank
-							</Button>
-							<Button type="button" variant="outline" size="sm" onClick={reset} disabled={resetting || saving}>
-								{resetting ? <Loader2 className="animate-spin" /> : <RotateCcw />}
-								{resetting ? "Resetting…" : "Reset to defaults"}
-							</Button>
-							<Button type="button" size="sm" onClick={save} disabled={!dirty || saving}>
+								<span className="size-1.5 rounded-full bg-current" />
+								{dirty ? "Unsaved changes" : "All changes saved"}
+							</span>
+							<Button type="button" onClick={save} disabled={!dirty || saving}>
 								{saving ? <Loader2 className="animate-spin" /> : dirty ? null : <Check />}
 								{saving ? "Saving…" : dirty ? "Save changes" : saved ? "Saved" : "Saved"}
 							</Button>
@@ -240,7 +266,7 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 					<Card className="gap-1 p-3">
 						{importMsg.ok && <p className="text-sm font-medium text-brand-teal">{importMsg.ok}</p>}
 						{importMsg.errors.length > 0 && (
-							<div className="text-sm text-amber-700 dark:text-amber-300">
+							<div className="text-sm text-warning">
 								<p className="font-medium">
 									{importMsg.errors.length} row{importMsg.errors.length === 1 ? "" : "s"} skipped:
 								</p>
@@ -256,6 +282,56 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 				)}
 
 				<Card className="gap-0 overflow-hidden py-0">
+					<div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
+						<div className="relative min-w-56 flex-1 sm:max-w-xs">
+							<Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								value={query}
+								onChange={(e) => setQuery(e.target.value)}
+								placeholder="Search bank or code"
+								aria-label="Search banks"
+								className="pl-8"
+							/>
+						</div>
+						<p className="tnum text-xs text-muted-foreground">
+							{query.trim() ? `${rows.length} of ${draft.length} banks` : `${draft.length} banks`}
+							{canEdit && invalidCodes > 0 && (
+								<span className="ml-2 font-medium text-destructive">
+									· {invalidCodes} code{invalidCodes === 1 ? "" : "s"} not 10 digits
+								</span>
+							)}
+						</p>
+						{canEdit && (
+							<div className="ml-auto flex flex-wrap items-center gap-2">
+								<input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onImportFile} className="hidden" />
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={reset}
+									disabled={resetting || saving}
+									className="text-muted-foreground"
+								>
+									{resetting ? <Loader2 className="animate-spin" /> : <RotateCcw />}
+									{resetting ? "Resetting…" : "Reset to defaults"}
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => fileRef.current?.click()}
+									title='Upload a 2-column sheet: "Bank name - 10-digit code" | collateral'
+								>
+									<Upload />
+									Import Excel
+								</Button>
+								<Button type="button" size="sm" onClick={add}>
+									<Plus />
+									Add bank
+								</Button>
+							</div>
+						)}
+					</div>
 					<div className="max-h-[600px] overflow-auto">
 						<Table>
 							<TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
@@ -269,14 +345,16 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{draft.map((b, i) =>
+								{rows.map(({ b, i }) =>
 									canEdit ? (
-										<TableRow key={i}>
+										<TableRow key={i} className="group">
 											<TableCell className="px-4 py-1.5">
 												<input
 													value={b.code}
 													onChange={(e) => update(i, { code: e.target.value })}
 													placeholder="10-digit code"
+													aria-label="Bank code"
+													aria-invalid={!CODE_RE.test(b.code)}
 													className={cn(cellInputCls, "tnum w-32")}
 												/>
 											</TableCell>
@@ -285,23 +363,20 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 													value={b.name}
 													onChange={(e) => update(i, { name: e.target.value })}
 													placeholder="Bank name"
+													aria-label="Bank name"
 													className={cn(cellInputCls, "w-full min-w-[180px]")}
 												/>
 											</TableCell>
 											<TableCell className="px-4 py-1.5 text-right">
-												<input
-													type="number"
-													value={b.collateral}
-													onChange={(e) => update(i, { collateral: Number(e.target.value) || 0 })}
-													className={cn(cellInputCls, "tnum w-44 text-right")}
-												/>
+												<CollateralInput value={Number(b.collateral) || 0} onChange={(v) => update(i, { collateral: v })} />
 											</TableCell>
 											<TableCell className="px-3 py-1.5 text-center">
 												<button
 													type="button"
 													onClick={() => remove(i)}
-													className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+													className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100"
 													title="Remove bank"
+													aria-label={`Remove ${b.name || "bank"}`}
 												>
 													<X className="size-3.5" />
 												</button>
@@ -320,6 +395,13 @@ export default function NibbsSettings({ master, canEdit, onSave, onReset }: Prop
 											</TableCell>
 										</TableRow>
 									),
+								)}
+								{draft.length > 0 && rows.length === 0 && (
+									<TableRow className="hover:bg-transparent">
+										<TableCell colSpan={canEdit ? 4 : 3} className="px-4 py-10 text-center text-sm text-muted-foreground">
+											No bank matches &ldquo;{query}&rdquo;.
+										</TableCell>
+									</TableRow>
 								)}
 								{draft.length === 0 && (
 									<TableRow className="hover:bg-transparent">

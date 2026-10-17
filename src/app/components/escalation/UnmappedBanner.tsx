@@ -54,13 +54,13 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 	};
 
 	return (
-		<Card className="border-amber-500/40 bg-amber-500/10 p-5">
-			<h2 className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-200">
+		<Card className="border-warning/40 bg-warning/10 p-5">
+			<h2 className="flex items-center gap-1.5 text-sm font-semibold text-warning">
 				<AlertTriangle className="size-4" />
 				{groups.length} unrecognised bank {groups.length === 1 ? "code" : "codes"} — {rows} transaction
 				{rows === 1 ? "" : "s"}, {formatAmount(total)}
 			</h2>
-			<p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
+			<p className="mt-1 text-xs text-warning/80">
 				These rows are still included, in an <code>UNMAPPED</code> file each. Name a code here and it applies to
 				every future upload.
 			</p>
@@ -68,10 +68,10 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 			<div className="mt-4 space-y-3">
 				{groups.map((group) => (
 					<div key={group.code} className="flex flex-wrap items-start gap-2">
-						<span className="mt-2 w-14 shrink-0 font-mono text-sm font-bold text-amber-900 dark:text-amber-100">
+						<span className="mt-2 w-14 shrink-0 font-mono text-sm font-bold text-warning">
 							{group.code}
 						</span>
-						<span className="mt-2 w-44 shrink-0 text-xs text-amber-800/80 dark:text-amber-200/80">
+						<span className="mt-2 w-44 shrink-0 text-xs text-warning/80">
 							{group.rows.length} txn{group.rows.length === 1 ? "" : "s"} · {formatAmount(group.total)}
 						</span>
 						<div className="min-w-[200px] flex-1">
@@ -84,7 +84,7 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 								placeholder="Bank name (e.g. NOMBA FS)"
 								maxLength={120}
 								aria-label={`Bank name for code ${group.code}`}
-								className="border-amber-500/40 focus-visible:border-amber-500"
+								className="border-warning/40 focus-visible:border-warning"
 							/>
 							{errors[group.code] && <p className="mt-1 text-xs font-medium text-destructive">{errors[group.code]}</p>}
 						</div>
@@ -92,7 +92,7 @@ export default function UnmappedBanner({ groups, onSave }: UnmappedBannerProps) 
 							type="button"
 							onClick={() => void save(group.code)}
 							disabled={saving === group.code}
-							className="bg-amber-600 text-white hover:bg-amber-700"
+							className="bg-warning text-warning-foreground hover:bg-warning/90"
 						>
 							{saving === group.code && <Loader2 className="animate-spin" />}
 							{saving === group.code ? "Saving…" : "Save mapping"}

@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Compass, AlertTriangle, Loader2, ShieldAlert } from "lucide-react";
+import { Compass, ShieldAlert } from "lucide-react";
 import PageHeader from "@/app/components/layout/PageHeader";
-import Stepper from "@/app/components/layout/Stepper";
-import FileDropzone from "@/app/components/FileDropzone";
 import BankGroupTable from "./BankGroupTable";
+import EscalationSummaryPanel from "./EscalationSummaryPanel";
+import SpoolDropHero from "./SpoolDropHero";
 import ColumnPicker from "./ColumnPicker";
 import UnmappedBanner from "./UnmappedBanner";
 import { detectColumns } from "@/lib/escalation/detectColumns";
@@ -29,10 +29,9 @@ import TourModal from "@/app/components/onboarding/TourModal";
 import { ESCALATION_TOUR, ESCALATION_TOUR_STEPS } from "./escalationTour";
 import { useTour } from "@/hooks/useTour";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 /**
  * Drop a spooled fraud export, get one escalation file per beneficiary bank.
@@ -291,9 +290,9 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 
 			<PageHeader
 				icon={ShieldAlert}
-				eyebrow="Bank Escalation"
-				title="Generate excel file for bank beneficiaries"
-				description="Drop a spooled transaction file and get one escalation workbook per beneficiary bank, ready to send for lien placement."
+				eyebrow="Operations"
+				title="Fraud Escalation"
+				description="Turn a spooled fraudulent-transaction file into one escalation workbook per beneficiary bank, ready to send for lien placement."
 				actions={
 					/* Replay: the tour auto-shows once, but it has to stay
 					    reachable afterwards or it may as well not exist. */
@@ -304,45 +303,25 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 				}
 			/>
 
-			<Card className="px-5 py-4">
-				<Stepper
-					steps={[
-						{ label: "Upload spool", description: "Read the export in your browser" },
-						{ label: "Review & send", description: "Confirm columns, then split by bank" },
-					]}
-					current={preview ? 1 : 0}
-				/>
-			</Card>
-
-			<div className="space-y-6">
-				<FileDropzone
-					title="Spooled fraudulent transactions"
-					subtitle="The export from the database — .xlsx, .xls or .csv"
-					accept=".xlsx,.xls,.csv"
-					file={file}
-					accent="teal"
-					summary={
-						reading
-							? "Reading…"
-							: preview
-								? `${preview.spool.rows.length.toLocaleString()} rows · sheet "${preview.spool.sheetName}"`
-								: undefined
-					}
-					error={error || undefined}
-					onSelect={(picked) => void onSelect(picked)}
-				/>
-
-				{preview && result && (
-					<div className="space-y-6">
-						{/* Bank-code column: always visible and always overridable. Getting
+			{!preview || !result || !file ? (
+				<SpoolDropHero reading={reading} error={error || null} onFile={(picked) => void onSelect(picked)} />
+			) : (
+				// One grid: narrow screens read setup → pack → banks; xl keeps the
+				// pack (accounting + downloads) in a sticky right column.
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_21rem]">
+					{/* Bank-code column: always visible and always overridable. Getting
 					    this wrong escalates to the sending bank instead of the receiving
 					    one, so it is never a silent decision. */}
-						<Card className="p-5">
-							<div className="flex flex-wrap items-end gap-4">
+					<Card className="xl:col-start-1">
+						<CardHeader>
+							<CardTitle>Beneficiary bank code</CardTitle>
+							<CardDescription>
+								Confirm this is the <strong className="text-foreground">beneficiary</strong> column, not the sender.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							<div className="flex flex-wrap items-center gap-4">
 								<div className="min-w-60 flex-1">
-									<label htmlFor="code-column" className="block text-sm font-semibold text-foreground">
-										Beneficiary bank-code column
-									</label>
 									<Select
 										value={preview.codeColumn}
 										onValueChange={(column) => {
@@ -351,7 +330,7 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 											setPreview((p) => (p ? { ...p, codeColumn: column, codeMode: match?.mode ?? "direct" } : p));
 										}}
 									>
-										<SelectTrigger id="code-column" className="mt-2 w-full">
+										<SelectTrigger id="code-column" aria-label="Beneficiary bank-code column" className="w-full">
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
@@ -368,12 +347,8 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 											))}
 										</SelectContent>
 									</Select>
-									<p className="mt-1.5 text-xs text-muted-foreground">
-										Confirm this is the <strong>beneficiary</strong> column, not the sender.
-									</p>
 								</div>
-
-								<label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-foreground">
+								<label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
 									<Checkbox checked={successfulOnly} onCheckedChange={() => setSuccessfulOnly((v) => !v)} />
 									Successful only
 									{result.filteredOut > 0 && (
@@ -383,50 +358,33 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 									)}
 								</label>
 							</div>
-
-							{/* Row accounting, on screen: every uploaded row is visibly
-						    somewhere, so nothing can go missing unnoticed. */}
-							<dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
-								<div>
-									<dt className="text-xs text-muted-foreground">Rows in file</dt>
-									<dd className="tnum font-semibold text-foreground">{result.inputRows.toLocaleString()}</dd>
-								</div>
-								<div>
-									<dt className="text-xs text-muted-foreground">Banks</dt>
-									<dd className="tnum font-semibold text-foreground">{result.groups.length}</dd>
-								</div>
-								<div>
-									<dt className="text-xs text-muted-foreground">No bank code</dt>
-									<dd
-										className={cn(
-											"tnum font-semibold",
-											result.noCode.length > 0 ? "text-amber-600 dark:text-amber-300" : "text-foreground",
-										)}
-									>
-										{result.noCode.length.toLocaleString()}
-									</dd>
-								</div>
-								<div>
-									<dt className="text-xs text-muted-foreground">Total value</dt>
-									<dd className="tnum font-semibold text-foreground">{formatAmount(result.grandTotal)}</dd>
-								</div>
-							</dl>
-
-							{!analysis?.balanced && (
-								<p className="mt-3 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
-									<AlertTriangle className="size-3.5" />
-									Row accounting does not balance — do not send these files. Report this file.
-								</p>
-							)}
 							{result.noCode.length > 0 && (
-								<p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+								<p className="rounded-lg bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
 									{result.noCode.length.toLocaleString()} row
 									{result.noCode.length === 1 ? " has" : "s have"} no readable bank code and{" "}
 									{result.noCode.length === 1 ? "is" : "are"} not in any file. Check the column above.
 								</p>
 							)}
-						</Card>
+						</CardContent>
+					</Card>
 
+					<EscalationSummaryPanel
+						className="xl:sticky xl:top-20 xl:col-start-2 xl:row-span-2 xl:row-start-1"
+						fileName={file.name}
+						sheetName={preview.spool.sheetName}
+						rowsInFile={result.inputRows}
+						banks={result.groups.length}
+						noCode={result.noCode.length}
+						totalValue={formatAmount(result.grandTotal)}
+						balanced={Boolean(analysis?.balanced)}
+						nothingSelected={nothingSelected}
+						downloading={downloading}
+						onReplace={(picked) => void onSelect(picked)}
+						onDownloadZip={() => void download("zip", "zip")}
+						onDownloadCombined={() => void download("combined", "combined")}
+					/>
+
+					<div className="min-w-0 space-y-6 xl:col-start-1">
 						<UnmappedBanner groups={unmapped} onSave={saveOverride} />
 
 						<ColumnPicker
@@ -445,32 +403,11 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 							}}
 						/>
 
-						<section>
-							<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-								<h2 className="text-sm font-semibold text-foreground">
-									Beneficiary banks ({result.groups.length})
-								</h2>
-								<div className="flex flex-wrap gap-2">
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => void download("combined", "combined")}
-										disabled={nothingSelected || downloading !== null}
-									>
-										{downloading === "combined" && <Loader2 className="animate-spin" />}
-										{downloading === "combined" ? "Building…" : "Combined workbook"}
-									</Button>
-									<Button
-										type="button"
-										onClick={() => void download("zip", "zip")}
-										disabled={nothingSelected || downloading !== null}
-									>
-										{downloading === "zip" && <Loader2 className="animate-spin" />}
-										{downloading === "zip" ? "Building…" : "Download all (.zip)"}
-									</Button>
-								</div>
+						<section className="space-y-3">
+							<div>
+								<h2 className="text-base font-semibold text-foreground">Beneficiary banks ({result.groups.length})</h2>
+								<p className="text-sm text-muted-foreground">Download a single bank&rsquo;s workbook from its row.</p>
 							</div>
-
 							<BankGroupTable
 								groups={result.groups}
 								grandTotal={result.grandTotal}
@@ -479,8 +416,8 @@ export default function EscalationSplitter({ initialOverrides }: Props) {
 							/>
 						</section>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }

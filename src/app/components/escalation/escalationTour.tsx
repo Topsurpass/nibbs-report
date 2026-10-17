@@ -144,7 +144,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 		),
 		visual: (
 			<Mock>
-				<p className="font-semibold text-amber-700 dark:text-amber-300">
+				<p className="font-semibold text-warning">
 					⚠ 1 unrecognised bank code — 1 transaction
 				</p>
 				<div className="mt-2 flex items-center gap-2">
@@ -152,7 +152,7 @@ export const ESCALATION_TOUR_STEPS: TourStep[] = [
 					<span className="flex-1 rounded-lg border border-border bg-card px-2 py-1.5 text-muted-foreground">
 						NOMBA FS
 					</span>
-					<span className="rounded-lg bg-amber-600 px-2 py-1.5 font-semibold text-white">
+					<span className="rounded-lg bg-warning px-2 py-1.5 font-semibold text-warning-foreground">
 						Save
 					</span>
 				</div>

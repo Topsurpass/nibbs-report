@@ -58,9 +58,9 @@ export default function ResetPasswordForm({ token }: { token: string }) {
 
 	if (done) {
 		return (
-			<Alert className="border-emerald-500/30 bg-emerald-500/5">
-				<CheckCircle2 className="text-emerald-600 dark:text-emerald-400" />
-				<AlertDescription className="text-emerald-700 dark:text-emerald-300">
+			<Alert className="border-success/30 bg-success/5">
+				<CheckCircle2 className="text-success" />
+				<AlertDescription className="text-success">
 					Password updated. Redirecting you to sign in…
 				</AlertDescription>
 			</Alert>

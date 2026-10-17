@@ -39,10 +39,10 @@ export default function BankGroupTable({ groups, grandTotal, downloading, onDown
 				</TableHeader>
 				<TableBody>
 					{groups.map((group) => (
-						<TableRow key={group.code} className={cn(group.unmapped && "bg-amber-500/5 hover:bg-amber-500/10")}>
+						<TableRow key={group.code} className={cn(group.unmapped && "bg-warning/5 hover:bg-warning/10")}>
 							<TableCell className="px-4 py-3 font-medium text-foreground">
 								<span className="inline-flex items-center gap-1.5">
-									{group.unmapped && <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />}
+									{group.unmapped && <AlertTriangle className="size-3.5 text-warning" />}
 									{groupLabel(group)}
 								</span>
 							</TableCell>

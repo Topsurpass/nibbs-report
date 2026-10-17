@@ -6,6 +6,10 @@ export default function Loading() {
 	return (
 		<div className="space-y-6 p-4 md:p-6">
 			<PageHeaderSkeleton />
+			<div className="grid gap-3 sm:grid-cols-2">
+				<Skeleton className="h-20 rounded-xl" />
+				<Skeleton className="h-20 rounded-xl" />
+			</div>
 			<Skeleton className="h-40 w-full rounded-2xl" />
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (

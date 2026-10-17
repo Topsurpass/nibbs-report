@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+	Search,
 	RefreshCw,
 	Loader2,
 	CircleCheck,
@@ -21,6 +22,7 @@ import {
 	RotateCcw,
 } from "lucide-react";
 import { createUserSchema, type CreateUserValues } from "@/lib/validators/user";
+import { USER_FILTERS, countByFilter, filterUsers, type UserFilter } from "@/lib/users/filterUsers";
 import type { AuthUser } from "@/types/user";
 import PageHeader from "./layout/PageHeader";
 import StatTile from "./layout/StatTile";
@@ -63,12 +65,20 @@ interface Banner {
 const BANNER_STYLES: Record<Banner["kind"], { wrapCls: string; textCls: string; icon: typeof CircleCheck }> = {
 	success: { wrapCls: "border-brand-teal/30 bg-brand-teal/5", textCls: "text-brand-teal", icon: CircleCheck },
 	warn: {
-		wrapCls: "border-amber-500/30 bg-amber-500/5",
-		textCls: "text-amber-700 dark:text-amber-300",
+		wrapCls: "border-warning/30 bg-warning/5",
+		textCls: "text-warning",
 		icon: TriangleAlert,
 	},
 	error: { wrapCls: "border-destructive/30 bg-destructive/5", textCls: "text-destructive", icon: CircleX },
 };
+
+/** The account list, or a thrown Error with the server's message. No React state. */
+async function fetchUsers(): Promise<AuthUser[]> {
+	const res = await fetch("/api/users");
+	const data = await res.json();
+	if (!res.ok || !data.ok) throw new Error(data.error ?? "Couldn't load users.");
+	return data.users;
+}
 
 function initialsOf(u: AuthUser) {
 	return `${u.firstName[0] ?? ""}${u.lastName[0] ?? ""}`.toUpperCase() || "?";
@@ -86,6 +96,10 @@ export default function UserManagement({ currentUserId }: Props) {
 	const [banner, setBanner] = useState<Banner | null>(null);
 	const [busyId, setBusyId] = useState<string | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
+	const [query, setQuery] = useState("");
+	const [filter, setFilter] = useState<UserFilter>("all");
+	const shown = useMemo(() => filterUsers(users, query, filter), [users, query, filter]);
+	const counts = useMemo(() => countByFilter(users), [users]);
 
 	const {
 		register,
@@ -98,23 +112,25 @@ export default function UserManagement({ currentUserId }: Props) {
 		defaultValues: { firstName: "", lastName: "", email: "" },
 	});
 
-	const loadUsers = async () => {
+	// State is only set in promise callbacks, never synchronously in the
+	// mount effect (initial state is already "loading").
+	const applyUsers = (p: Promise<AuthUser[]>) =>
+		p
+			.then((list) => {
+				setUsers(list);
+				setLoadError(null);
+			})
+			.catch((err: unknown) => setLoadError(err instanceof Error ? err.message : "Couldn't load users."))
+			.finally(() => setLoading(false));
+
+	const loadUsers = () => {
 		setLoading(true);
 		setLoadError(null);
-		try {
-			const res = await fetch("/api/users");
-			const data = await res.json();
-			if (!res.ok || !data.ok) throw new Error(data.error ?? "Couldn't load users.");
-			setUsers(data.users);
-		} catch (err) {
-			setLoadError(err instanceof Error ? err.message : "Couldn't load users.");
-		} finally {
-			setLoading(false);
-		}
+		void applyUsers(fetchUsers());
 	};
 
 	useEffect(() => {
-		loadUsers();
+		void applyUsers(fetchUsers());
 	}, []);
 
 	const onCreate = handleSubmit(async (values) => {
@@ -295,15 +311,52 @@ export default function UserManagement({ currentUserId }: Props) {
 
 			{/* User list */}
 			<Card className="gap-0 overflow-hidden py-0">
-				<div className="flex items-center justify-between border-b border-border px-5 py-3">
-					<div>
-						<p className="text-sm font-semibold text-foreground">Accounts</p>
-						<p className="text-xs text-muted-foreground">Everyone with access to the toolkit.</p>
+				<div className="space-y-3 border-b border-border px-5 py-4">
+					<div className="flex flex-wrap items-center gap-3">
+						<div>
+							<p className="text-sm font-semibold text-foreground">Accounts</p>
+							<p className="text-xs text-muted-foreground">Everyone with access to the toolkit.</p>
+						</div>
+						<div className="relative ml-auto w-full sm:w-64">
+							<Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								value={query}
+								onChange={(e) => setQuery(e.target.value)}
+								placeholder="Search name or email"
+								aria-label="Search accounts"
+								className="pl-8"
+							/>
+						</div>
+						<Button type="button" variant="ghost" size="sm" onClick={loadUsers} disabled={loading}>
+							<RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+							Refresh
+						</Button>
 					</div>
-					<Button type="button" variant="ghost" size="sm" onClick={loadUsers} disabled={loading}>
-						<RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-						Refresh
-					</Button>
+					<div role="tablist" aria-label="Filter accounts" className="flex flex-wrap gap-1.5">
+						{USER_FILTERS.map((f) => {
+							const active = filter === f.id;
+							return (
+								<button
+									key={f.id}
+									type="button"
+									role="tab"
+									aria-selected={active}
+									onClick={() => setFilter(f.id)}
+									className={cn(
+										"inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+										active
+											? "border-primary/40 bg-primary/10 text-primary"
+											: "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground",
+									)}
+								>
+									{f.label}
+									<span className={cn("tnum rounded-full px-1.5 text-[10px]", active ? "bg-primary/15" : "bg-muted")}>
+										{loading ? "–" : counts[f.id]}
+									</span>
+								</button>
+							);
+						})}
+					</div>
 				</div>
 
 				{loading ? (
@@ -324,6 +377,8 @@ export default function UserManagement({ currentUserId }: Props) {
 					<p className="px-5 py-8 text-center text-sm text-destructive">{loadError}</p>
 				) : users.length === 0 ? (
 					<p className="px-5 py-8 text-center text-sm text-muted-foreground">No accounts yet.</p>
+				) : shown.length === 0 ? (
+					<p className="px-5 py-8 text-center text-sm text-muted-foreground">No accounts match these filters.</p>
 				) : (
 					<Table>
 						<TableHeader>
@@ -335,7 +390,7 @@ export default function UserManagement({ currentUserId }: Props) {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{users.map((u, i) => (
+							{shown.map((u, i) => (
 								<TableRow
 									key={u.id}
 									className={cn("animate-in fade-in slide-in-from-bottom-1", !u.isActive && "bg-muted/30")}
@@ -376,7 +431,7 @@ export default function UserManagement({ currentUserId }: Props) {
 												Access revoked
 											</span>
 										) : u.mustChangePassword ? (
-											<span className="text-amber-700 dark:text-amber-300">Pending first login</span>
+											<span className="text-warning">Pending first login</span>
 										) : (
 											<span className="text-brand-teal">Active</span>
 										)}

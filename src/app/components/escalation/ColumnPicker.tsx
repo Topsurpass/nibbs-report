@@ -77,8 +77,8 @@ export default function ColumnPicker({
 			</div>
 
 			{count === 0 && (
-				<Alert className="mt-4 border-amber-500/30 bg-amber-500/5">
-					<AlertDescription className="text-amber-700 dark:text-amber-300">
+				<Alert className="mt-4 border-warning/30 bg-warning/5">
+					<AlertDescription className="text-warning">
 						Nothing is selected — the files would be empty. Tick at least one column.
 					</AlertDescription>
 				</Alert>
