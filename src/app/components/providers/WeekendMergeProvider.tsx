@@ -17,6 +17,9 @@ interface WeekendMergeContextValue {
 	session: SessionNo;
 	setSession: (v: SessionNo) => void;
 	settlement: NamedText | null;
+	/** User chose to merge even though some sessions are missing. */
+	allowMissingSessions: boolean;
+	setAllowMissingSessions: (v: boolean) => void;
 	/** Names replaced by a re-upload in the most recent drop. */
 	replaced: string[];
 	addSources: (files: File[]) => Promise<void>;
@@ -34,6 +37,7 @@ export function WeekendMergeProvider({ children }: { children: ReactNode }) {
 	const [session, setSession] = useState<SessionNo>(1);
 	const [settlement, setSettlement] = useState<NamedText | null>(null);
 	const [replaced, setReplaced] = useState<string[]>([]);
+	const [allowMissingSessions, setAllowMissingSessions] = useState(false);
 	const counter = useRef(0);
 
 	const addSources = useCallback(async (files: File[]) => {
@@ -63,6 +67,7 @@ export function WeekendMergeProvider({ children }: { children: ReactNode }) {
 		setSession(1);
 		setSettlement(null);
 		setReplaced([]);
+		setAllowMissingSessions(false);
 	}, []);
 
 	return (
@@ -74,6 +79,8 @@ export function WeekendMergeProvider({ children }: { children: ReactNode }) {
 				session,
 				setSession,
 				settlement,
+				allowMissingSessions,
+				setAllowMissingSessions,
 				replaced,
 				addSources,
 				removeSource,

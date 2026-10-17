@@ -17,6 +17,8 @@ interface SessionSlotCardProps {
 	slot: BoardSlot;
 	/** 1-based position in the merged file, when this slot will be merged. */
 	order?: number;
+	/** Missing, but the user chose to merge without it. */
+	skipped?: boolean;
 	onRemove: (id: string) => void;
 }
 
@@ -34,9 +36,11 @@ function RemoveButton({ file, onRemove }: { file: SourceFile; onRemove: (id: str
 	);
 }
 
+const SKIPPED = { card: "border-dashed border-warning/50 bg-warning/5", icon: CircleDashed, iconCls: "text-warning", text: "Skipped" };
+
 /** One session (e.g. Saturday 2pm) on the board. */
-export default function SessionSlotCard({ slot, order, onRemove }: SessionSlotCardProps) {
-	const s = STATE[slot.state];
+export default function SessionSlotCard({ slot, order, skipped, onRemove }: SessionSlotCardProps) {
+	const s = skipped ? SKIPPED : STATE[slot.state];
 	const file = slot.files[0];
 	const failures = file?.issues.filter((i) => i.severity === "fail") ?? [];
 	const warnings = file?.issues.filter((i) => i.severity === "warn") ?? [];
@@ -56,7 +60,7 @@ export default function SessionSlotCard({ slot, order, onRemove }: SessionSlotCa
 
 			{slot.state === "missing" && (
 				<div className="mt-2 space-y-1">
-					<p className="text-xs text-muted-foreground">Not uploaded yet</p>
+					<p className="text-xs text-muted-foreground">{skipped ? "Merging without this session" : "Not uploaded yet"}</p>
 					<p className="tnum truncate text-[11px] text-muted-foreground/80" title={slot.expectedName}>
 						{slot.expectedName}
 					</p>

@@ -49,6 +49,9 @@ export default function WeekendSettlement() {
 						replaced={m.replaced}
 						onFiles={m.addSources}
 						onRemove={m.removeSource}
+						skippingMissing={m.allowMissingSessions}
+						onSkipMissing={m.canSkipMissing ? () => m.setAllowMissingSessions(true) : undefined}
+						onRequireAll={m.allowMissingSessions ? () => m.setAllowMissingSessions(false) : undefined}
 					/>
 
 					<MergeSummaryPanel

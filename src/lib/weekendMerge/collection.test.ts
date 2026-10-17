@@ -43,3 +43,20 @@ test("a gap between days and a weekday holiday only warn", () => {
   assert.equal(status(files, "non-business-days"), "warn");
   assert.equal(canMerge(assessCollection(files)), true);
 });
+
+test("missing sessions can be merged anyway when the user opts in", () => {
+  const files = fullWeekend().filter((f) => f.name !== `ETRANZACT_${SAT}_3.txt`);
+  assert.equal(canMerge(assessCollection(files)), false);
+  const checks = assessCollection(files, { allowMissingSessions: true });
+  const c = checks.find((x) => x.id === "sessions-complete");
+  assert.equal(c?.status, "warn");
+  assert.match(c!.detail, /Merging without: Sat 2026\/06\/06: _3 \(2pm\)/);
+  assert.equal(canMerge(checks), true);
+});
+
+test("opting in never unblocks other failures", () => {
+  const files = [...fullWeekend().filter((f) => f.name !== `ETRANZACT_${SAT}_3.txt`), sessionFile(SAT, 2, 99)];
+  assert.equal(canMerge(assessCollection(files, { allowMissingSessions: true })), false);
+  const bad = inspectSourceFile(`ETRANZACT_${SAT}_3 (1).txt`, sessionText(SAT, 3));
+  assert.equal(canMerge(assessCollection([...fullWeekend(), bad], { allowMissingSessions: true })), false);
+});

@@ -10,6 +10,7 @@ import {
 	compareWithSettlement,
 	defaultMergeDate,
 	mergeChecks,
+	MISSING_SESSIONS_CHECK,
 	sortSources,
 } from "@/lib/weekendMerge";
 
@@ -25,11 +26,12 @@ function fromInputDate(v: string): Date | null {
 /** Everything the Weekend Settlement page derives from the uploaded files. */
 export function useWeekendMerge() {
 	const state = useWeekendMergeState();
-	const { sources, mergeDateOverride, session, settlement } = state;
+	const { sources, mergeDateOverride, session, settlement, allowMissingSessions } = state;
 
 	return useMemo(() => {
 		const ordered = sortSources(sources);
-		const collectionChecks = assessCollection(sources);
+		const collectionChecks = assessCollection(sources, { allowMissingSessions });
+		const missingSessions = collectionChecks.find((c) => c.id === MISSING_SESSIONS_CHECK);
 		const ready = canMerge(collectionChecks);
 
 		// No default date until there are files: avoids an SSR/CSR "today" mismatch.
@@ -53,6 +55,8 @@ export function useWeekendMerge() {
 			...state,
 			ordered,
 			collectionChecks,
+			/** Some sessions are missing; the user may choose to merge without them. */
+			canSkipMissing: !allowMissingSessions && missingSessions?.status === "fail" && sources.some((s) => s.date),
 			ready,
 			mergeDateStr,
 			merge,
@@ -63,5 +67,5 @@ export function useWeekendMerge() {
 			orderOf,
 			comparison,
 		};
-	}, [state, sources, mergeDateOverride, session, settlement]);
+	}, [state, sources, mergeDateOverride, session, settlement, allowMissingSessions]);
 }

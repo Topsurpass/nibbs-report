@@ -1,13 +1,23 @@
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import type { CheckResult } from "@/lib/reconcile";
+import { MISSING_SESSIONS_CHECK } from "@/lib/weekendMerge";
+
+interface ProblemsPanelProps {
+	checks: CheckResult[];
+	/** Offer "merge without the missing sessions" on the missing-sessions problem. */
+	onSkipMissing?: () => void;
+	/** Offer to undo a previous skip. */
+	onRequireAll?: () => void;
+}
 
 /**
  * Plain-language summary of the upload checks: what blocks the merge, what
  * needs a second look, or a single all-clear. Detailed reasons live on each
  * session card.
  */
-export default function ProblemsPanel({ checks }: { checks: CheckResult[] }) {
+export default function ProblemsPanel({ checks, onSkipMissing, onRequireAll }: ProblemsPanelProps) {
 	const fails = checks.filter((c) => c.status === "fail");
 	const warns = checks.filter((c) => c.status === "warn");
 
@@ -34,7 +44,19 @@ export default function ProblemsPanel({ checks }: { checks: CheckResult[] }) {
 					<AlertDescription>
 						<ul className="mt-1 list-disc space-y-0.5 pl-4">
 							{fails.map((c) => (
-								<li key={c.id}>{c.detail}</li>
+								<li key={c.id}>
+									{c.detail}
+									{c.id === MISSING_SESSIONS_CHECK && onSkipMissing && (
+										<div className="mt-1.5 flex flex-wrap items-center gap-2">
+											<Button size="sm" variant="outline" className="border-destructive/40 text-foreground" onClick={onSkipMissing}>
+												Continue without missing sessions
+											</Button>
+											<span className="text-xs text-muted-foreground">
+												Use this only if Settlement confirmed those sessions didn&rsquo;t run.
+											</span>
+										</div>
+									)}
+								</li>
 							))}
 						</ul>
 					</AlertDescription>
@@ -47,7 +69,18 @@ export default function ProblemsPanel({ checks }: { checks: CheckResult[] }) {
 					<AlertDescription className="text-foreground/80">
 						<ul className="mt-1 list-disc space-y-0.5 pl-4">
 							{warns.map((c) => (
-								<li key={c.id}>{c.detail}</li>
+								<li key={c.id}>
+									{c.detail}
+									{c.id === MISSING_SESSIONS_CHECK && onRequireAll && (
+										<button
+											type="button"
+											onClick={onRequireAll}
+											className="ml-2 text-xs font-medium text-primary underline-offset-2 hover:underline"
+										>
+											Undo, require all sessions
+										</button>
+									)}
+								</li>
 							))}
 						</ul>
 					</AlertDescription>

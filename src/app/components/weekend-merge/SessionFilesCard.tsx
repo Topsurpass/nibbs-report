@@ -20,6 +20,9 @@ interface SessionFilesCardProps {
 	replaced: string[];
 	onFiles: (files: File[]) => void;
 	onRemove: (id: string) => void;
+	skippingMissing: boolean;
+	onSkipMissing?: () => void;
+	onRequireAll?: () => void;
 	className?: string;
 }
 
@@ -32,6 +35,9 @@ export default function SessionFilesCard({
 	replaced,
 	onFiles,
 	onRemove,
+	skippingMissing,
+	onSkipMissing,
+	onRequireAll,
 	className,
 }: SessionFilesCardProps) {
 	const { dragging, dragCount, open, dropProps, inputProps } = useFileDrop(onFiles, { accept: ".txt" });
@@ -55,14 +61,14 @@ export default function SessionFilesCard({
 				</CardAction>
 			</CardHeader>
 			<CardContent className="space-y-5">
-				<ProblemsPanel checks={checks} />
+				<ProblemsPanel checks={checks} onSkipMissing={onSkipMissing} onRequireAll={onRequireAll} />
 				{replaced.length > 0 && (
 					<p className="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
 						Replaced with your new upload: <span className="tnum text-foreground">{replaced.join(", ")}</span>
 					</p>
 				)}
 				<UnplacedFiles files={board.unplaced} onRemove={onRemove} />
-				<SessionBoard board={board} orderOf={orderOf} onRemove={onRemove} />
+				<SessionBoard board={board} orderOf={orderOf} skippingMissing={skippingMissing} onRemove={onRemove} />
 			</CardContent>
 		</Card>
 	);

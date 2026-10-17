@@ -11,7 +11,18 @@ function dayLabel(d: Date): string {
   return `${weekdayName(d).slice(0, 3)} ${toSlashDate(d)}`;
 }
 
-export function assessCollection(files: SourceFile[]): CheckResult[] {
+export interface CollectionOptions {
+  /**
+   * The user chose to merge even though some sessions are missing (e.g. a
+   * session NIBBS never ran). Missing sessions are then a warning, not a block.
+   */
+  allowMissingSessions?: boolean;
+}
+
+/** Id of the check that an explicit "merge anyway" can downgrade. */
+export const MISSING_SESSIONS_CHECK = "sessions-complete";
+
+export function assessCollection(files: SourceFile[], options: CollectionOptions = {}): CheckResult[] {
   if (files.length === 0) return [];
   const checks: CheckResult[] = [];
   const sorted = sortSources(files);
@@ -56,15 +67,24 @@ export function assessCollection(files: SourceFile[]): CheckResult[] {
   });
 
   checks.push({
-    id: "sessions-complete",
+    id: MISSING_SESSIONS_CHECK,
     label: "All 4 sessions for every day",
-    status: byDay.size > 0 && missing.length === 0 ? "pass" : "fail",
+    status:
+      byDay.size === 0
+        ? "fail"
+        : missing.length === 0
+          ? "pass"
+          : options.allowMissingSessions
+            ? "warn"
+            : "fail",
     detail:
       byDay.size === 0
         ? "No correctly named files yet."
         : missing.length === 0
           ? `${byDay.size} day(s), 8am → 5pm complete for each.`
-          : `Missing: ${missing.join("; ")}.`,
+          : options.allowMissingSessions
+            ? `Merging without: ${missing.join("; ")}.`
+            : `Missing: ${missing.join("; ")}.`,
   });
 
   const days = [...byDay.keys()].sort((a, b) => a - b).map((k) => new Date(k));

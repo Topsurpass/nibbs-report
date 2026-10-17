@@ -10,11 +10,13 @@ const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "shor
 interface SessionBoardProps {
 	board: Board;
 	orderOf: Map<string, number>;
+	/** Missing slots are being merged around rather than blocking. */
+	skippingMissing: boolean;
 	onRemove: (id: string) => void;
 }
 
 /** Days down, sessions across: the merge order reads left-to-right, top-to-bottom. */
-export default function SessionBoard({ board, orderOf, onRemove }: SessionBoardProps) {
+export default function SessionBoard({ board, orderOf, skippingMissing, onRemove }: SessionBoardProps) {
 	return (
 		<div className="@container space-y-5">
 			{board.days.map((day) => (
@@ -32,7 +34,7 @@ export default function SessionBoard({ board, orderOf, onRemove }: SessionBoardP
 						<span
 							className={cn(
 								"tnum text-xs font-medium",
-								day.filled === 4 ? "text-muted-foreground" : "text-destructive",
+								day.filled === 4 ? "text-muted-foreground" : skippingMissing ? "text-warning" : "text-destructive",
 							)}
 						>
 							{day.filled}/4 sessions
@@ -44,6 +46,7 @@ export default function SessionBoard({ board, orderOf, onRemove }: SessionBoardP
 								key={slot.session}
 								slot={slot}
 								order={slot.files.length === 1 ? orderOf.get(slot.files[0].id) : undefined}
+								skipped={skippingMissing && slot.state === "missing"}
 								onRemove={onRemove}
 							/>
 						))}
