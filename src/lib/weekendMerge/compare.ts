@@ -1,6 +1,8 @@
 // Compare our merged file with the merged file Settlement sends, row by row.
-// The comparison is on exact text: tabs vs spaces, dates, codes, amounts,
-// row order and line endings all count. Every mismatch says why.
+// The comparison is on exact row text: tabs vs spaces, dates, codes, amounts
+// and row order all count. Line endings do not: LF and CRLF are equivalent
+// (Settlement's tool joins session files with a bare LF), so a row is compared
+// on its content alone. Every mismatch says why.
 
 import type { CheckResult } from "../reconcile.ts";
 import { validateTxtFormat } from "../parseTxt.ts";
@@ -14,7 +16,6 @@ export type MismatchKind =
   | "code"
   | "amount"
   | "order"
-  | "line-ending"
   | "missing"
   | "extra";
 
@@ -25,7 +26,6 @@ export const MISMATCH_LABELS: Record<MismatchKind, string> = {
   code: "Bank code",
   amount: "Amount",
   order: "Order",
-  "line-ending": "Line ending",
   missing: "Missing row",
   extra: "Extra row",
 };
@@ -113,11 +113,6 @@ function diffRow(i: number, o: SplitLine | undefined, t: SplitLine | undefined, 
     }
   }
 
-  if (t.ending === "\n") {
-    kinds.push("line-ending");
-    reasons.push("Ends in LF; expected CRLF");
-  }
-
   return { row, ours: o.content, theirs: t.content, ok: kinds.length === 0, kinds, reasons };
 }
 
@@ -184,18 +179,6 @@ export function compareWithSettlement(ours: NamedText, theirs: NamedText): Compa
     label: "Same number of rows",
     status: o.lines.length === t.lines.length ? "pass" : "fail",
     detail: `Ours ${o.lines.length}, Settlement's ${t.lines.length}.`,
-  });
-
-  const endingsOk = t.lineEndings === "crlf" || t.lineEndings === "none";
-  checks.push({
-    id: "cmp-line-endings",
-    label: "CRLF line endings",
-    status: endingsOk ? "pass" : "fail",
-    detail: endingsOk
-      ? "Every line ends in CRLF."
-      : t.lineEndings === "lf"
-        ? "Settlement's file uses LF; NIBBS files use CRLF."
-        : "Settlement's file mixes CRLF and LF.",
   });
 
   checks.push({

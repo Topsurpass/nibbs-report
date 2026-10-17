@@ -9,8 +9,11 @@
 //      session order, every source row exactly once with only the date column
 //      changed, CRLF with no trailing newline, the record template, net = 0.
 //   3. Mutation fuzz: single seeded mutations of the merged file (tab→space,
-//      date, code, amount, row swap, LF, dropped row, filename) are each caught
-//      by compareWithSettlement with the right mismatch kind at the right row.
+//      date, code, amount, row swap, dropped row, filename) are each caught
+//      by compareWithSettlement with the right mismatch kind at the right row,
+//      and an LF swapped in for a CRLF is NOT flagged (they are equivalent).
+//   4. Settlement-style join: real session bodies joined with a bare LF (how
+//      Settlement's tool builds its file) compare as a full match.
 //
 //   npm run eval:weekend-merge                 # ~/Downloads/Nibbs Portal
 //   npm run eval:weekend-merge -- path/to/dir  # another folder of .txt files
@@ -164,7 +167,8 @@ const MUTATORS = {
 		[ls[i], ls[j]] = [ls[j], ls[i]];
 		return { lines: ls, row: i + 1, kind: "order" };
 	},
-	"line-ending": (ls, i) => ({ lines: ls, row: i + 1, kind: "line-ending", lfAfter: i }),
+	// Not an error: LF and CRLF are equivalent, so this must still match.
+	"lf-equivalent": (ls, i) => ({ lines: ls, row: i + 1, kind: "lf-equivalent", lfAfter: i }),
 	missing: (ls, i) => (ls.splice(i, 1), { lines: ls, row: ls.length + 1, kind: "missing" }),
 	filename: (ls) => ({ lines: ls, kind: "filename" }),
 };
@@ -174,9 +178,9 @@ const stats = Object.fromEntries(kinds.map((k) => [k, { n: 0, caught: 0 }]));
 for (let m = 0; m < MUTATIONS; m++) {
 	const kind = kinds[m % kinds.length];
 	const base = merged.text.split("\r\n");
-	const i = kind === "line-ending" ? pick(base.length - 1) : pick(base.length);
+	const i = kind === "lf-equivalent" ? pick(base.length - 1) : pick(base.length);
 	const mut = MUTATORS[kind](base, i);
-	if (mut.lines.join("\r\n") === merged.text && kind !== "filename" && kind !== "line-ending") {
+	if (mut.lines.join("\r\n") === merged.text && kind !== "filename" && kind !== "lf-equivalent") {
 		m--; // no-op mutation (e.g. bumped digit landed on the same value); redraw
 		continue;
 	}
@@ -189,17 +193,37 @@ for (let m = 0; m < MUTATIONS; m++) {
 	const s = stats[kind];
 	s.n++;
 	const caught =
-		!r.pass &&
-		(kind === "filename"
-			? r.checks.find((c) => c.id === "cmp-filename").status === "fail"
-			: r.rows[mut.row - 1]?.kinds.includes(kind));
+		kind === "lf-equivalent"
+			? r.pass && r.mismatched === 0
+			: !r.pass &&
+				(kind === "filename"
+					? r.checks.find((c) => c.id === "cmp-filename").status === "fail"
+					: r.rows[mut.row - 1]?.kinds.includes(kind));
 	if (caught) s.caught++;
-	else if (s.n - s.caught <= 3) fail(`${kind} at row ${mut.row ?? "-"} not caught as ${kind}`);
+	else if (s.n - s.caught <= 3) fail(`${kind} at row ${mut.row ?? "-"} not handled correctly`);
 }
 for (const k of kinds) {
 	const { n, caught } = stats[k];
+	if (k === "lf-equivalent") {
+		check(caught === n, `${k.padEnd(13)} ${caught}/${n} matched as equivalent`, `${k.padEnd(13)} ${caught}/${n} matched as equivalent`);
+		continue;
+	}
 	const pct = ((caught / n) * 100).toFixed(1);
 	check(caught === n, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`);
+}
+
+console.log("\n4. Settlement-style join (session files glued with a bare LF)");
+{
+	const slash = "2026/06/08";
+	const bodies = sortSources(valid).map((f) => f.records.map((r) => `702\t${slash}\t${r.code}\t${r.amountStr}`).join("\r\n"));
+	const settlementStyle = bodies.join("\n");
+	const r = compareWithSettlement(ours, { name: merged.fileName, text: settlementStyle });
+	const lfJoins = bodies.length - 1;
+	check(
+		r.pass && r.mismatched === 0 && r.matched === merged.rows.length,
+		`${lfJoins} LF joins across ${bodies.length} real files: all ${r.matched} rows match`,
+		`LF-joined file did not match: ${r.mismatched} mismatches, failing ${r.checks.filter((c) => c.status === "fail").map((c) => c.id).join(",")}`,
+	);
 }
 
 console.log(failures === 0 ? "\nAll weekend-merge invariants hold." : `\n${failures} invariant failure(s).`);

@@ -71,14 +71,33 @@ test("missing and extra rows are flagged and counts differ", () => {
   assert.deepEqual(kindsAt(extra, 33), ["extra"]);
 });
 
-test("LF line endings fail the line-ending check and flag rows", () => {
-  const r = theirs((l) => l.join("\n"));
-  assert.equal(check(r, "cmp-line-endings"), "fail");
-  assert.deepEqual(kindsAt(r, 1), ["line-ending"]);
-  const one = theirs((l) => l.slice(0, 5).join("\r\n") + "\n" + l.slice(5).join("\r\n"));
-  assert.equal(check(one, "cmp-line-endings"), "fail");
-  assert.deepEqual(kindsAt(one, 5), ["line-ending"]);
-  assert.equal(one.mismatched, 1);
+test("LF and CRLF are equivalent: an all-LF or mixed file still matches", () => {
+  for (const r of [
+    theirs((l) => l.join("\n")),
+    theirs((l) => l.slice(0, 5).join("\r\n") + "\n" + l.slice(5).join("\r\n")),
+  ]) {
+    assert.equal(r.pass, true);
+    assert.equal(r.mismatched, 0);
+    assert.equal(r.checks.some((c) => c.id === "cmp-line-endings"), false);
+  }
+});
+
+test("regression: Settlement joins session files with a bare LF; that still matches", () => {
+  // Real pattern (ETRANZACT_01082026_1.txt): each session file has CRLF inside
+  // and no final newline, so the joins between files end in LF only.
+  const sessions = [lines.slice(0, 4), lines.slice(4, 8), lines.slice(8)].map((s) => s.join("\r\n"));
+  const r = compareWithSettlement(ours, { name: ours.name, text: sessions.join("\n") });
+  assert.equal(r.pass, true, JSON.stringify(r.checks.filter((c) => c.status !== "pass")));
+  assert.equal(r.mismatched, 0);
+  assert.equal(r.matched, 32);
+});
+
+test("a real difference on a join row is still caught", () => {
+  const sessions = [lines.slice(0, 4), lines.slice(4)].map((s) => s.join("\r\n"));
+  const joined = sessions.join("\n").replace(lines[3], lines[3].replace(/\d\.(\d\d)$/, (_m, d) => `7.${d}`));
+  const r = compareWithSettlement(ours, { name: ours.name, text: joined });
+  assert.equal(r.pass, false);
+  assert.deepEqual(kindsAt(r, 4), ["amount"]);
 });
 
 test("a trailing newline is warned, not a row mismatch", () => {
