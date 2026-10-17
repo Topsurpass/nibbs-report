@@ -55,3 +55,18 @@ Amounts are summed as `BigInt` kobo, so totals are exact at any size.
 - **Verify** (`VerifyPanel` → `RowDiffTable`):
   - A pass or fail banner and file-level checks.
   - A Differences / All rows switch. Each row shows the expected text against Settlement's, with the differing field or separator highlighted (`diffSegments`).
+
+## Discrepancy workbook (for the Settlement team)
+
+On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_discrepancies.xlsx` in the browser (exceljs is loaded on demand, so nothing is uploaded). It has four sheets:
+
+| Sheet | Contents |
+| --- | --- |
+| Summary | The result, mismatch counts by kind, file checks, and how to read the workbook. |
+| Differences | Only the lines that differ. Our record sits next to Settlement's, the wrong field is in red, and each line has a "How to fix" hint that cites their line number. |
+| Side by side | Every line in merge order, broken into one block per session file (day · session · file · our line range). |
+| Merge order | The session files in compilation order, with each file's line range and how many of its lines differ. |
+
+Line endings (LF vs CRLF) are treated as equivalent everywhere.
+
+Code: `discrepancyReport.ts` (pure content model, tested) and `discrepancyExcel.ts` (exceljs painter, round-trip tested).

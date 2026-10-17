@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, FileSearch, RefreshCw, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, FileSearch, FileSpreadsheet, Loader2, RefreshCw, Upload, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CheckList from "@/app/components/CheckList";
 import { useFileDrop } from "@/hooks/useFileDrop";
@@ -16,10 +16,32 @@ interface VerifyPanelProps {
 	comparison: ComparisonResult | null;
 	onFile: (file: File) => void;
 	onClear: () => void;
+	/** Build and save the side-by-side discrepancy workbook. */
+	onDownloadReport: () => Promise<void>;
 }
 
 /** Drop Settlement's merged file and see every row checked against ours. */
-export default function VerifyPanel({ expectedName, settlement, comparison, onFile, onClear }: VerifyPanelProps) {
+export default function VerifyPanel({
+	expectedName,
+	settlement,
+	comparison,
+	onFile,
+	onClear,
+	onDownloadReport,
+}: VerifyPanelProps) {
+	const [building, setBuilding] = useState(false);
+	const [reportError, setReportError] = useState<string | null>(null);
+	const saveReport = async () => {
+		setBuilding(true);
+		setReportError(null);
+		try {
+			await onDownloadReport();
+		} catch (err) {
+			setReportError(err instanceof Error ? err.message : "Couldn't build the workbook.");
+		} finally {
+			setBuilding(false);
+		}
+	};
 	const { dragging, dragCount, open, dropProps, inputProps } = useFileDrop((files) => onFile(files[0]), {
 		accept: ".txt",
 		multiple: false,
@@ -109,6 +131,38 @@ export default function VerifyPanel({ expectedName, settlement, comparison, onFi
 						<X className="size-4" />
 					</Button>
 				</div>
+			</div>
+
+			<div
+				className={cn(
+					"flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center",
+					comparison.pass ? "border-border bg-card" : "border-primary/30 bg-primary/5",
+				)}
+			>
+				<div className="flex items-start gap-3">
+					<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+						<FileSpreadsheet className="size-5" />
+					</div>
+					<div className="space-y-0.5">
+						<p className="text-sm font-semibold text-foreground">
+							{comparison.pass ? "Comparison workbook" : "Send the discrepancy report to Settlement"}
+						</p>
+						<p className="text-xs text-muted-foreground">
+							Excel with our compilation next to theirs, line by line in merge order, every wrong field in red and
+							what to fix on each line.
+						</p>
+						{reportError && <p className="text-xs font-medium text-destructive">{reportError}</p>}
+					</div>
+				</div>
+				<Button
+					className="shrink-0 sm:ml-auto"
+					variant={comparison.pass ? "outline" : "default"}
+					onClick={() => void saveReport()}
+					disabled={building}
+				>
+					{building ? <Loader2 className="animate-spin" /> : <FileSpreadsheet className="size-4" />}
+					{building ? "Building…" : "Download .xlsx"}
+				</Button>
 			</div>
 
 			<CheckList checks={comparison.checks} />

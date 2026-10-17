@@ -12,6 +12,7 @@ import MergeSummaryPanel from "./MergeSummaryPanel";
 import SessionFilesCard from "./SessionFilesCard";
 import UploadHero from "./UploadHero";
 import VerifyPanel from "./VerifyPanel";
+import { downloadDiscrepancyReport } from "./downloadDiscrepancyReport";
 
 export default function WeekendSettlement() {
 	const m = useWeekendMerge();
@@ -94,6 +95,11 @@ export default function WeekendSettlement() {
 												comparison={m.comparison}
 												onFile={m.setSettlementFile}
 												onClear={m.clearSettlement}
+												onDownloadReport={async () => {
+													if (m.merge && m.comparison && m.settlement) {
+														await downloadDiscrepancyReport(m.merge, m.comparison, m.settlement.name);
+													}
+												}}
 											/>
 										</TabsContent>
 										<TabsContent value="rows">

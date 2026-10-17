@@ -14,6 +14,8 @@
 //      and an LF swapped in for a CRLF is NOT flagged (they are equivalent).
 //   4. Settlement-style join: real session bodies joined with a bare LF (how
 //      Settlement's tool builds its file) compare as a full match.
+//   Every mutation's discrepancy workbook must list exactly the differing
+//   lines, each with its source file and a fix hint.
 //
 //   npm run eval:weekend-merge                 # ~/Downloads/Nibbs Portal
 //   npm run eval:weekend-merge -- path/to/dir  # another folder of .txt files
@@ -29,6 +31,7 @@ import { join } from "node:path";
 const { inspectSourceFile, buildMerge, mergeChecks, compareWithSettlement, sortSources, assessCollection, canMerge } =
 	await import("../src/lib/weekendMerge/index.ts");
 const { validateTxtFormat } = await import("../src/lib/parseTxt.ts");
+const { buildDiscrepancyReport } = await import("../src/lib/weekendMerge/discrepancyReport.ts");
 
 const dir = process.argv[2] ?? join(homedir(), "Downloads", "Nibbs Portal");
 const MUTATIONS = Number(process.env.EVAL_MUTATIONS ?? 600);
@@ -174,6 +177,7 @@ const MUTATORS = {
 };
 const kinds = Object.keys(MUTATORS);
 const stats = Object.fromEntries(kinds.map((k) => [k, { n: 0, caught: 0 }]));
+const reportStats = { n: 0, ok: 0 };
 
 for (let m = 0; m < MUTATIONS; m++) {
 	const kind = kinds[m % kinds.length];
@@ -201,6 +205,19 @@ for (let m = 0; m < MUTATIONS; m++) {
 					: r.rows[mut.row - 1]?.kinds.includes(kind));
 	if (caught) s.caught++;
 	else if (s.n - s.caught <= 3) fail(`${kind} at row ${mut.row ?? "-"} not handled correctly`);
+
+	// The discrepancy workbook must list exactly the differing lines, each with
+	// a fix hint and its source file, and never list a line that matches.
+	const report = buildDiscrepancyReport({ merge: merged, comparison: r, settlementName: name, generatedAt: new Date(0) });
+	const diffRows = report.sheets.find((x) => x.name === "Differences").rows;
+	const listed = diffRows.map((row) => row.cells[0].value);
+	const expected = r.rows.filter((x) => !x.ok).map((x) => x.row);
+	const reportOk =
+		JSON.stringify(listed) === JSON.stringify(expected) &&
+		diffRows.every((row) => String(row.cells[14].value).length > 0 && String(row.cells[3].value).length > 0);
+	reportStats.n++;
+	if (reportOk) reportStats.ok++;
+	else if (reportStats.n - reportStats.ok <= 3) fail(`discrepancy report wrong for ${kind}: listed ${listed} expected ${expected}`);
 }
 for (const k of kinds) {
 	const { n, caught } = stats[k];
@@ -211,6 +228,12 @@ for (const k of kinds) {
 	const pct = ((caught / n) * 100).toFixed(1);
 	check(caught === n, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`, `${k.padEnd(12)} ${caught}/${n} caught (${pct}%)`);
 }
+
+check(
+	reportStats.ok === reportStats.n,
+	`discrepancy report lists exactly the differing lines, with source + fix: ${reportStats.ok}/${reportStats.n}`,
+	`discrepancy report correct on ${reportStats.ok}/${reportStats.n}`,
+);
 
 console.log("\n4. Settlement-style join (session files glued with a bare LF)");
 {

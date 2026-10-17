@@ -12,3 +12,15 @@ export function downloadText(fileName: string, text: string): void {
 	a.remove();
 	requestAnimationFrame(() => URL.revokeObjectURL(url));
 }
+
+/** Save binary content (e.g. an .xlsx) in the browser. */
+export function downloadBytes(fileName: string, bytes: ArrayBuffer, type: string): void {
+	const url = URL.createObjectURL(new Blob([bytes], { type }));
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = fileName;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	requestAnimationFrame(() => URL.revokeObjectURL(url));
+}
