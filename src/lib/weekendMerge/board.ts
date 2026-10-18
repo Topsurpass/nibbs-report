@@ -5,6 +5,8 @@
 import { SESSION_LABELS, type SessionLabel } from "../session/nibbsSession.ts";
 import { toDdmmyyyy } from "../format.ts";
 import { isWeekend, type SessionNo, type SourceFile } from "./sourceFile.ts";
+import type { HolidayLookup, PublicHoliday } from "../holidays/parseIcs.ts";
+import { holidayFor } from "./holidays.ts";
 
 export type SlotState = "ok" | "warn" | "fail" | "missing" | "duplicate";
 
@@ -20,6 +22,8 @@ export interface BoardSlot {
 export interface BoardDay {
   date: Date;
   weekend: boolean;
+  /** Set when the date is a Nigerian public holiday on the calendar. */
+  holiday?: PublicHoliday;
   slots: BoardSlot[];
   filled: number;
 }
@@ -38,7 +42,7 @@ function slotState(files: SourceFile[]): SlotState {
   return f.issues.length > 0 ? "warn" : "ok";
 }
 
-export function buildSessionBoard(sources: SourceFile[]): SessionBoard {
+export function buildSessionBoard(sources: SourceFile[], holidays: HolidayLookup = () => undefined): SessionBoard {
   const byDay = new Map<number, SourceFile[]>();
   const unplaced: SourceFile[] = [];
   for (const f of sources) {
@@ -66,7 +70,13 @@ export function buildSessionBoard(sources: SourceFile[]): SessionBoard {
           state: slotState(here),
         };
       });
-      return { date, weekend: isWeekend(date), slots, filled: slots.filter((s) => s.files.length > 0).length };
+      return {
+        date,
+        weekend: isWeekend(date),
+        holiday: holidayFor(date, holidays),
+        slots,
+        filled: slots.filter((s) => s.files.length > 0).length,
+      };
     });
 
   return { days, unplaced };

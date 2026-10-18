@@ -53,6 +53,7 @@ export default function WeekendSettlement() {
 						onFiles={m.addSources}
 						onRemove={m.removeSource}
 						skippingMissing={m.allowMissingSessions}
+						holidayStatus={m.holidayStatus}
 						onSkipMissing={m.canSkipMissing ? () => m.setAllowMissingSessions(true) : undefined}
 						onRequireAll={m.allowMissingSessions ? () => m.setAllowMissingSessions(false) : undefined}
 					/>

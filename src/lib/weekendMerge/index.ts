@@ -4,3 +4,4 @@ export * from "./merge.ts";
 export * from "./collection.ts";
 export * from "./compare.ts";
 export * from "./board.ts";
+export * from "./holidays.ts";

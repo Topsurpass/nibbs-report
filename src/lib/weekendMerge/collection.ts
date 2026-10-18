@@ -6,6 +6,8 @@ import { dayDiff, toSlashDate } from "../format.ts";
 import { SESSION_LABELS } from "../session/nibbsSession.ts";
 import { isWeekend, weekdayName, type SourceFile } from "./sourceFile.ts";
 import { sortSources } from "./merge.ts";
+import type { HolidayLookup } from "../holidays/parseIcs.ts";
+import { holidayFor, holidayLabel } from "./holidays.ts";
 
 function dayLabel(d: Date): string {
   return `${weekdayName(d).slice(0, 3)} ${toSlashDate(d)}`;
@@ -17,6 +19,8 @@ export interface CollectionOptions {
    * session NIBBS never ran). Missing sessions are then a warning, not a block.
    */
   allowMissingSessions?: boolean;
+  /** Nigerian public holidays; a weekday on one is expected, not suspicious. */
+  holidays?: HolidayLookup;
 }
 
 /** Id of the check that an explicit "merge anyway" can downgrade. */
@@ -104,15 +108,21 @@ export function assessCollection(files: SourceFile[], options: CollectionOptions
         : `Gap between ${gaps.join("; ")}. Confirm no settlement day is missing.`,
   });
 
+  const lookup = options.holidays ?? (() => undefined);
   const weekdays = days.filter((d) => !isWeekend(d));
+  const known = weekdays.filter((d) => holidayFor(d, lookup));
+  const unknown = weekdays.filter((d) => !holidayFor(d, lookup));
+  const knownText = known.map((d) => `${dayLabel(d)} is ${holidayLabel(holidayFor(d, lookup)!)}`).join("; ");
   checks.push({
     id: "non-business-days",
     label: "Only weekends / holidays",
-    status: weekdays.length === 0 ? "pass" : "warn",
+    status: unknown.length === 0 ? "pass" : "warn",
     detail:
       weekdays.length === 0
         ? "Every file is dated Saturday or Sunday."
-        : `${weekdays.map(dayLabel).join(", ")} ${weekdays.length === 1 ? "is a weekday" : "are weekdays"}. Confirm each is a public holiday.`,
+        : unknown.length === 0
+          ? `Weekends plus public holidays: ${knownText}.`
+          : `${unknown.map(dayLabel).join(", ")} ${unknown.length === 1 ? "is a weekday" : "are weekdays"} and not a public holiday on the calendar. Confirm each is a holiday.${knownText ? ` (${knownText}.)` : ""}`,
   });
 
   return checks;

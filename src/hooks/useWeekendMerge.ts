@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import { useWeekendMergeState } from "@/app/components/providers/WeekendMergeProvider";
+import { usePublicHolidays } from "@/hooks/usePublicHolidays";
 import {
+	applyHolidays,
 	assessCollection,
 	buildMerge,
 	buildSessionBoard,
@@ -26,11 +28,14 @@ function fromInputDate(v: string): Date | null {
 /** Everything the Weekend Settlement page derives from the uploaded files. */
 export function useWeekendMerge() {
 	const state = useWeekendMergeState();
-	const { sources, mergeDateOverride, session, settlement, allowMissingSessions } = state;
+	const { sources: uploaded, mergeDateOverride, session, settlement, allowMissingSessions } = state;
+	const { lookup: holidays, status: holidayStatus } = usePublicHolidays();
 
 	return useMemo(() => {
+		// Known public holidays clear the "confirm this is a holiday" warnings.
+		const sources = applyHolidays(uploaded, holidays);
 		const ordered = sortSources(sources);
-		const collectionChecks = assessCollection(sources, { allowMissingSessions });
+		const collectionChecks = assessCollection(sources, { allowMissingSessions, holidays });
 		const missingSessions = collectionChecks.find((c) => c.id === MISSING_SESSIONS_CHECK);
 		const ready = canMerge(collectionChecks);
 
@@ -44,7 +49,7 @@ export function useWeekendMerge() {
 		const downloadable = merge !== null && !outputChecks.some((c) => c.status === "fail");
 		const readinessChecks = [...collectionChecks, ...outputChecks];
 
-		const board = buildSessionBoard(sources);
+		const board = buildSessionBoard(sources, holidays);
 		// Position of each valid file in merge order, for the "Merge #n" labels.
 		const orderOf = new Map(ordered.filter((f) => f.valid && f.date).map((f, i) => [f.id, i + 1]));
 
@@ -53,6 +58,8 @@ export function useWeekendMerge() {
 
 		return {
 			...state,
+			sources,
+			holidayStatus,
 			ordered,
 			collectionChecks,
 			/** Some sessions are missing; the user may choose to merge without them. */
@@ -67,5 +74,5 @@ export function useWeekendMerge() {
 			orderOf,
 			comparison,
 		};
-	}, [state, sources, mergeDateOverride, session, settlement, allowMissingSessions]);
+	}, [state, uploaded, holidays, holidayStatus, mergeDateOverride, session, settlement, allowMissingSessions]);
 }

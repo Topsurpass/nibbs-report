@@ -27,6 +27,11 @@ export default function SessionBoard({ board, orderOf, skippingMissing, onRemove
 							<span className="text-sm text-muted-foreground">{DATE_FMT.format(day.date)}</span>
 							{day.weekend ? (
 								<Badge variant="secondary">Weekend</Badge>
+							) : day.holiday ? (
+								<Badge className="bg-primary/10 text-primary" title="From Google Calendar: Holidays in Nigeria">
+									Public holiday · {day.holiday.name}
+									{day.holiday.tentative && " (tentative)"}
+								</Badge>
 							) : (
 								<Badge className="bg-warning/15 text-warning">Weekday · public holiday?</Badge>
 							)}

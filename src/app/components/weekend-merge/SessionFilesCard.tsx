@@ -23,6 +23,8 @@ interface SessionFilesCardProps {
 	skippingMissing: boolean;
 	onSkipMissing?: () => void;
 	onRequireAll?: () => void;
+	/** Whether the Nigerian holiday calendar loaded. */
+	holidayStatus?: "loading" | "ready" | "unavailable";
 	className?: string;
 }
 
@@ -38,6 +40,7 @@ export default function SessionFilesCard({
 	skippingMissing,
 	onSkipMissing,
 	onRequireAll,
+	holidayStatus,
 	className,
 }: SessionFilesCardProps) {
 	const { dragging, dragCount, open, dropProps, inputProps } = useFileDrop(onFiles, { accept: ".txt" });
@@ -69,6 +72,11 @@ export default function SessionFilesCard({
 				)}
 				<UnplacedFiles files={board.unplaced} onRemove={onRemove} />
 				<SessionBoard board={board} orderOf={orderOf} skippingMissing={skippingMissing} onRemove={onRemove} />
+				{holidayStatus === "unavailable" && board.days.some((d) => !d.weekend) && (
+					<p className="text-xs text-muted-foreground">
+						Holiday calendar unavailable, so weekdays can&rsquo;t be confirmed as public holidays.
+					</p>
+				)}
 			</CardContent>
 		</Card>
 	);

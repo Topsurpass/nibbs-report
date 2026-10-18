@@ -73,3 +73,15 @@ On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_problems.xlsx` in the
 Grouping compares line content, not reason text: real files repeat identical lines, so "belongs at row N" can point at any copy. Line endings (LF vs CRLF) are treated as equivalent everywhere.
 
 Code: `discrepancyReport.ts` (`findProblems` and the sheet model, tested) and `discrepancyExcel.ts` (exceljs painter, round-trip tested). `eval:weekend-merge` requires each single planted error to come out as exactly one problem that covers every flagged line.
+
+## Nigerian public holidays
+
+Weekday files dated on a Nigerian public holiday are recognised automatically. Fri 12 Jun 2026, for example, shows "Public holiday · Democracy Day" instead of the "Weekday · public holiday?" warning, and the "Only weekends / holidays" check passes for it. The list comes from Google Calendar's public **Holidays in Nigeria** feed (no key or account needed):
+
+- `src/lib/holidays/parseIcs.ts` parses the iCal feed and keeps **public holidays only** (Google's "Observance" entries such as Valentine's Day are dropped). Lunar holidays not yet announced are marked tentative.
+- `src/services/holidays/googleCalendar.ts` fetches the feed server-side and caches it for 12h, keeping the last good copy if Google is down. The route is `GET /api/holidays`. Only this public list crosses the network; settlement files never do.
+- `applyHolidays` and `assessCollection({ holidays })` apply the calendar when files are assessed, so files dropped before the calendar loads are recognised once it arrives.
+- If the calendar can't be loaded, weekdays fall back to the old warning, with a note under the board.
+- `npm run eval:holidays` checks the live feed. It skips when offline.
+
+The default merge date and the afternoon-duty hours are not affected by holidays.
