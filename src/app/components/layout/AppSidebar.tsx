@@ -16,7 +16,6 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarRail,
-	SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { NAV_SECTIONS, configNav, isNavActive, type NavItem, type NavSection } from "../navConfig";
@@ -87,10 +86,12 @@ export default function AppSidebar({ user }: { user: AuthUser }) {
 
 	return (
 		<Sidebar collapsible="icon" variant="inset" className="no-print">
-			<SidebarHeader className="px-3 pt-4 pb-2">
+			{/* Same height as SiteHeader (h-14) with a full-bleed bottom border, so the
+			    line under the logo continues the top bar's border on the same row. */}
+			<SidebarHeader className="-mx-2 h-14 justify-center border-b border-sidebar-border px-5 py-0 group-data-[collapsible=icon]:px-2">
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton size="lg" className="h-12 rounded-xl hover:bg-sidebar-accent" render={<Link href="/" />}>
+						<SidebarMenuButton size="lg" className="h-11 rounded-xl hover:bg-sidebar-accent" render={<Link href="/" />}>
 							<div className="hero-gradient flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-sidebar-primary/30">
 								<Landmark className="size-[18px]" strokeWidth={2.25} />
 							</div>
@@ -103,9 +104,7 @@ export default function AppSidebar({ user }: { user: AuthUser }) {
 				</SidebarMenu>
 			</SidebarHeader>
 
-			<SidebarSeparator className="mx-5 my-1 bg-sidebar-border" />
-
-			<SidebarContent className="gap-3 py-2">
+			<SidebarContent className="gap-3 py-3">
 				{sections.map((section) => (
 					<NavGroup key={section.label} section={section} pathname={pathname} />
 				))}
