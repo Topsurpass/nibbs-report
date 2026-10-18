@@ -25,6 +25,16 @@ deployed code still writes `on conflict (user_id, night_date)`. After deploy,
 run `npm run db:contract-afternoon` once to drop it. Until then one analyst
 cannot hold a night and an afternoon on the same date.
 
+### Reminder pop-up
+
+Analysts often forget to sign in or out, so `ShiftReminder` (mounted in the app shell) shows a pop-up on any page except the Duty Register:
+
+- **Sign in:** a shift is open and they have no entry for it. Buttons: *Sign in now* · *Remind me in 30 min* · *Not on duty today*. "Not on duty" silences that shift for that day only.
+- **Sign out:** they're signed in and the shift ends within 30 minutes ("ends at 20:30"), or it has ended and the 30-minute grace is running. The grace version is urgent and shows a live countdown to the lock. A sign-out reminder beats a sign-in one.
+- Closing the pop-up counts as "remind me later". It waits while another dialog (for example a first-visit tour) is open.
+
+The rules are pure and tested in `reminders.ts` (`decideReminder`, built on `shifts.ts`). Dismissals are kept per user and per browser in `localStorage` (`nibbs:shift-reminders:<userId>`) and pruned after two days. Sign-in and sign-out go through `postShiftAction`, the same helper the register's card uses.
+
 The rest of this document describes the night rules, which apply unchanged.
 
 ---
@@ -71,6 +81,7 @@ change if that ever stops being true.
 |---|---|
 | `nightWindow.ts` | Window, night keys, durations, calendar grid, formatting. Pure. |
 | `shifts.ts` | Afternoon window + one shift-aware API over both shifts. Pure. |
+| `reminders.ts` | When to show the sign-in / sign-out reminder pop-up. Pure. |
 | `summary.ts` | Per-analyst roll-ups over a month. Pure. |
 | `exportAttendance.ts` | Content model for the workbook and the JPEG. Pure. |
 | `excel.ts` | exceljs painter. Server only — decides looks, never content. |

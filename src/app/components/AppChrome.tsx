@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "./layout/AppSidebar";
 import SiteHeader from "./layout/SiteHeader";
 import CommandMenu from "./CommandMenu";
+import ShiftReminder from "./attendance/ShiftReminder";
 import { MasterProvider } from "./providers/MasterProvider";
 import { AuditProvider } from "./providers/AuditProvider";
 import { WeekendMergeProvider } from "./providers/WeekendMergeProvider";
@@ -40,6 +41,7 @@ export default function AppChrome({ user, initialMaster, children }: Props) {
 						</SidebarInset>
 					</SidebarProvider>
 					<CommandMenu open={commandOpen} onOpenChange={setCommandOpen} user={user} />
+					<ShiftReminder userId={user.id} />
 				</WeekendMergeProvider>
 			</AuditProvider>
 		</MasterProvider>

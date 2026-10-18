@@ -280,6 +280,13 @@ await call(`/api/attendance/entries?userId=${who.admin.id}&nightDate=${shared}`,
 
 
 console.log("\nH. afternoon duty");
+// The reminder pop-up reads each shift's current entry from /tonight.
+for (const sh of ["night", "afternoon"]) {
+  const tn = await (await call(`/api/attendance/tonight?shift=${sh}`)).json();
+  ok(`/tonight?shift=${sh} answers for that shift`,
+     tn.ok === true && tn.shift === sh && "entry" in tn && (tn.nightDate === null || /^\d{4}-\d{2}-\d{2}$/.test(tn.nightDate)),
+     JSON.stringify(tn));
+}
 // Mirrored independently of src/lib/attendance/shifts.ts: weekdays open 12:30,
 // weekends 14:30, both close 20:30, sign-out grace until 21:00.
 const dow = new Date(`${day}T00:00:00Z`).getUTCDay();

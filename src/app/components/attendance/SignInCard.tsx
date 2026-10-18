@@ -22,6 +22,7 @@ import {
 	type Shift,
 } from "@/lib/attendance/shifts";
 import { entryMinutes } from "@/lib/attendance/summary";
+import { postShiftAction } from "./shiftActions";
 import type { AttendanceEntry } from "@/lib/attendance/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -125,29 +126,20 @@ export default function SignInCard({ shift, initialNightDate, initialEntry, onCh
 			setError(null);
 			setFlash(null);
 			try {
-				const res = await fetch(`/api/attendance/${action}?shift=${shift}`, { method: "POST" });
-				const body = (await res.json()) as {
-					ok: boolean;
-					error?: string;
-					message?: string;
-					locked?: boolean;
-					entry?: AttendanceEntry;
-				};
+				const result = await postShiftAction(action, shift);
 
 				// Adopt the row whenever the server sends one, refusal included. A tab
 				// left open since before a sign-out would otherwise keep offering a
 				// button for a night that is already closed.
-				if (body.entry) setHeld({ nightDate: body.entry.nightDate, entry: body.entry });
+				if (result.entry) setHeld({ nightDate: result.entry.nightDate, entry: result.entry });
 
-				if (!body.ok) {
-					setError(body.error ?? "That didn't work. Try again.");
-					if (body.entry) onChanged();
+				if (!result.ok) {
+					setError(result.message);
+					if (result.entry) onChanged();
 					return;
 				}
-				setFlash(body.message ?? null);
+				setFlash(result.message || null);
 				onChanged();
-			} catch {
-				setError("Couldn't reach the server. Check your connection and try again.");
 			} finally {
 				setBusy(false);
 			}
