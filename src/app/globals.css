@@ -10,10 +10,10 @@
  * Design tokens — Audit Toolkit v2
  *
  * Brand primary: indigo (#4F46E5), paired with near-black slate neutrals.
- * The sidebar is a fixed dark-navy panel in both themes — deliberate: most
- * fintech/ops SaaS products (Mercury, Ramp, Brex) keep chrome dark and let
- * the light/dark toggle govern the content area only. Sidebar tokens are
- * therefore declared once in :root and never overridden inside `.dark`.
+ * The sidebar follows the theme: white chrome with slate text in light, navy
+ * in dark. Its tokens are declared in :root (light) and overridden in `.dark`.
+ * The sign-in brand panel stays navy in both themes by carrying the `dark`
+ * class itself (see AuthShell).
  * ------------------------------------------------------------------------- */
 
 :root {
@@ -63,15 +63,15 @@
   --warning-foreground: #ffffff;
   --brand-violet: #7c3aed;
 
-  /* Sidebar chrome — intentionally constant across light/dark, see note above. */
-  --sidebar: #0b1220;
-  --sidebar-foreground: #cbd5e1;
+  /* Sidebar chrome (light). Overridden in .dark, see note above. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
   --sidebar-primary: #4f46e5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.06);
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #818cf8;
+  --sidebar-accent: #eef0f7;
+  --sidebar-accent-foreground: #0b1220;
+  --sidebar-border: #e3e6ef;
+  --sidebar-ring: #4f46e5;
 }
 
 /* Dark theme — applied when <html> carries the `dark` class. */
@@ -117,6 +117,16 @@
   --warning: #fbbf24;
   --warning-foreground: #1f1300;
   --brand-violet: #a78bfa;
+
+  /* Sidebar chrome (dark): navy panel. */
+  --sidebar: #0b1220;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #818cf8;
 }
 
 @theme inline {

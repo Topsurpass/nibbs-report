@@ -24,7 +24,8 @@ const FEATURES = [
 export default function AuthShell({ icon: Icon, title, subtitle, children, footer }: AuthShellProps) {
 	return (
 		<main className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-			<aside className="relative hidden overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex lg:flex-col xl:p-14">
+			{/* `dark` pins the brand panel to the navy palette in both themes. */}
+			<aside className="dark relative hidden overflow-hidden bg-sidebar p-10 text-sidebar-foreground lg:flex lg:flex-col xl:p-14">
 				<div aria-hidden className="pointer-events-none absolute -top-32 -left-24 size-96 rounded-full bg-sidebar-primary/30 blur-3xl" />
 				<div aria-hidden className="pointer-events-none absolute -right-24 -bottom-32 size-96 rounded-full bg-brand-violet/25 blur-3xl" />
 
