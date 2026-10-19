@@ -1,13 +1,15 @@
 // Checks across the whole set of uploaded session files: duplicates, missing
 // sessions and gaps between days. These decide whether a merge is allowed.
+//
+// Only Saturday and Sunday must have all four sessions. Any other day merged
+// in (a public holiday, the next business day's early sessions) may carry
+// however many files it has, and a weekday is never flagged.
 
 import type { CheckResult } from "../reconcile.ts";
 import { dayDiff, toSlashDate } from "../format.ts";
 import { SESSION_LABELS } from "../session/nibbsSession.ts";
 import { isWeekend, weekdayName, type SourceFile } from "./sourceFile.ts";
 import { sortSources } from "./merge.ts";
-import type { HolidayLookup } from "../holidays/parseIcs.ts";
-import { holidayFor, holidayLabel } from "./holidays.ts";
 
 function dayLabel(d: Date): string {
   return `${weekdayName(d).slice(0, 3)} ${toSlashDate(d)}`;
@@ -19,8 +21,6 @@ export interface CollectionOptions {
    * session NIBBS never ran). Missing sessions are then a warning, not a block.
    */
   allowMissingSessions?: boolean;
-  /** Nigerian public holidays; a weekday on one is expected, not suspicious. */
-  holidays?: HolidayLookup;
 }
 
 /** Id of the check that an explicit "merge anyway" can downgrade. */
@@ -52,12 +52,17 @@ export function assessCollection(files: SourceFile[], options: CollectionOptions
 
   const dupes: string[] = [];
   const missing: string[] = [];
+  const partial: string[] = [];
   for (const [k, dayFiles] of byDay) {
     const d = new Date(k);
     const seen = new Map<number, number>();
     for (const f of dayFiles) seen.set(f.session as number, (seen.get(f.session as number) ?? 0) + 1);
     for (const [s, n] of seen) if (n > 1) dupes.push(`${dayLabel(d)} session ${s} ×${n}`);
     const absent = [1, 2, 3, 4].filter((s) => !seen.has(s));
+    if (!isWeekend(d)) {
+      if (absent.length > 0) partial.push(`${dayLabel(d)}: ${seen.size} session${seen.size === 1 ? "" : "s"}`);
+      continue;
+    }
     if (absent.length > 0) {
       missing.push(`${dayLabel(d)}: ${absent.map((s) => `_${s} (${SESSION_LABELS[s - 1]})`).join(", ")}`);
     }
@@ -72,7 +77,7 @@ export function assessCollection(files: SourceFile[], options: CollectionOptions
 
   checks.push({
     id: MISSING_SESSIONS_CHECK,
-    label: "All 4 sessions for every day",
+    label: "All 4 sessions for Saturday and Sunday",
     status:
       byDay.size === 0
         ? "fail"
@@ -85,7 +90,7 @@ export function assessCollection(files: SourceFile[], options: CollectionOptions
       byDay.size === 0
         ? "No correctly named files yet."
         : missing.length === 0
-          ? `${byDay.size} day(s), 8am → 5pm complete for each.`
+          ? `Weekend days complete, 8am → 5pm.${partial.length ? ` Other days as uploaded (${partial.join("; ")}).` : ""}`
           : options.allowMissingSessions
             ? `Merging without: ${missing.join("; ")}.`
             : `Missing: ${missing.join("; ")}.`,
@@ -106,23 +111,6 @@ export function assessCollection(files: SourceFile[], options: CollectionOptions
           ? `${days.map(dayLabel).join(", ")}.`
           : "No dated files yet."
         : `Gap between ${gaps.join("; ")}. Confirm no settlement day is missing.`,
-  });
-
-  const lookup = options.holidays ?? (() => undefined);
-  const weekdays = days.filter((d) => !isWeekend(d));
-  const known = weekdays.filter((d) => holidayFor(d, lookup));
-  const unknown = weekdays.filter((d) => !holidayFor(d, lookup));
-  const knownText = known.map((d) => `${dayLabel(d)} is ${holidayLabel(holidayFor(d, lookup)!)}`).join("; ");
-  checks.push({
-    id: "non-business-days",
-    label: "Only weekends / holidays",
-    status: unknown.length === 0 ? "pass" : "warn",
-    detail:
-      weekdays.length === 0
-        ? "Every file is dated Saturday or Sunday."
-        : unknown.length === 0
-          ? `Weekends plus public holidays: ${knownText}.`
-          : `${unknown.map(dayLabel).join(", ")} ${unknown.length === 1 ? "is a weekday" : "are weekdays"} and not a public holiday on the calendar. Confirm each is a holiday.${knownText ? ` (${knownText}.)` : ""}`,
   });
 
   return checks;

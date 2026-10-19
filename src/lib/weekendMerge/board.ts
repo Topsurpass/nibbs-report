@@ -1,6 +1,7 @@
 // Lay uploaded files out as a day × session grid for the UI: one row per
 // settlement day, four slots (8am, 11am, 2pm, 5pm) per row. Makes merge order,
-// gaps and duplicates visible at a glance.
+// gaps and duplicates visible at a glance. Only Saturday and Sunday need all
+// four; an empty slot on any other day is "optional", not "missing".
 
 import { SESSION_LABELS, type SessionLabel } from "../session/nibbsSession.ts";
 import { toDdmmyyyy } from "../format.ts";
@@ -8,7 +9,7 @@ import { isWeekend, type SessionNo, type SourceFile } from "./sourceFile.ts";
 import type { HolidayLookup, PublicHoliday } from "../holidays/parseIcs.ts";
 import { holidayFor } from "./holidays.ts";
 
-export type SlotState = "ok" | "warn" | "fail" | "missing" | "duplicate";
+export type SlotState = "ok" | "warn" | "fail" | "missing" | "optional" | "duplicate";
 
 export interface BoardSlot {
   session: SessionNo;
@@ -22,6 +23,8 @@ export interface BoardSlot {
 export interface BoardDay {
   date: Date;
   weekend: boolean;
+  /** All four sessions are required (Saturday and Sunday only). */
+  required: boolean;
   /** Set when the date is a Nigerian public holiday on the calendar. */
   holiday?: PublicHoliday;
   slots: BoardSlot[];
@@ -34,8 +37,8 @@ export interface SessionBoard {
   unplaced: SourceFile[];
 }
 
-function slotState(files: SourceFile[]): SlotState {
-  if (files.length === 0) return "missing";
+function slotState(files: SourceFile[], required: boolean): SlotState {
+  if (files.length === 0) return required ? "missing" : "optional";
   if (files.length > 1) return "duplicate";
   const f = files[0];
   if (!f.valid) return "fail";
@@ -59,6 +62,7 @@ export function buildSessionBoard(sources: SourceFile[], holidays: HolidayLookup
     .map((k): BoardDay => {
       const date = new Date(k);
       const files = byDay.get(k) ?? [];
+      const weekend = isWeekend(date);
       const slots = SESSION_LABELS.map((label, i): BoardSlot => {
         const session = (i + 1) as SessionNo;
         const here = files.filter((f) => f.session === session);
@@ -67,12 +71,13 @@ export function buildSessionBoard(sources: SourceFile[], holidays: HolidayLookup
           label,
           expectedName: `ETRANZACT_${toDdmmyyyy(date)}_${session}.txt`,
           files: here,
-          state: slotState(here),
+          state: slotState(here, weekend),
         };
       });
       return {
         date,
-        weekend: isWeekend(date),
+        weekend,
+        required: weekend,
         holiday: holidayFor(date, holidays),
         slots,
         filled: slots.filter((s) => s.files.length > 0).length,

@@ -69,10 +69,10 @@ test("mixed line endings fail; all-LF only warns", () => {
   assert.equal(lf.issues[0].severity, "warn");
 });
 
-test("a weekday file is allowed (holiday) but warned", () => {
+test("a weekday file is accepted without any warning", () => {
   const f = inspectSourceFile(`ETRANZACT_${MON}_1.txt`, sessionText(MON, 1));
   assert.equal(f.valid, true);
-  assert.match(f.issues.map((i) => i.message).join(), /Monday: confirm this is a public holiday/);
+  assert.deepEqual(f.issues, []);
 });
 
 test("an empty file fails", () => {

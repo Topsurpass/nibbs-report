@@ -72,9 +72,10 @@ export default function SessionFilesCard({
 				)}
 				<UnplacedFiles files={board.unplaced} onRemove={onRemove} />
 				<SessionBoard board={board} orderOf={orderOf} skippingMissing={skippingMissing} onRemove={onRemove} />
-				{holidayStatus === "unavailable" && board.days.some((d) => !d.weekend) && (
+				{holidayStatus === "unavailable" && board.days.length > 0 && (
 					<p className="text-xs text-muted-foreground">
-						Holiday calendar unavailable, so weekdays can&rsquo;t be confirmed as public holidays.
+						Holiday calendar unavailable: public holidays aren&rsquo;t labelled, and the merge date can&rsquo;t skip
+						them. Check the merge date.
 					</p>
 				)}
 			</CardContent>

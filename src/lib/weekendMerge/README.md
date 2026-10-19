@@ -23,10 +23,12 @@ row by row against the merged file Settlement produces.
 **Per file at upload** (`sourceFile.ts`). Fail: name shape, session 1-4, real date,
 record template (single tabs, `702`, `YYYY/MM/DD`, 10-digit code, `±17.2` amount, no
 blank lines), in-row date = filename date, net = 0.00, mixed line endings, empty file.
-Warn: LF-only endings, weekday date (confirm it's a holiday).
+Warn: LF-only endings. Weekday dates are accepted without comment.
 
 **Across files** (`collection.ts`). Fail: any rejected file, duplicate day/session,
-a day missing any of its 4 sessions. Warn: gap between days, weekday dates.
+a Saturday or Sunday missing any of its 4 sessions (the user can choose to merge
+without them). Any other day (public holiday, next business day) may have any
+number of sessions; its empty slots show as "Optional". Warn: gap between days.
 The merge is blocked until nothing fails.
 
 **Merged output** (`merge.ts`). Every source row carried, net = 0, template valid,
@@ -58,7 +60,7 @@ Amounts are summed as `BigInt` kobo, so totals are exact at any size.
 
 ## "What to fix" workbook (for the Settlement team)
 
-On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_problems.xlsx` in the browser (exceljs is loaded on demand, so nothing is uploaded). It is written for settlement analysts, not developers.
+On Verify, **Download .xlsx** builds `ETRANZACT_<date>_<n>_review.xlsx` in the browser (exceljs is loaded on demand, so nothing is uploaded). It is written for settlement analysts, not developers.
 
 - **What to fix**: a one-line verdict, then one row per problem: Line · Problem · In your file (red) · Should be (green) · Bank (name from NIBBS Settings) · Session. Problems are grouped the way a person thinks about them:
   - two swapped lines become "Swap lines 61 and 62";
@@ -76,12 +78,12 @@ Code: `discrepancyReport.ts` (`findProblems` and the sheet model, tested) and `d
 
 ## Nigerian public holidays
 
-Weekday files dated on a Nigerian public holiday are recognised automatically. Fri 12 Jun 2026, for example, shows "Public holiday · Democracy Day" instead of the "Weekday · public holiday?" warning, and the "Only weekends / holidays" check passes for it. The list comes from Google Calendar's public **Holidays in Nigeria** feed (no key or account needed):
+Weekday files dated on a Nigerian public holiday are labelled automatically. Fri 12 Jun 2026, for example, shows "Public holiday · Democracy Day"; any other weekday shows a neutral "Weekday" badge (never a warning). The list comes from Google Calendar's public **Holidays in Nigeria** feed (no key or account needed):
 
 - `src/lib/holidays/parseIcs.ts` parses the iCal feed and keeps **public holidays only** (Google's "Observance" entries such as Valentine's Day are dropped). Lunar holidays not yet announced are marked tentative.
 - `src/services/holidays/googleCalendar.ts` fetches the feed server-side and caches it for 12h, keeping the last good copy if Google is down. The route is `GET /api/holidays`. Only this public list crosses the network; settlement files never do.
-- `applyHolidays` and `assessCollection({ holidays })` apply the calendar when files are assessed, so files dropped before the calendar loads are recognised once it arrives.
-- If the calendar can't be loaded, weekdays fall back to the old warning, with a note under the board.
+- `buildSessionBoard(sources, holidays)` and `defaultMergeDate(sources, holidays)` take the calendar when files are assessed, so files dropped before the calendar loads are recognised once it arrives.
+- If the calendar can't be loaded, a note under the board says holidays aren't labelled or skipped.
 - `npm run eval:holidays` checks the live feed. It skips when offline.
 
-The default merge date and the afternoon-duty hours are not affected by holidays.
+**Default merge date:** the day after the latest Saturday/Sunday file, skipping weekends and public holidays. Sat + Sun + Mon files → Monday; Sat + Sun with Monday a holiday → Tuesday. Weekday files don't move it. Afternoon-duty hours are not affected by holidays.

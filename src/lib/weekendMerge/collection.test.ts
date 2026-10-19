@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assessCollection, canMerge } from "./collection.ts";
 import { inspectSourceFile } from "./sourceFile.ts";
-import { SAT, fullWeekend, sessionFile, sessionText } from "./testFixtures.ts";
+import { MON, SAT, fullWeekend, sessionFile, sessionText } from "./testFixtures.ts";
 
 const status = (files: ReturnType<typeof fullWeekend>, id: string) =>
   assessCollection(files).find((c) => c.id === id)?.status;
@@ -35,13 +35,32 @@ test("an invalid file blocks the merge", () => {
   assert.equal(canMerge(assessCollection([...fullWeekend(), bad])), false);
 });
 
-test("a gap between days and a weekday holiday only warn", () => {
+test("a gap between days only warns; weekdays are never flagged", () => {
   const fri = [1, 2, 3, 4].map((s) => sessionFile("05062026", s));
   const tue = [1, 2, 3, 4].map((s) => sessionFile("09062026", s));
   const files = [...fri, ...fullWeekend(), ...tue]; // Fri, Sat, Sun, (Mon missing), Tue
   assert.equal(status(files, "contiguous"), "warn");
-  assert.equal(status(files, "non-business-days"), "warn");
+  assert.equal(assessCollection(files).find((c) => c.id === "non-business-days"), undefined);
   assert.equal(canMerge(assessCollection(files)), true);
+});
+
+test("only Saturday and Sunday need all 4 sessions: a 2-file Monday passes", () => {
+  const files = [...fullWeekend(), sessionFile(MON, 1), sessionFile(MON, 2)];
+  const checks = assessCollection(files);
+  assert.deepEqual(checks.filter((c) => c.status !== "pass"), []);
+  assert.match(checks.find((c) => c.id === "sessions-complete")!.detail, /Other days as uploaded \(Mon 2026\/06\/08: 2 sessions\)/);
+  assert.equal(canMerge(checks), true);
+  // A lone holiday with one session is fine too.
+  assert.equal(canMerge(assessCollection([sessionFile("12062026", 1)])), true);
+  // But a duplicate on a weekday still blocks.
+  assert.equal(canMerge(assessCollection([...files, sessionFile(MON, 2, 77)])), false);
+});
+
+test("a Saturday with 3 sessions still blocks even with a Monday alongside", () => {
+  const files = [...fullWeekend().filter((f) => f.name !== `ETRANZACT_${SAT}_4.txt`), sessionFile(MON, 1)];
+  const c = assessCollection(files).find((x) => x.id === "sessions-complete")!;
+  assert.equal(c.status, "fail");
+  assert.equal(c.detail, "Missing: Sat 2026/06/06: _4 (5pm).");
 });
 
 test("missing sessions can be merged anyway when the user opts in", () => {

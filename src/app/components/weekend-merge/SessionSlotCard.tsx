@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, CircleDashed, Copy, X, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed, Copy, Minus, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatKobo, type BoardSlot, type SlotState, type SourceFile } from "@/lib/weekendMerge";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ const STATE: Record<SlotState, { card: string; icon: typeof CheckCircle2; iconCl
 	fail: { card: "border-destructive/40 bg-destructive/5", icon: XCircle, iconCls: "text-destructive", text: "Rejected" },
 	duplicate: { card: "border-destructive/40 bg-destructive/5", icon: Copy, iconCls: "text-destructive", text: "Duplicate" },
 	missing: { card: "border-dashed border-border bg-muted/30", icon: CircleDashed, iconCls: "text-muted-foreground", text: "Missing" },
+	optional: { card: "border-dashed border-border/70 bg-transparent", icon: Minus, iconCls: "text-muted-foreground", text: "Optional" },
 };
 
 interface SessionSlotCardProps {
@@ -58,9 +59,15 @@ export default function SessionSlotCard({ slot, order, skipped, onRemove }: Sess
 				</span>
 			</div>
 
-			{slot.state === "missing" && (
+			{(slot.state === "missing" || slot.state === "optional") && (
 				<div className="mt-2 space-y-1">
-					<p className="text-xs text-muted-foreground">{skipped ? "Merging without this session" : "Not uploaded yet"}</p>
+					<p className="text-xs text-muted-foreground">
+						{slot.state === "optional"
+							? "Not needed for this day"
+							: skipped
+								? "Merging without this session"
+								: "Not uploaded yet"}
+					</p>
 					<p className="tnum truncate text-[11px] text-muted-foreground/80" title={slot.expectedName}>
 						{slot.expectedName}
 					</p>

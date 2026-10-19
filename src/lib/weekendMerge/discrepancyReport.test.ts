@@ -21,11 +21,25 @@ function run(mutate: (l: string[]) => string[], name = merge.fileName) {
 }
 const fixTable = (m: ReturnType<typeof run>["model"]) => m.sheets[0].tables[0];
 
-test("two plain sheets, named for the Settlement team", () => {
+test("two plain sheets, named as a review for the Settlement team", () => {
 	const { model } = run((l) => l);
-	assert.equal(model.fileName, "ETRANZACT_08062026_1_problems.xlsx");
+	assert.equal(model.fileName, "ETRANZACT_08062026_1_review.xlsx");
 	assert.deepEqual(model.sheets.map((s) => s.name), ["What to fix", "All lines"]);
-	assert.deepEqual(fixTable(model).header, ["#", "Line", "Problem", "In your file", "Should be", "Bank", "Session"]);
+	assert.deepEqual(fixTable(model).header, ["#", "Line", "Problem", "In your file", "", "Should be", "Bank", "Session"]);
+});
+
+test("a blank gutter column and labelled bands separate ours from Settlement's", () => {
+	const { model } = run((l) => l);
+	const fix = fixTable(model);
+	const all = model.sheets[1].tables[0];
+	assert.deepEqual(fix.gaps, [4]);
+	assert.deepEqual(all.gaps, [4]);
+	assert.deepEqual(all.header, ["Line", "Bank", "Our date", "Our amount", "", "Your date", "Your amount", "Status"]);
+	assert.deepEqual(all.bands?.map((b) => [b.label, b.from, b.to, b.side]), [
+		["OUR COMPILATION", 2, 3, "ours"],
+		["SETTLEMENT'S FILE", 5, 6, "theirs"],
+	]);
+	for (const t of [fix, all]) for (const r of t.rows) if (r.style !== "group") assert.equal(r.cells[4].value, "");
 });
 
 test("a matching file says so and lists nothing to fix", () => {
@@ -119,10 +133,10 @@ test("session order list and the All lines sheet", () => {
 	assert.equal(all.filter((r) => r.style === "group").length, 8);
 	const line1 = all[1];
 	assert.equal(line1.cells[0].value, 1);
-	assert.equal(line1.cells[4].value, "2026/06/06");
-	assert.equal(line1.cells[4].tone, "bad");
-	assert.equal(line1.cells[6].value, "Fix");
-	assert.equal(all[2].cells[6].value, "OK");
+	assert.equal(line1.cells[5].value, "2026/06/06");
+	assert.equal(line1.cells[5].tone, "bad");
+	assert.equal(line1.cells[7].value, "Fix");
+	assert.equal(all[2].cells[7].value, "OK");
 	for (const s of model.sheets) for (const t of s.tables) for (const r of t.rows) assert.equal(r.cells.length, t.header.length);
 });
 
@@ -134,11 +148,26 @@ test("the painted workbook: verdict, red 'In your file', green 'Should be'", asy
 	await wb.xlsx.load(await buildDiscrepancyXlsx(model, ExcelJS, GENERATED));
 	const ws = wb.getWorksheet("What to fix")!;
 	assert.equal(ws.getCell(2, 1).value, "1 problem found in your file. Please fix it and send it again.");
-	// Preamble (3) + blank → header row 5, first problem row 6.
-	assert.equal(ws.getCell(5, 3).value, "Problem");
-	assert.equal(ws.getCell(6, 3).value, "Wrong amount");
-	const fill = (r: number, c: number) => (ws.getCell(r, c).fill as { fgColor?: { argb?: string } }).fgColor?.argb;
-	assert.equal(fill(6, 4), "FFFECACA");
-	assert.equal(fill(6, 5), "FFDCFCE7");
+	// Preamble (3) + blank → band row 5, header row 6, first problem row 7.
+	assert.equal(ws.getCell(5, 4).value, "SETTLEMENT'S FILE");
+	assert.equal(ws.getCell(5, 6).value, "OUR COMPILATION");
+	assert.equal(ws.getCell(6, 3).value, "Problem");
+	assert.equal(ws.getCell(7, 3).value, "Wrong amount");
+	const fill = (r: number, c: number) => (ws.getCell(r, c).fill as { fgColor?: { argb?: string } } | undefined)?.fgColor?.argb;
+	assert.equal(fill(7, 4), "FFFECACA");
+	assert.equal(fill(7, 6), "FFDCFCE7");
+	// Column 5 is the gutter: nothing in it, no fill, no border, on every row.
+	for (const r of [5, 6, 7]) {
+		assert.equal(ws.getCell(r, 5).value, null);
+		assert.equal(fill(r, 5), undefined);
+		assert.equal(ws.getCell(r, 5).border?.top, undefined);
+	}
+	assert.equal(ws.getColumn(5).width, 3);
 	assert.equal(ws.views[0].state, "frozen");
+	const lines = wb.getWorksheet("All lines")!;
+	// Preamble (2) + blank → band row 4: ours over C:D, Settlement's over F:G.
+	assert.equal(lines.getCell(4, 3).value, "OUR COMPILATION");
+	assert.equal(lines.getCell(4, 6).value, "SETTLEMENT'S FILE");
+	assert.equal(lines.getCell(4, 4).isMerged, true);
+	assert.equal(lines.getCell(5, 5).value, null);
 });

@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 /**
  * Nigerian public holidays (from Google Calendar), for labelling weekday
- * settlement files. Only the public holiday list crosses the network;
+ * settlement files and skipping holidays in the default merge date. Only the public holiday list crosses the network;
  * settlement files never leave the browser.
  */
 export async function GET() {

@@ -24,10 +24,22 @@ export interface ReportRow {
 	style: RowStyle;
 }
 
+/** A label spanning columns `from`..`to` (0-based) above the header: which side is whose. */
+export interface ReportBand {
+	label: string;
+	from: number;
+	to: number;
+	side: "ours" | "theirs";
+}
+
 export interface ReportTable {
 	/** Bold heading above the table, if any. */
 	title?: string;
+	/** Labels above the header, e.g. "Our compilation" over our columns. */
+	bands?: ReportBand[];
 	header: string[];
+	/** 0-based columns left blank as a gutter between our side and theirs. */
+	gaps?: number[];
 	rows: ReportRow[];
 }
 
@@ -314,6 +326,11 @@ export function findProblems(input: Pick<DiscrepancyInput, "merge" | "comparison
 	return problems;
 }
 
+/** Blank gutter cell between our columns and Settlement's. */
+const GAP: ReportCell = { value: "" };
+const GAP_WIDTH = 3;
+const ALL_LINES_HEADER = ["Line", "Bank", "Our date", "Our amount", "", "Your date", "Your amount", "Status"];
+
 function stamp(d: Date): string {
 	const p = (n: number) => String(n).padStart(2, "0");
 	return `${p(d.getDate())} ${MONTH[d.getMonth()]} ${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
@@ -337,6 +354,7 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 			{ value: p.lines, bold: true },
 			{ value: p.problem, tone: "bad", bold: true },
 			{ value: p.yours, mono: true, tone: "bad" },
+			GAP,
 			{ value: p.shouldBe, mono: true, tone: "good" },
 			{ value: p.bank },
 			{ value: p.session },
@@ -352,9 +370,6 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 				{ value: block.length ? `${block[0].row} to ${block[block.length - 1].row}` : "" },
 				{ value: block[0] ? sessionLabel(block[0]) : "" },
 				{ value: s.name, mono: true },
-				{ value: "" },
-				{ value: "" },
-				{ value: "" },
 			],
 		};
 	});
@@ -367,7 +382,7 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 		const label = s ? `${sessionLabel(s)}  ·  ${s.sourceName}` : "Lines only in your file";
 		if (label !== current) {
 			current = label;
-			allRows.push({ style: "group", cells: [{ value: label, bold: true }, ...Array.from({ length: 6 }, () => ({ value: "" }))] });
+			allRows.push({ style: "group", cells: [{ value: label, bold: true }, ...Array.from({ length: ALL_LINES_HEADER.length - 1 }, () => ({ value: "" }))] });
 		}
 		const o = fields(d.ours);
 		const t = fields(d.theirs);
@@ -380,6 +395,7 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 				{ value: bankText(s?.code ?? t[2], bankName), tone: diffAt(2) ? "bad" : undefined, bold: diffAt(2) },
 				{ value: o[1], mono: true },
 				{ value: o[3], mono: true },
+				GAP,
 				{ value: t[1], mono: true, tone: diffAt(1) ? "bad" : undefined, bold: diffAt(1) },
 				{ value: t[3], mono: true, tone: diffAt(3) ? "bad" : undefined, bold: diffAt(3) },
 				{
@@ -393,7 +409,7 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 
 	const base = merge.fileName.replace(/\.txt$/i, "");
 	return {
-		fileName: `${base}_problems.xlsx`,
+		fileName: `${base}_review.xlsx`,
 		sheets: [
 			{
 				name: "What to fix",
@@ -403,15 +419,20 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 					`Compared with our compilation ${merge.fileName} on ${stamp(generatedAt)}. Line numbers are the lines in your file.`,
 				],
 				verdictTone: n === 0 ? "good" : "bad",
-				widths: [4, 12, 26, 36, 36, 30, 18],
+				widths: [4, 12, 26, 36, GAP_WIDTH, 36, 30, 18],
 				tables: [
 					{
-						header: ["#", "Line", "Problem", "In your file", "Should be", "Bank", "Session"],
+						bands: [
+							{ label: "SETTLEMENT'S FILE", from: 3, to: 3, side: "theirs" },
+							{ label: "OUR COMPILATION", from: 5, to: 5, side: "ours" },
+						],
+						header: ["#", "Line", "Problem", "In your file", "", "Should be", "Bank", "Session"],
+						gaps: [4],
 						rows: fixRows,
 					},
 					{
 						title: "Correct order of the session files (by date, then 8am, 11am, 2pm, 5pm)",
-						header: ["#", "Lines", "Session", "File", "", "", ""],
+						header: ["#", "Lines", "Session", "File"],
 						rows: orderRows,
 					},
 				],
@@ -420,12 +441,17 @@ export function buildDiscrepancyReport(input: DiscrepancyInput): DiscrepancyRepo
 				name: "All lines",
 				preamble: [
 					"Every line: ours next to yours",
-					"Red cells are where your file differs from ours. Grey bars show where each session file starts.",
+					"Our compilation on the left, your file on the right. Red cells are where yours differs from ours. Grey bars show where each session file starts.",
 				],
-				widths: [7, 36, 13, 24, 13, 24, 8],
+				widths: [7, 36, 13, 24, GAP_WIDTH, 13, 24, 8],
 				tables: [
 					{
-						header: ["Line", "Bank", "Our date", "Our amount", "Your date", "Your amount", "Status"],
+						bands: [
+							{ label: "OUR COMPILATION", from: 2, to: 3, side: "ours" },
+							{ label: "SETTLEMENT'S FILE", from: 5, to: 6, side: "theirs" },
+						],
+						header: ALL_LINES_HEADER,
+						gaps: [4],
 						rows: allRows,
 					},
 				],

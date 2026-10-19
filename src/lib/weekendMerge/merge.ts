@@ -13,6 +13,8 @@ import { toDdmmyyyy, toSlashDate } from "../format.ts";
 import { validateTxtFormat } from "../parseTxt.ts";
 import type { SessionLabel } from "../session/nibbsSession.ts";
 import { isWeekend, type SessionNo, type SourceFile } from "./sourceFile.ts";
+import type { HolidayLookup } from "../holidays/parseIcs.ts";
+import { holidayFor } from "./holidays.ts";
 import { formatKobo, ZERO } from "./text.ts";
 
 export const MERGED_LINE_BREAK = "\r\n";
@@ -51,13 +53,29 @@ export function mergedFileName(mergeDate: Date, session: SessionNo): string {
   return `ETRANZACT_${toDdmmyyyy(mergeDate)}_${session}.txt`;
 }
 
-/** Next Monday-Friday after the latest source date (today when there are no dated sources). */
-export function defaultMergeDate(sources: SourceFile[], today: Date = new Date()): Date {
-  const dates = sources.map((s) => s.date).filter((d): d is Date => d !== null);
-  if (dates.length === 0) return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
-  const next = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate() + 1);
-  while (isWeekend(next)) next.setDate(next.getDate() + 1);
+/** The date the merge date counts from: the latest Saturday/Sunday, else the latest date. */
+function weekendAnchor(dates: Date[]): Date | null {
+  if (dates.length === 0) return null;
+  const weekend = dates.filter(isWeekend);
+  return new Date(Math.max(...(weekend.length ? weekend : dates).map((d) => d.getTime())));
+}
+
+/**
+ * The next business day after the weekend: the day after the latest Saturday
+ * or Sunday file, skipping weekends and public holidays. Weekday files (e.g.
+ * Monday's) don't move it, so Sat + Sun + Mon still merges into Monday, while
+ * a Monday holiday makes it Tuesday. With no weekend file (a lone Friday
+ * holiday), it counts from the latest file; with no dated file, it is today.
+ */
+export function defaultMergeDate(
+  sources: SourceFile[],
+  holidays: HolidayLookup = () => undefined,
+  today: Date = new Date(),
+): Date {
+  const anchor = weekendAnchor(sources.map((s) => s.date).filter((d): d is Date => d !== null));
+  if (!anchor) return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const next = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + 1);
+  while (isWeekend(next) || holidayFor(next, holidays)) next.setDate(next.getDate() + 1);
   return next;
 }
 
@@ -92,7 +110,11 @@ export function buildMerge(files: SourceFile[], mergeDate: Date, session: Sessio
 }
 
 /** Checks on the merged output itself. */
-export function mergeChecks(merge: MergeResult, mergeDate: Date): CheckResult[] {
+export function mergeChecks(
+  merge: MergeResult,
+  mergeDate: Date,
+  holidays: HolidayLookup = () => undefined,
+): CheckResult[] {
   const checks: CheckResult[] = [];
 
   const expectedRows = merge.sources.reduce((n, s) => n + s.records.length, 0);
@@ -120,20 +142,22 @@ export function mergeChecks(merge: MergeResult, mergeDate: Date): CheckResult[] 
       : `${format.issues.length} line(s) deviate (first: line ${format.issues[0].line}, ${format.issues[0].message}).`,
   });
 
-  const latest = merge.sources.reduce<Date | null>(
-    (m, s) => (s.date && (!m || s.date > m) ? s.date : m),
-    null,
-  );
-  const afterSources = !latest || mergeDate > latest;
+  // Same rule as defaultMergeDate: after the weekend, so Sat + Sun + Mon
+  // merged into Monday is right, not "before the last file".
+  const anchor = weekendAnchor(merge.sources.map((s) => s.date).filter((d): d is Date => d !== null));
+  const afterWeekend = !anchor || mergeDate > anchor;
+  const holiday = holidayFor(mergeDate, holidays);
   checks.push({
     id: "merge-date",
     label: "Merge date is the next business day",
-    status: afterSources && !isWeekend(mergeDate) ? "pass" : "warn",
-    detail: !afterSources
-      ? `Merge date ${toSlashDate(mergeDate)} is not after the last source date ${toSlashDate(latest as Date)}.`
+    status: afterWeekend && !isWeekend(mergeDate) && !holiday ? "pass" : "warn",
+    detail: !afterWeekend
+      ? `Merge date ${toSlashDate(mergeDate)} is not after the weekend (${toSlashDate(anchor as Date)}).`
       : isWeekend(mergeDate)
         ? `Merge date ${toSlashDate(mergeDate)} falls on a weekend.`
-        : `Every row is dated ${toSlashDate(mergeDate)}.`,
+        : holiday
+          ? `Merge date ${toSlashDate(mergeDate)} is a public holiday (${holiday.name}).`
+          : `Every row is dated ${toSlashDate(mergeDate)}.`,
   });
 
   return checks;

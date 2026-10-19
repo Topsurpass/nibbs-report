@@ -30,12 +30,17 @@ test("missing, duplicate and failed slots are distinguished", () => {
   assert.equal(sun.slots[0].state, "fail");
 });
 
-test("weekday files are flagged as not weekend; bad names are unplaced", () => {
+test("weekday slots are optional, not missing; bad names are unplaced", () => {
   const board = buildSessionBoard([
     sessionFile("05062026", 1),
     inspectSourceFile("ETRANZACT_05062026_1 (1).txt", "x"),
   ]);
-  assert.equal(board.days[0].weekend, false);
-  assert.equal(board.days[0].slots[0].state, "warn");
+  const fri = board.days[0];
+  assert.equal(fri.weekend, false);
+  assert.equal(fri.required, false);
+  assert.deepEqual(fri.slots.map((s) => s.state), ["ok", "optional", "optional", "optional"]);
   assert.equal(board.unplaced.length, 1);
+  const sat = buildSessionBoard([sessionFile(SAT, 1)]).days[0];
+  assert.equal(sat.required, true);
+  assert.deepEqual(sat.slots.map((s) => s.state), ["ok", "missing", "missing", "missing"]);
 });

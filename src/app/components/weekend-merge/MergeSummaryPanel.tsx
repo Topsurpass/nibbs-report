@@ -104,7 +104,7 @@ export default function MergeSummaryPanel({
 							value={mergeDate}
 							onChange={(e) => onMergeDateChange(e.target.value || null)}
 						/>
-						<p className="text-[11px] text-muted-foreground">{isDefaultDate ? "Next business day" : "Custom date"}</p>
+						<p className="text-[11px] text-muted-foreground">{isDefaultDate ? "Next business day after the weekend" : "Custom date"}</p>
 					</div>
 					<div className="space-y-1.5">
 						<div className="flex h-4 items-center">

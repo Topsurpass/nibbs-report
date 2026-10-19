@@ -125,10 +125,8 @@ export function inspectSourceFile(name: string, text: string, id: string = name)
     issues.push({ severity: "fail", message: `Rows sum to ${formatKobo(sumKobo)}, must be 0.00` });
   }
 
-  // --- business day sanity ----------------------------------------------
-  if (date && !isWeekend(date)) {
-    issues.push({ severity: "warn", message: `${weekdayName(date)}: confirm this is a public holiday` });
-  }
+  // Any weekday is accepted without comment: holidays and the next business
+  // day's early sessions are routinely merged in with the weekend.
 
   return {
     id,

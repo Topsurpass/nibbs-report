@@ -4,7 +4,7 @@
 // and in Node for tests.
 
 import type ExcelJS from "exceljs";
-import type { CellTone, DiscrepancyReport, ReportSheet, RowStyle } from "./discrepancyReport.ts";
+import type { CellTone, DiscrepancyReport, ReportBand, ReportSheet, RowStyle } from "./discrepancyReport.ts";
 
 const HEADER_FILL = "FF4F46E5"; // indigo-600
 const GROUP_FILL = "FFE2E8F0"; // slate-200
@@ -14,6 +14,11 @@ const GOOD_CELL_FILL = "FFDCFCE7"; // green-100
 const BORDER = "FFCBD5E1"; // slate-300
 const TITLE = "FF0F172A"; // slate-900
 const NOTE = "FF6B7280"; // gray-500
+// Our side and Settlement's side get different band colours so they never blur.
+const BAND_FILL: Record<ReportBand["side"], string> = {
+	ours: "FF4338CA", // indigo-700
+	theirs: "FF334155", // slate-700
+};
 
 const TONE_FONT: Record<CellTone, string> = {
 	bad: "FFB91C1C", // red-700
@@ -43,7 +48,8 @@ function paintSheet(wb: ExcelJS.Workbook, sheet: ReportSheet) {
 	let r = sheet.preamble.length + 1;
 	let firstHeader = 0;
 	for (const table of sheet.tables) {
-		const cols = table.header.filter((h) => h !== "").length || table.header.length;
+		const cols = table.header.length;
+		const gaps = new Set(table.gaps ?? []);
 		r++;
 		if (table.title) {
 			r++;
@@ -52,9 +58,23 @@ function paintSheet(wb: ExcelJS.Workbook, sheet: ReportSheet) {
 			t.font = { bold: true, size: 12, color: { argb: TITLE } };
 			r++;
 		}
+		if (table.bands?.length) {
+			for (const band of table.bands) {
+				if (band.to > band.from) ws.mergeCells(r, band.from + 1, r, band.to + 1);
+				const cell = ws.getCell(r, band.from + 1);
+				cell.value = band.label;
+				cell.fill = solid(BAND_FILL[band.side]);
+				cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+				cell.alignment = { horizontal: "center", vertical: "middle" };
+				cell.border = box;
+			}
+			ws.getRow(r).height = 20;
+			r++;
+		}
 		const headerRow = r;
 		if (!firstHeader) firstHeader = headerRow;
-		table.header.slice(0, cols).forEach((h, c) => {
+		table.header.forEach((h, c) => {
+			if (gaps.has(c)) return;
 			const cell = ws.getCell(headerRow, c + 1);
 			cell.value = h;
 			cell.fill = solid(HEADER_FILL);
@@ -76,6 +96,8 @@ function paintSheet(wb: ExcelJS.Workbook, sheet: ReportSheet) {
 				continue;
 			}
 			row.cells.slice(0, cols).forEach((c, i) => {
+				// The gutter stays blank: no value, fill or border.
+				if (gaps.has(i)) return;
 				const cell = ws.getCell(r, i + 1);
 				cell.value = c.value;
 				cell.border = box;

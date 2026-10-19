@@ -14,6 +14,10 @@
 //      and an LF swapped in for a CRLF is NOT flagged (they are equivalent).
 //   4. Settlement-style join: real session bodies joined with a bare LF (how
 //      Settlement's tool builds its file) compare as a full match.
+//   5. Weekend + other days: real bodies re-dated to Sat/Sun (4 sessions each)
+//      plus a 2-session Monday merge with no warning, default to Monday (or
+//      Tuesday when Monday is a holiday), and put Monday's rows last. Only an
+//      incomplete Saturday/Sunday blocks. No real weekday file is warned.
 //   Every mutation's "What to fix" list must be one plain problem covering
 //   every flagged line (none for an LF/CRLF swap).
 //
@@ -28,8 +32,19 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const { inspectSourceFile, buildMerge, mergeChecks, compareWithSettlement, sortSources, assessCollection, canMerge } =
-	await import("../src/lib/weekendMerge/index.ts");
+const {
+	inspectSourceFile,
+	buildMerge,
+	mergeChecks,
+	compareWithSettlement,
+	sortSources,
+	assessCollection,
+	canMerge,
+	defaultMergeDate,
+	buildSessionBoard,
+	isWeekend,
+} = await import("../src/lib/weekendMerge/index.ts");
+const { buildDiscrepancyReport } = await import("../src/lib/weekendMerge/discrepancyReport.ts");
 const { validateTxtFormat } = await import("../src/lib/parseTxt.ts");
 const { findProblems } = await import("../src/lib/weekendMerge/discrepancyReport.ts");
 
@@ -124,9 +139,14 @@ if (completeDays.length > 0) {
 	const set = completeDays.flat();
 	check(canMerge(assessCollection(set)), `collection gate accepts ${completeDays.length} complete real day(s)`, "collection gate rejected complete days");
 }
-const partial = [...byDay.values()].find((fs) => fs.length < 4);
-if (partial) {
-	check(!canMerge(assessCollection(partial)), `collection gate blocks an incomplete day (${partial[0].dateSegment})`, "collection gate accepted an incomplete day");
+const partialWeekend = [...byDay.values()].find((fs) => fs.length < 4 && isWeekend(fs[0].date));
+if (partialWeekend) {
+	check(!canMerge(assessCollection(partialWeekend)), `collection gate blocks an incomplete weekend day (${partialWeekend[0].dateSegment})`, "collection gate accepted an incomplete weekend day");
+}
+const partialWeekdays = [...byDay.values()].filter((fs) => fs.length < 4 && !isWeekend(fs[0].date)).flat();
+if (partialWeekdays.length > 0) {
+	const c = assessCollection(partialWeekdays).find((x) => x.id === "sessions-complete");
+	check(c?.status === "pass", `${partialWeekdays.length} real weekday file(s) on incomplete days are accepted`, `incomplete weekdays flagged: ${c?.detail}`);
 }
 
 // --- 3. Mutation fuzz ---------------------------------------------------------
@@ -251,6 +271,66 @@ console.log("\n4. Settlement-style join (session files glued with a bare LF)");
 		r.pass && r.mismatched === 0 && r.matched === merged.rows.length,
 		`${lfJoins} LF joins across ${bodies.length} real files: all ${r.matched} rows match`,
 		`LF-joined file did not match: ${r.mismatched} mismatches, failing ${r.checks.filter((c) => c.status === "fail").map((c) => c.id).join(",")}`,
+	);
+}
+
+console.log("\n5. Weekend plus other days");
+{
+	const weekdayWarned = valid.filter((f) => !isWeekend(f.date) && f.issues.some((i) => /holiday|weekday/i.test(i.message)));
+	check(weekdayWarned.length === 0, `${valid.filter((f) => !isWeekend(f.date)).length} real weekday file(s): none warned as "weekday"`, `weekday warnings on ${weekdayWarned.map((f) => f.name).join(", ")}`);
+
+	// Re-date real bodies: Sat 17 Oct 2026 ×4, Sun 18 Oct ×4, Mon 19 Oct ×2.
+	const bodies = sortSources(valid).filter((f) => f.records.length > 0).slice(0, 10);
+	const plan = [
+		...[1, 2, 3, 4].map((s) => ["17102026", s]),
+		...[1, 2, 3, 4].map((s) => ["18102026", s]),
+		["19102026", 1],
+		["19102026", 2],
+	];
+	const redated = plan.map(([ddmmyyyy, s], i) => {
+		const slash = `${ddmmyyyy.slice(4)}/${ddmmyyyy.slice(2, 4)}/${ddmmyyyy.slice(0, 2)}`;
+		const text = bodies[i % bodies.length].records.map((r) => `702\t${slash}\t${r.code}\t${r.amountStr}`).join("\r\n");
+		return inspectSourceFile(`ETRANZACT_${ddmmyyyy}_${s}.txt`, text);
+	});
+	const checks = assessCollection([...redated].reverse());
+	const notPass = checks.filter((c) => c.status !== "pass");
+	check(redated.every((f) => f.valid && f.issues.length === 0), "10 re-dated real files accepted with no issues", `re-dated files: ${redated.map((f) => f.issues.map((i) => i.message).join("; ")).join(" | ")}`);
+	check(notPass.length === 0 && canMerge(checks), "Sat ×4 + Sun ×4 + Mon ×2: every collection check passes", `not passing: ${notPass.map((c) => `${c.id}=${c.status} (${c.detail})`).join("; ")}`);
+
+	const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+	const plain = defaultMergeDate(redated);
+	check(iso(plain) === "2026-10-19", "default merge date is Monday 19 Oct (day after Sunday)", `default merge date ${iso(plain)}`);
+	const monHoliday = (key) => (key === "2026-10-19" ? { date: key, name: "Test Holiday", tentative: false } : undefined);
+	const skip = defaultMergeDate(redated, monHoliday);
+	check(iso(skip) === "2026-10-20", "Monday a public holiday → merge date Tuesday 20 Oct", `holiday merge date ${iso(skip)}`);
+
+	const m = buildMerge(redated, plain, 1);
+	const out = mergeChecks(m, plain).filter((c) => c.status !== "pass");
+	check(out.length === 0, "merged into Monday: every output check passes (incl. merge date)", `output not passing: ${out.map((c) => `${c.id} (${c.detail})`).join("; ")}`);
+	const mondayFirst = m.rows.findIndex((r) => r.sourceName.startsWith("ETRANZACT_19102026"));
+	check(
+		mondayFirst > 0 && m.rows.slice(mondayFirst).every((r) => r.sourceName.startsWith("ETRANZACT_19102026")),
+		`Monday's rows come last (from row ${mondayFirst + 1} of ${m.rows.length})`,
+		"Monday rows are not last",
+	);
+	const board = buildSessionBoard(redated);
+	const mon = board.days.find((d) => !d.weekend);
+	check(
+		mon && !mon.required && mon.slots.filter((x) => x.state === "optional").length === 2 && board.days.filter((d) => d.weekend).every((d) => d.required),
+		"board: Monday's empty slots are optional, weekend days required",
+		"board slot states wrong",
+	);
+	const incomplete = redated.filter((f) => f.name !== "ETRANZACT_17102026_3.txt");
+	check(!canMerge(assessCollection(incomplete)), "a Saturday missing a session still blocks", "an incomplete Saturday was accepted");
+
+	const self = compareWithSettlement({ name: m.fileName, text: m.text }, { name: m.fileName, text: m.text });
+	const report = buildDiscrepancyReport({ merge: m, comparison: self, settlementName: m.fileName, generatedAt: new Date(2026, 9, 19) });
+	check(report.fileName === "ETRANZACT_19102026_1_review.xlsx", `workbook named ${report.fileName}`, `workbook named ${report.fileName}`);
+	const all = report.sheets[1].tables[0];
+	check(
+		all.gaps?.[0] === 4 && all.rows.every((r) => r.cells.length === all.header.length && (r.style === "group" || r.cells[4].value === "")),
+		"All lines sheet: blank gutter column between ours and Settlement's on every row",
+		"gutter column missing or filled",
 	);
 }
 

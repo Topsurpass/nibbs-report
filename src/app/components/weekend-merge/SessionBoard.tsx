@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { weekdayName, type SessionBoard as Board } from "@/lib/weekendMerge";
+import { holidayLabel, weekdayName, type SessionBoard as Board } from "@/lib/weekendMerge";
 import { cn } from "@/lib/utils";
 import SessionSlotCard from "./SessionSlotCard";
 
@@ -29,21 +29,26 @@ export default function SessionBoard({ board, orderOf, skippingMissing, onRemove
 								<Badge variant="secondary">Weekend</Badge>
 							) : day.holiday ? (
 								<Badge className="bg-primary/10 text-primary" title="From Google Calendar: Holidays in Nigeria">
-									Public holiday · {day.holiday.name}
-									{day.holiday.tentative && " (tentative)"}
+									Public holiday · {holidayLabel(day.holiday)}
 								</Badge>
 							) : (
-								<Badge className="bg-warning/15 text-warning">Weekday · public holiday?</Badge>
+								<Badge variant="outline">Weekday</Badge>
 							)}
 						</div>
-						<span
-							className={cn(
-								"tnum text-xs font-medium",
-								day.filled === 4 ? "text-muted-foreground" : skippingMissing ? "text-warning" : "text-destructive",
-							)}
-						>
-							{day.filled}/4 sessions
-						</span>
+						{day.required ? (
+							<span
+								className={cn(
+									"tnum text-xs font-medium",
+									day.filled === 4 ? "text-muted-foreground" : skippingMissing ? "text-warning" : "text-destructive",
+								)}
+							>
+								{day.filled}/4 sessions
+							</span>
+						) : (
+							<span className="tnum text-xs font-medium text-muted-foreground">
+								{day.filled} session{day.filled === 1 ? "" : "s"}
+							</span>
+						)}
 					</div>
 					<ol className="grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @2xl:grid-cols-4">
 						{day.slots.map((slot) => (

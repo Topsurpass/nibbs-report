@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useWeekendMergeState } from "@/app/components/providers/WeekendMergeProvider";
 import { usePublicHolidays } from "@/hooks/usePublicHolidays";
 import {
-	applyHolidays,
 	assessCollection,
 	buildMerge,
 	buildSessionBoard,
@@ -28,24 +27,22 @@ function fromInputDate(v: string): Date | null {
 /** Everything the Weekend Settlement page derives from the uploaded files. */
 export function useWeekendMerge() {
 	const state = useWeekendMergeState();
-	const { sources: uploaded, mergeDateOverride, session, settlement, allowMissingSessions } = state;
+	const { sources, mergeDateOverride, session, settlement, allowMissingSessions } = state;
 	const { lookup: holidays, status: holidayStatus } = usePublicHolidays();
 
 	return useMemo(() => {
-		// Known public holidays clear the "confirm this is a holiday" warnings.
-		const sources = applyHolidays(uploaded, holidays);
 		const ordered = sortSources(sources);
-		const collectionChecks = assessCollection(sources, { allowMissingSessions, holidays });
+		const collectionChecks = assessCollection(sources, { allowMissingSessions });
 		const missingSessions = collectionChecks.find((c) => c.id === MISSING_SESSIONS_CHECK);
 		const ready = canMerge(collectionChecks);
 
 		// No default date until there are files: avoids an SSR/CSR "today" mismatch.
 		const hasDated = sources.some((s) => s.date);
-		const mergeDateStr = mergeDateOverride ?? (hasDated ? toInputDate(defaultMergeDate(sources)) : "");
+		const mergeDateStr = mergeDateOverride ?? (hasDated ? toInputDate(defaultMergeDate(sources, holidays)) : "");
 		const mergeDate = fromInputDate(mergeDateStr);
 
 		const merge = ready && mergeDate ? buildMerge(sources, mergeDate, session) : null;
-		const outputChecks = merge && mergeDate ? mergeChecks(merge, mergeDate) : [];
+		const outputChecks = merge && mergeDate ? mergeChecks(merge, mergeDate, holidays) : [];
 		const downloadable = merge !== null && !outputChecks.some((c) => c.status === "fail");
 		const readinessChecks = [...collectionChecks, ...outputChecks];
 
@@ -74,5 +71,5 @@ export function useWeekendMerge() {
 			orderOf,
 			comparison,
 		};
-	}, [state, uploaded, holidays, holidayStatus, mergeDateOverride, session, settlement, allowMissingSessions]);
+	}, [state, sources, holidays, holidayStatus, mergeDateOverride, session, settlement, allowMissingSessions]);
 }
