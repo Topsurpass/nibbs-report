@@ -1,16 +1,19 @@
-import { CheckCircle2, XCircle } from "lucide-react";
+import { ArrowDown, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FIX_LIST_ID } from "./AuditFixList";
 
 interface AuditVerdictProps {
 	failed: number;
 	warnings: number;
 	breaches: number;
+	/** Problems in Settlement's files (see AuditFixList). */
+	toFix: number;
 	session?: string;
 	className?: string;
 }
 
 /** One sentence answer to "can this go to NIBBS?", above the detail. */
-export default function AuditVerdict({ failed, warnings, breaches, session, className }: AuditVerdictProps) {
+export default function AuditVerdict({ failed, warnings, breaches, toFix, session, className }: AuditVerdictProps) {
 	const pass = failed === 0;
 	const chips = [
 		failed > 0 && `${failed} check${failed === 1 ? "" : "s"} failed`,
@@ -43,6 +46,15 @@ export default function AuditVerdict({ failed, warnings, breaches, session, clas
 						? `${session ? `${session} session. ` : ""}Totals, format and reconciliation all agree. Safe to submit to NIBBS.`
 						: "Review the failed checks and breaches below before submitting to NIBBS."}
 				</p>
+				{toFix > 0 && (
+					<a
+						href={`#${FIX_LIST_ID}`}
+						className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+					>
+						{toFix} thing{toFix === 1 ? "" : "s"} for Settlement to fix
+						<ArrowDown className="size-3.5" />
+					</a>
+				)}
 				{chips.length > 0 && (
 					<div className="flex flex-wrap gap-1.5 pt-1">
 						{chips.map((c) => (

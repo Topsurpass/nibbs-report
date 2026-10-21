@@ -82,7 +82,7 @@ function frameRow(code: string, name: string, netPosition: number): FrameRow {
 	return { bankString: `${name} - ${code}`, name, code, outgoing: 0, incoming: netPosition, netPosition };
 }
 function smartRow(code: string, amount: number): SmartdetRow {
-	return { typeCode: "702", dateStr: "2026/07/22", code, amount };
+	return { typeCode: "702", dateStr: "2026/07/22", code, amount, amountStr: String(amount), line: 1 };
 }
 const txtFormat: TxtFormatResult = { valid: true, issues: [], checkedLines: 1 };
 const jiveCheck = (r: ReturnType<typeof reconcile>) => r.checks.find((c) => c.id === "jive")!;

@@ -2,61 +2,15 @@
 // file differs from ours. Written for settlement analysts, not developers:
 // one row per problem, in plain words, with what their file has and what it
 // should be. Pure, so the wording and grouping are testable; the exceljs
-// painter in `discrepancyExcel.ts` only decides looks.
+// painter in `reviewWorkbook/paint.ts` only decides looks.
 
 import type { ComparisonResult, RowDiff } from "./compare.ts";
 import type { MergeResult, MergedRow } from "./merge.ts";
+import type { DiscrepancyReport, ReportCell, ReportRow } from "../reviewWorkbook/model.ts";
+import { showSpacing, spacingProblem } from "../reviewWorkbook/spacing.ts";
 
-export type CellTone = "bad" | "good" | "warn" | "muted";
-
-export interface ReportCell {
-	value: string | number;
-	tone?: CellTone;
-	bold?: boolean;
-	/** Fixed-width font, for file content. */
-	mono?: boolean;
-}
-
-export type RowStyle = "plain" | "problem" | "ok" | "group";
-
-export interface ReportRow {
-	cells: ReportCell[];
-	style: RowStyle;
-}
-
-/** A label spanning columns `from`..`to` (0-based) above the header: which side is whose. */
-export interface ReportBand {
-	label: string;
-	from: number;
-	to: number;
-	side: "ours" | "theirs";
-}
-
-export interface ReportTable {
-	/** Bold heading above the table, if any. */
-	title?: string;
-	/** Labels above the header, e.g. "Our compilation" over our columns. */
-	bands?: ReportBand[];
-	header: string[];
-	/** 0-based columns left blank as a gutter between our side and theirs. */
-	gaps?: number[];
-	rows: ReportRow[];
-}
-
-export interface ReportSheet {
-	name: string;
-	/** Title, then one-line notes. */
-	preamble: string[];
-	/** Tone of the second preamble line (the verdict). */
-	verdictTone?: CellTone;
-	widths: number[];
-	tables: ReportTable[];
-}
-
-export interface DiscrepancyReport {
-	fileName: string;
-	sheets: ReportSheet[];
-}
+export type * from "../reviewWorkbook/model.ts";
+export { showSpacing, spacingProblem };
 
 /** 10-digit settlement code → bank name, when known. */
 export type BankNameLookup = (code: string) => string | undefined;
@@ -90,18 +44,6 @@ export function sessionLabel(r: MergedRow): string {
 	return `${DAY[d.getDay()]} ${String(d.getDate()).padStart(2, "0")} ${MONTH[d.getMonth()]} · ${r.sourceSessionLabel}`;
 }
 
-/**
- * "702 [SPACE] 2026/07/02 [TAB] …" so a non-developer can see the separators.
- * The spaces around each marker are only there so Excel can wrap long lines.
- */
-export function showSpacing(line: string): string {
-	return line
-		.split(/(\t| )/)
-		.map((part) => (part === "\t" ? "[TAB]" : part === " " ? "[SPACE]" : part))
-		.filter((part) => part !== "")
-		.join(" ");
-}
-
 function fields(line: string | null): string[] {
 	if (line === null) return ["", "", "", ""];
 	const t = line.trim().split(/\s+/);
@@ -112,19 +54,6 @@ function bankText(code: string, bankName?: BankNameLookup): string {
 	if (!code) return "";
 	const name = bankName?.(code);
 	return name ? `${name} (${code})` : code;
-}
-
-const GAPS = ["702 and the date", "the date and the bank code", "the bank code and the amount"];
-
-/** "Space instead of TAB between 702 and the date", in plain words. */
-export function spacingProblem(line: string): string {
-	if (/^\s/.test(line)) return "Space or TAB before 702 at the start";
-	if (/[ \t]$/.test(line)) return "Space or TAB after the amount at the end";
-	const seps = line.match(/\s+/g) ?? [];
-	const at = seps.findIndex((sep) => sep !== "\t");
-	if (at === -1) return "Wrong spacing";
-	const gap = GAPS[at] ? ` between ${GAPS[at]}` : "";
-	return seps[at].includes(" ") ? `Space instead of TAB${gap}` : `Extra TAB${gap}`;
 }
 
 /** Their row r "belongs at row N" → N, else null. */

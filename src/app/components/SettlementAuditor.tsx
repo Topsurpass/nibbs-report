@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from "react";
 import {
-	AlertTriangle,
 	CalendarDays,
 	Download,
 	FileCode2,
@@ -20,9 +19,12 @@ import BreachSection from "./BreachSection";
 import AuditFileSlot, { type SlotFact, type SlotStatus } from "./settlement-audit/AuditFileSlot";
 import AuditSummaryPanel from "./settlement-audit/AuditSummaryPanel";
 import AuditVerdict from "./settlement-audit/AuditVerdict";
+import AuditFixList from "./settlement-audit/AuditFixList";
 import { validateTxtFilename } from "@/lib/parseTxt";
 import { reconcile, type BreachRecord } from "@/lib/reconcile";
 import { downloadExcel } from "@/lib/exportReport";
+import { buildAuditReview, findAuditProblems, type AuditReviewInput } from "@/lib/settlementAudit/review";
+import { downloadReview } from "@/lib/reviewWorkbook/download";
 import { formatNaira } from "@/lib/format";
 import { resolveSession, sessionRowLabel } from "@/lib/session/nibbsSession";
 import type { AddToReportResult } from "./BreachSection";
@@ -32,7 +34,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 function toDate(str: string): Date {
@@ -59,6 +60,7 @@ export default function SettlementAuditor() {
 		txtFile,
 		frame,
 		txt,
+		txtText,
 		htmlError,
 		txtError,
 		breachEdits,
@@ -82,6 +84,13 @@ export default function SettlementAuditor() {
 			htmlFileName: htmlFile?.name,
 		});
 	}, [frame, txt, txtFile, htmlFile, reportDate, master]);
+
+	// What Settlement has to fix in their files, line by line (Frame is the reference).
+	const reviewInput = useMemo<AuditReviewInput | null>(() => {
+		if (!result || !frame || !txtFile || txtText === null) return null;
+		return { txtText, txtName: txtFile.name, frame, htmlName: htmlFile?.name, master, reportDate: toDate(reportDate) };
+	}, [result, frame, txtFile, txtText, htmlFile, master, reportDate]);
+	const problems = useMemo(() => (reviewInput ? findAuditProblems(reviewInput) : []), [reviewInput]);
 
 	const breaches = useMemo<BreachRecord[]>(() => {
 		if (!result) return [];
@@ -203,7 +212,7 @@ export default function SettlementAuditor() {
 						{result && (
 							<Button onClick={() => downloadExcel(result, breaches, toDate(reportDate))}>
 								<Download className="size-4" />
-								Download Excel
+								Audit workbook
 							</Button>
 						)}
 					</>
@@ -310,6 +319,7 @@ export default function SettlementAuditor() {
 						failed={failed}
 						warnings={warnings}
 						breaches={breaches.length}
+						toFix={problems.length}
 						session={sessionText}
 					/>
 
@@ -331,6 +341,16 @@ export default function SettlementAuditor() {
 					/>
 
 					<div className="min-w-0 space-y-6 xl:col-start-1">
+						{reviewInput && (
+							<AuditFixList
+								problems={problems}
+								hasBreaches={breaches.some((b) => b.kind === "collateral")}
+								onDownload={async () => {
+									const now = new Date();
+									await downloadReview(buildAuditReview(reviewInput, now, problems), now);
+								}}
+							/>
+						)}
 						<Card>
 							<CardHeader>
 								<CardTitle>Validation checks</CardTitle>
@@ -342,44 +362,6 @@ export default function SettlementAuditor() {
 								<CheckList checks={result.checks} problemsFirst />
 							</CardContent>
 						</Card>
-
-					{result.formatIssues.length > 0 && (
-						<Card className="print-block gap-0 overflow-hidden border-destructive/30 py-0">
-							<div className="border-b border-destructive/20 bg-destructive/5 px-5 py-3">
-								<h2 className="flex items-center gap-2 text-sm font-semibold text-destructive">
-									<AlertTriangle className="size-4" />
-									Format deviations in the eTranzact file
-								</h2>
-								<p className="text-xs text-muted-foreground">
-									{result.formatIssues.length} line(s) do not match the required template. Fix the file and
-									re-upload before sending to NIBBS.
-								</p>
-							</div>
-							<div className="max-h-72 overflow-auto">
-								<Table>
-									<TableHeader className="sticky top-0 bg-card/95 backdrop-blur-sm">
-										<TableRow className="hover:bg-transparent">
-											<TableHead>Line</TableHead>
-											<TableHead>Problem</TableHead>
-											<TableHead>Content</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{result.formatIssues.map((issue) => (
-											<TableRow key={issue.line}>
-												<TableCell className="tnum font-semibold text-destructive">{issue.line}</TableCell>
-												<TableCell className="text-foreground">{issue.message}</TableCell>
-												<TableCell className="tnum text-xs text-muted-foreground">
-													{issue.content || <span className="italic">(empty)</span>}
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</div>
-						</Card>
-					)}
-
 
 						<ReconciliationTable rows={result.rows} />
 						<BreachSection

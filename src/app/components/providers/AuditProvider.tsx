@@ -40,6 +40,8 @@ interface AuditContextValue {
 	txtFile: File | null;
 	frame: FrameParseResult | null;
 	txt: TxtParseResult | null;
+	/** The eTranzact file exactly as uploaded, for the line-by-line review. */
+	txtText: string | null;
 	htmlError?: string;
 	txtError?: string;
 	breachEdits: BreachEdits;
@@ -58,6 +60,7 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 	const [txtFile, setTxtFile] = useState<File | null>(null);
 	const [frame, setFrame] = useState<FrameParseResult | null>(null);
 	const [txt, setTxt] = useState<TxtParseResult | null>(null);
+	const [txtText, setTxtText] = useState<string | null>(null);
 	const [htmlError, setHtmlError] = useState<string>();
 	const [txtError, setTxtError] = useState<string>();
 	const [breachEdits, setBreachEdits] = useState<BreachEdits>({});
@@ -90,14 +93,16 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 			const parsed = parseEtranzactTxt(text);
 			setTxtFile(file);
 			setTxt(parsed);
+			setTxtText(text);
 			if (parsed.rows.length === 0) setTxtError("No records parsed from the TXT.");
 			else if (!parsed.format.valid)
 				setTxtError(
-					`${parsed.format.issues.length} line(s) break the required format. See "Format deviations" below.`,
+					`${parsed.format.issues.length} line(s) break the required format. See "What Settlement needs to fix" below.`,
 				);
 		} catch (e) {
 			setTxtFile(file);
 			setTxt(null);
+			setTxtText(null);
 			setTxtError(e instanceof Error ? e.message : "Failed to read TXT.");
 		}
 	}, []);
@@ -107,6 +112,7 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 		setTxtFile(null);
 		setFrame(null);
 		setTxt(null);
+		setTxtText(null);
 		setHtmlError(undefined);
 		setTxtError(undefined);
 		setBreachEdits({});
@@ -122,6 +128,7 @@ export function AuditProvider({ children }: { children: ReactNode }) {
 				txtFile,
 				frame,
 				txt,
+				txtText,
 				htmlError,
 				txtError,
 				breachEdits,

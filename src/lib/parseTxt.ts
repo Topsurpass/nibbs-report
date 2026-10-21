@@ -10,6 +10,10 @@ export interface SmartdetRow {
   dateStr: string; // "YYYY/MM/DD"
   code: string; // 10-digit bank code
   amount: number; // Smartdet net amount (column H)
+  /** Exactly as written in the file, e.g. "-00000063656071194.99". */
+  amountStr: string;
+  /** 1-based line number in the file, counting blank lines, as an editor shows it. */
+  line: number;
 }
 
 export interface TxtFormatIssue {
@@ -101,12 +105,12 @@ export function validateTxtFormat(text: string): TxtFormatResult {
 }
 
 export function parseEtranzactTxt(text: string): TxtParseResult {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const rows: SmartdetRow[] = [];
   const dateSet = new Set<string>();
   let malformed = 0;
 
-  for (const line of lines) {
+  for (const [i, line] of text.split(/\r?\n/).entries()) {
+    if (line.trim().length === 0) continue;
     const parts = line.split("\t");
     if (parts.length < 4) {
       malformed++;
@@ -119,7 +123,7 @@ export function parseEtranzactTxt(text: string): TxtParseResult {
       continue;
     }
     dateSet.add(dateStr);
-    rows.push({ typeCode, dateStr, code, amount });
+    rows.push({ typeCode, dateStr, code, amount, amountStr, line: i + 1 });
   }
 
   return {

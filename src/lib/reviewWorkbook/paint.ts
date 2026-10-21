@@ -1,10 +1,10 @@
-// Paints the discrepancy report model into a styled .xlsx. Decides looks only;
-// what each cell says comes from `discrepancyReport.ts`. Runs in the browser
+// Paints a review workbook model into a styled .xlsx. Decides looks only;
+// what each cell says comes from the page's report builder. Runs in the browser
 // (exceljs is loaded on demand) so settlement data never leaves the machine,
 // and in Node for tests.
 
 import type ExcelJS from "exceljs";
-import type { CellTone, DiscrepancyReport, ReportBand, ReportSheet, RowStyle } from "./discrepancyReport.ts";
+import type { CellTone, DiscrepancyReport, ReportBand, ReportSheet, RowStyle } from "./model.ts";
 
 const HEADER_FILL = "FF4F46E5"; // indigo-600
 const GROUP_FILL = "FFE2E8F0"; // slate-200
@@ -120,7 +120,7 @@ function paintSheet(wb: ExcelJS.Workbook, sheet: ReportSheet) {
 }
 
 /** Build the workbook bytes. `ExcelJSModule` is injected so the browser can load it lazily. */
-export async function buildDiscrepancyXlsx(
+export async function buildReviewXlsx(
 	report: DiscrepancyReport,
 	ExcelJSModule: typeof ExcelJS,
 	generatedAt: Date,

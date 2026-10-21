@@ -40,11 +40,11 @@ export default function AuditSummaryPanel({ stats, onDownload, className }: Audi
 				<Separator />
 				<Button size="lg" className="w-full" onClick={onDownload}>
 					<Download className="size-4" />
-					Download Excel report
+					Download audit workbook
 				</Button>
 				<p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
 					<FileSpreadsheet className="size-3.5" />
-					Summary, reconciliation and breaches sheets
+					For us: summary, reconciliation and breaches
 				</p>
 			</CardContent>
 		</Card>

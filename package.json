@@ -17,7 +17,8 @@
     "seed:admin": "node scripts/seed-admin.mjs",
     "eval:weekend-merge": "node --experimental-strip-types scripts/eval-weekend-merge.mjs",
     "db:contract-afternoon": "node scripts/db-drop-legacy-night-unique.mjs",
-    "eval:holidays": "node --experimental-strip-types scripts/eval-holidays.mjs"
+    "eval:holidays": "node --experimental-strip-types scripts/eval-holidays.mjs",
+    "eval:settlement-review": "node --experimental-strip-types scripts/eval-settlement-review.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

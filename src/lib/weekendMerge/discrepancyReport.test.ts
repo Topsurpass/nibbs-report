@@ -142,7 +142,7 @@ test("session order list and the All lines sheet", () => {
 
 test("the painted workbook: verdict, red 'In your file', green 'Should be'", async () => {
 	const ExcelJS = (await import("exceljs")).default;
-	const { buildDiscrepancyXlsx } = await import("./discrepancyExcel.ts");
+	const { buildReviewXlsx: buildDiscrepancyXlsx } = await import("../reviewWorkbook/paint.ts");
 	const { model } = run((l) => ((l[0] = l[0].replace(/\d\.(\d\d)$/, (_m, d) => `9.${d}`)), l));
 	const wb = new ExcelJS.Workbook();
 	await wb.xlsx.load(await buildDiscrepancyXlsx(model, ExcelJS, GENERATED));
