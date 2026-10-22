@@ -41,7 +41,8 @@ Web Push with VAPID through [`web-push`](https://github.com/web-push-libs/web-pu
      - `VAPID_PRIVATE_KEY`
      - `VAPID_SUBJECT` (`mailto:you@…`)
      - `CRON_SECRET` (any long random string)
-   - Redeploy, because the public key is built into the page.
+   - Redeploy (a normal redeploy is enough: the browser fetches the public key from `/api/push/status`, it isn't baked into the page).
+   - If the bell says "Missing on the server: …", that setting isn't visible to the Production deployment. Check its name and that Production is ticked.
 2. **Tables.** Run `npm run db:push` (additive, idempotent).
 3. **Scheduler.** Vercel Hobby crons only run once a day, so use [cron-job.org](https://cron-job.org) (free). Create a job:
    - **URL:** `https://<your-app>/api/cron/shift-reminders`

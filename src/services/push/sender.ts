@@ -1,5 +1,6 @@
 import { Agent } from "node:https";
 import webpush, { WebPushError } from "web-push";
+import { readPushConfig } from "@/lib/push/config";
 import type { PushPayload } from "@/lib/push/schedule";
 import { deleteDevice, markDeviceOk, type PushDevice } from "./repository";
 
@@ -21,15 +22,13 @@ let configured: boolean | undefined;
 /** True when VAPID keys are set; logs once when they are not. */
 export function pushConfigured(): boolean {
 	if (configured !== undefined) return configured;
-	const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-	const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-	const subject = process.env.VAPID_SUBJECT?.trim() || "mailto:admin@example.com";
-	if (!publicKey || !privateKey) {
-		console.warn("[push] NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not set — push notifications disabled.");
+	const config = readPushConfig(process.env);
+	if (!config.enabled || !config.publicKey || !config.privateKey) {
+		console.warn(`[push] push notifications disabled: missing ${config.missing.join(", ")}.`);
 		configured = false;
 		return configured;
 	}
-	webpush.setVapidDetails(subject, publicKey, privateKey);
+	webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
 	configured = true;
 	return configured;
 }

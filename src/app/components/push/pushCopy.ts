@@ -5,7 +5,7 @@ export const PUSH_HELP: Record<Exclude<PushState, "loading" | "off" | "on">, str
 	unsupported: "This browser can't receive notifications. Use Chrome, Edge, Firefox or Safari.",
 	"needs-install":
 		"On iPhone or iPad, tap Share → Add to Home Screen, then open Audit Toolkit from your Home Screen and turn notifications on there.",
-	unavailable: "Notifications aren't set up on the server yet. Ask an admin.",
+	unavailable: "Notifications aren't set up on the server yet. Ask an admin to add the push settings in Vercel and redeploy.",
 	blocked:
 		"Notifications are blocked for this site. Click the lock icon in the address bar, allow Notifications, then reload.",
 };

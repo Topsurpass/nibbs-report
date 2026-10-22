@@ -11,7 +11,7 @@ import { PUSH_HELP, PUSH_PITCH } from "./pushCopy";
 
 /** Header bell: like a channel's subscribe bell, on or off for this device. */
 export default function NotificationBell() {
-	const { state, busy, error, enable, disable, sendTest } = usePush();
+	const { state, missing, busy, error, enable, disable, sendTest } = usePush();
 	const [testing, setTesting] = useState(false);
 	const on = state === "on";
 	const Icon = on ? BellRing : state === "blocked" ? BellOff : Bell;
@@ -53,6 +53,11 @@ export default function NotificationBell() {
 						{state === "on" || state === "off" || state === "loading" ? PUSH_PITCH : PUSH_HELP[state]}
 					</PopoverDescription>
 				</PopoverHeader>
+				{state === "unavailable" && missing.length > 0 && (
+					<p className="rounded-md bg-muted px-2.5 py-1.5 text-[11px] text-muted-foreground">
+						Missing on the server: <span className="tnum font-medium text-foreground">{missing.join(", ")}</span>
+					</p>
+				)}
 				{error && <p role="alert" className="rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">{error}</p>}
 				{(state === "off" || state === "loading") && (
 					<Button onClick={() => void enable()} disabled={busy || state === "loading"}>

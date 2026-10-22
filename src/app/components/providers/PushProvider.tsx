@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { pushSupport, urlBase64ToUint8Array } from "@/lib/push/support";
 
 /**
@@ -10,7 +10,7 @@ import { pushSupport, urlBase64ToUint8Array } from "@/lib/push/support";
  *   loading        still checking the service worker and subscription
  *   unsupported    this browser has no Web Push
  *   needs-install  iPhone/iPad: add to Home Screen first
- *   unavailable    the server has no VAPID keys configured
+ *   unavailable    the server has no VAPID keys configured (`missing` names them)
  *   blocked        the person (or browser policy) denied notifications
  *   off / on       this device is (not) receiving pushes for this user
  */
@@ -18,6 +18,8 @@ export type PushState = "loading" | "unsupported" | "needs-install" | "unavailab
 
 interface PushContextValue {
 	state: PushState;
+	/** Server settings still to add, when `state` is "unavailable". */
+	missing: string[];
 	busy: boolean;
 	error: string | null;
 	enable: () => Promise<void>;
@@ -27,7 +29,22 @@ interface PushContextValue {
 
 const PushContext = createContext<PushContextValue | null>(null);
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+interface PushStatus {
+	ok: boolean;
+	enabled: boolean;
+	publicKey: string | null;
+	missing: string[];
+	registered: boolean;
+}
+
+/** The server's push setup; the public key comes from here, not from the build. */
+async function fetchStatus(endpoint?: string): Promise<PushStatus> {
+	const q = endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : "";
+	const res = await fetch(`/api/push/status${q}`, { cache: "no-store" });
+	const body = (await res.json()) as PushStatus;
+	if (!res.ok && !("enabled" in body)) throw new Error("status failed");
+	return { ...body, missing: body.missing ?? [] };
+}
 
 async function postJson(url: string, method: string, body?: unknown) {
 	const res = await fetch(url, {
@@ -55,6 +72,8 @@ function traits() {
 
 export function PushProvider({ children }: { children: ReactNode }) {
 	const [state, setState] = useState<PushState>("loading");
+	const [missing, setMissing] = useState<string[]>([]);
+	const publicKey = useRef<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -66,13 +85,16 @@ export function PushProvider({ children }: { children: ReactNode }) {
 		(async () => {
 			const support = pushSupport(traits());
 			if (support !== "supported") return settle(support);
-			if (!VAPID_PUBLIC_KEY) return settle("unavailable");
 			const reg = await navigator.serviceWorker.register("/sw.js");
-			if (Notification.permission === "denied") return settle("blocked");
 			const sub = await reg.pushManager.getSubscription();
+			const status = await fetchStatus(sub?.endpoint);
+			if (!status.enabled || !status.publicKey) {
+				if (!cancelled) setMissing(status.missing);
+				return settle("unavailable");
+			}
+			publicKey.current = status.publicKey;
+			if (Notification.permission === "denied") return settle("blocked");
 			if (!sub || Notification.permission !== "granted") return settle("off");
-			const status = await fetch(`/api/push/status?endpoint=${encodeURIComponent(sub.endpoint)}`).then((r) => r.json());
-			if (!status.enabled) return settle("unavailable");
 			if (!status.registered) await postJson("/api/push/subscribe", "POST", sub.toJSON());
 			settle("on");
 		})().catch(() => settle("off"));
@@ -91,11 +113,16 @@ export function PushProvider({ children }: { children: ReactNode }) {
 				setState(permission === "denied" ? "blocked" : "off");
 				return;
 			}
+			const key = publicKey.current ?? (await fetchStatus()).publicKey;
+			if (!key) {
+				setState("unavailable");
+				return;
+			}
 			const reg = await navigator.serviceWorker.register("/sw.js");
 			await navigator.serviceWorker.ready;
 			const sub =
 				(await reg.pushManager.getSubscription()) ??
-				(await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) }));
+				(await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) }));
 			await postJson("/api/push/subscribe", "POST", sub.toJSON());
 			setState("on");
 		} catch (err) {
@@ -128,7 +155,10 @@ export function PushProvider({ children }: { children: ReactNode }) {
 		return data.delivered === 1 ? "Sent to this device." : `Sent to ${data.delivered} devices.`;
 	}, []);
 
-	const value = useMemo(() => ({ state, busy, error, enable, disable, sendTest }), [state, busy, error, enable, disable, sendTest]);
+	const value = useMemo(
+		() => ({ state, missing, busy, error, enable, disable, sendTest }),
+		[state, missing, busy, error, enable, disable, sendTest],
+	);
 	return <PushContext.Provider value={value}>{children}</PushContext.Provider>;
 }
 
