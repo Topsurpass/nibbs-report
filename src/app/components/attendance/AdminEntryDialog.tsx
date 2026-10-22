@@ -56,8 +56,8 @@ interface Props {
 }
 
 /*
- * A full standard shift is prefilled (20:30 → 08:30 for a night; 12:30 or, at
- * weekends, 14:30 → 20:30 for an afternoon). Almost every correction is the
+ * A full standard shift is prefilled (20:00 → 08:00 for a night; 12:00 or, at
+ * weekends, 14:00 → 20:00 for an afternoon). Almost every correction is the
  * standard shift, so the admin adjusts the exception rather than typing the norm.
  */
 

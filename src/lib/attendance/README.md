@@ -5,8 +5,8 @@ shift starts and signs out when it ends. There are two shifts:
 
 | Shift | Hours (Africa/Lagos) | Key |
 |---|---|---|
-| Night | 20:30 → 08:30 every day | the date the night started |
-| Afternoon | 12:30 → 20:30 Mon-Fri, 14:30 → 20:30 Sat-Sun | its own date |
+| Night | 20:00 → 08:00 every day | the date the night started |
+| Afternoon | 12:00 → 20:00 Mon-Fri, 14:00 → 20:00 Sat-Sun | its own date |
 
 Weekday public holidays use weekday afternoon hours. Both shifts have the same
 30-minute sign-out grace. `shifts.ts` owns the afternoon rules and wraps
@@ -30,7 +30,7 @@ cannot hold a night and an afternoon on the same date.
 Analysts often forget to sign in or out, so `ShiftReminder` (mounted in the app shell) shows a pop-up on any page except the Duty Register:
 
 - **Sign in:** a shift is open and they have no entry for it. Buttons: *Sign in now* · *Remind me in 30 min* · *Not on duty today*. "Not on duty" silences that shift for that day only.
-- **Sign out:** they're signed in and the shift ends within 30 minutes ("ends at 20:30"), or it has ended and the 30-minute grace is running. The grace version is urgent and shows a live countdown to the lock. A sign-out reminder beats a sign-in one.
+- **Sign out:** they're signed in and the shift ends within 30 minutes ("ends at 20:00"), or it has ended and the 30-minute grace is running. The grace version is urgent and shows a live countdown to the lock. A sign-out reminder beats a sign-in one.
 - Closing the pop-up counts as "remind me later". It waits while another dialog (for example a first-visit tour) is open.
 
 The rules are pure and tested in `reminders.ts` (`decideReminder`, built on `shifts.ts`). Dismissals are kept per user and per browser in `localStorage` (`nibbs:shift-reminders:<userId>`) and pruned after two days. Sign-in and sign-out go through `postShiftAction`, the same helper the register's card uses.
@@ -48,7 +48,7 @@ can correct a night, and can download the month as Excel or as a JPEG.
 A **night** is keyed by the Africa/Lagos date the shift *started*.
 
 ```
-        20:30              00:00              08:30            20:30
+        20:00              00:00              08:00            20:00
   ────────┼──────────────────┼──────────────────┼────────────────┼────────
           │◀────────── night of the 4th ───────▶│    closed      │ 5th…
        4 Sep                                  5 Sep
@@ -60,8 +60,8 @@ one shift across two days and halve everybody's night count.
 
 | | |
 |---|---|
-| Sign-in window | 20:30 → 08:30 Africa/Lagos |
-| Sign-out grace | 30 minutes past the close (until 09:00) |
+| Sign-in window | 20:00 → 08:00 Africa/Lagos |
+| Sign-out grace | 30 minutes past the close (until 08:30) |
 | One row per | analyst per night, enforced by a unique constraint |
 | Missing sign-out | hours are **unknown**, never zero |
 
@@ -115,7 +115,7 @@ exercise.
   worked.
 - **Sign-out uses `signOutNightFor`, not `nightDateFor`.** During the grace the
   sign-in window is already shut but the finished night must still be closeable.
-- **`instantForNight` splits at 20:30.** Within a night, `21:00` means that
+- **`instantForNight` splits at 20:00.** Within a night, `21:00` means that
   evening and `08:00` means the next morning. This is what makes an admin typing
   a time get the right calendar date.
 - **A signed-out night is locked to the analyst.** `signOut` only updates rows
@@ -147,3 +147,8 @@ its own body. It seeds a throwaway analyst and admin, then deletes both.
 Which sign-in branch the eval takes depends on the wall clock: inside the window
 it verifies the accept path, outside it verifies the refusal. Run it once at night
 and once in the day to cover both.
+
+## Push notifications
+
+Reminders to sign in and out, and team alerts when someone signs in or out, are sent as push notifications even when the app is closed. They complement the in-app pop-up above. The schedule, the setup (VAPID keys, cron-job.org) and the tests are in `src/services/push/README.md`.
+

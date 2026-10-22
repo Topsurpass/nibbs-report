@@ -91,6 +91,19 @@ export async function listAttendance({ month, userId }: ListOptions): Promise<At
 	return rows.map(toEntry);
 }
 
+/** Every shift row on these dates, for everyone (push reminders). */
+export async function listEntriesOn(dates: NightDate[]): Promise<AttendanceEntry[]> {
+	const sql = requireSql();
+	const rows = (await withRetry(
+		() => sql`
+			select ${sql.unsafe(SELECT_COLUMNS)}
+			from nibbs_night_attendance
+			where night_date = any(${dates}::date[])
+		`,
+	)) as Row[];
+	return rows.map(toEntry);
+}
+
 /** The row for one analyst on one shift, if any. */
 export async function getEntry(
 	userId: string,

@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
  * The one thing an analyst comes to this page to do.
  *
  * The window is evaluated from the live clock on every tick, so the card opens
- * at 20:30 and closes at 08:30 without a reload. The server re-checks the same
+ * at 20:00 and closes at 08:00 without a reload. The server re-checks the same
  * rule using the same module — this is a convenience, never the enforcement.
  *
  * Sign-out reliability: this card's `held` state is seeded once from the
@@ -77,11 +77,11 @@ export default function SignInCard({ shift, initialNightDate, initialEntry, onCh
 	const [flash, setFlash] = useState<string | null>(null);
 
 	// The night this card is about: the one accepting sign-ins, or — during the
-	// grace after 08:30 — the one still waiting to be signed out of.
+	// grace after 08:00 — the one still waiting to be signed out of.
 	const activeNight = now ? activeDutyDate(shift, now) : initialNightDate;
 	const canSignIn = now ? dutyDateFor(shift, now) !== null : false;
 
-	// A held row only applies to the night it was loaded for. Crossing 20:30 with
+	// A held row only applies to the night it was loaded for. Crossing 20:00 with
 	// the page open starts a new night, and last night's row must not leak in.
 	const entry = held && held.nightDate === activeNight ? held.entry : null;
 

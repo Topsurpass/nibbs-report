@@ -21,15 +21,15 @@
  */
 export const LAGOS_OFFSET_MINUTES = 60;
 
-/** Sign-in opens at 20:30 Lagos — the start of the night shift. */
-export const WINDOW_OPEN_MINUTE = 20 * 60 + 30;
+/** Sign-in opens at 20:00 Lagos — the start of the night shift. */
+export const WINDOW_OPEN_MINUTE = 20 * 60;
 
-/** ...and closes at 08:30 Lagos the next morning, when the shift ends. */
-export const WINDOW_CLOSE_MINUTE = 8 * 60 + 30;
+/** ...and closes at 08:00 Lagos the next morning, when the shift ends. */
+export const WINDOW_CLOSE_MINUTE = 8 * 60;
 
 /**
  * Grace for signing out after the window shuts. A shift that runs ten minutes
- * long must still be closeable; without this, an 08:31 hand-over leaves the
+ * long must still be closeable; without this, an 08:01 hand-over leaves the
  * night permanently open and needing an admin fix.
  */
 export const SIGN_OUT_GRACE_MINUTES = 30;
@@ -116,12 +116,12 @@ export function lagosInstant(date: NightDate, minuteOfDay: number): Date {
 	return new Date(ms);
 }
 
-/** When sign-in opens for a night (20:30 Lagos on the night's own date). */
+/** When sign-in opens for a night (20:00 Lagos on the night's own date). */
 export function windowOpensAt(nightDate: NightDate): Date {
 	return lagosInstant(nightDate, WINDOW_OPEN_MINUTE);
 }
 
-/** When the window shuts (08:30 Lagos the following morning). */
+/** When the window shuts (08:00 Lagos the following morning). */
 export function windowClosesAt(nightDate: NightDate): Date {
 	return lagosInstant(addDays(nightDate, 1), WINDOW_CLOSE_MINUTE);
 }
@@ -243,7 +243,7 @@ export function formatNightLabel(nightDate: NightDate): string {
 /**
  * Which night a sign-out at this instant applies to, or `null`.
  *
- * Not the same question as `nightDateFor`: the window shuts at 08:30 but a shift
+ * Not the same question as `nightDateFor`: the window shuts at 08:00 but a shift
  * that overruns must still be closeable, so during the grace period this keeps
  * pointing at the night that just ended even though sign-in is already shut.
  */

@@ -39,7 +39,7 @@ test("weekday afternoon, not signed in: remind to sign in", () => {
 	assert.equal(r?.key, `afternoon:${FRI}`);
 });
 
-test("weekend 13:00: afternoon not open yet (14:30), nothing to say", () => {
+test("weekend 13:00: afternoon not open yet (14:00), nothing to say", () => {
 	assert.equal(decide(lagos(SAT, "13:00")), null);
 	assert.equal(decide(lagos(SAT, "14:30"))?.kind, "sign-in");
 });
@@ -62,6 +62,11 @@ test("'not on duty' silences that shift date only", () => {
 	assert.equal(decide(lagos("2026-10-19", "13:00"), none, memory)?.kind, "sign-in");
 });
 
+test("'not on duty' said on another device (server flag) silences the sign-in too", () => {
+	const current = { ...none, afternoon: { entry: null, notOnDuty: true } };
+	assert.equal(decide(lagos(FRI, "13:00"), current), null);
+});
+
 test("snooze hides a reminder until it expires", () => {
 	const memory = snooze(EMPTY_MEMORY, `afternoon:${FRI}`, lagos(FRI, "13:00"));
 	assert.equal(decide(lagos(FRI, "13:29"), none, memory), null);
@@ -69,14 +74,14 @@ test("snooze hides a reminder until it expires", () => {
 });
 
 test("signed in, not out: sign-out reminder from 30 min before close, urgent in grace", () => {
-	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:41")) } };
-	assert.equal(decide(lagos(FRI, "19:59"), current), null);
-	const soon = decide(lagos(FRI, "20:00"), current);
+	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:11")) } };
+	assert.equal(decide(lagos(FRI, "19:29"), current), null);
+	const soon = decide(lagos(FRI, "19:30"), current);
 	assert.equal(soon?.kind, "sign-out");
 	assert.equal(soon?.kind === "sign-out" && soon.phase, "closing-soon");
-	const grace = decide(lagos(FRI, "20:40"), current);
+	const grace = decide(lagos(FRI, "20:10"), current);
 	assert.equal(grace?.kind === "sign-out" && grace.phase, "grace");
-	assert.equal(grace?.kind === "sign-out" && grace.deadline.toISOString(), lagos(FRI, "21:00").toISOString());
+	assert.equal(grace?.kind === "sign-out" && grace.deadline.toISOString(), lagos(FRI, "20:30").toISOString());
 });
 
 test("after the grace period the shift is locked: no sign-out reminder", () => {
@@ -85,34 +90,34 @@ test("after the grace period the shift is locked: no sign-out reminder", () => {
 });
 
 test("signed out already: nothing more to say about that shift", () => {
-	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:41"), lagos(FRI, "20:20")) } };
-	assert.equal(decide(lagos(FRI, "20:25"), current), null);
+	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:11"), lagos(FRI, "19:50")) } };
+	assert.equal(decide(lagos(FRI, "19:55"), current), null);
 });
 
-test("night shift: sign-out reminder from 08:00, urgent 08:30-09:00", () => {
-	const current = { ...none, night: { entry: entry("night", FRI, lagos(FRI, "20:35")) } };
-	assert.equal(decide(lagos(SAT, "07:59"), current), null);
-	assert.equal((decide(lagos(SAT, "08:00"), current) as { phase?: string })?.phase, "closing-soon");
-	assert.equal((decide(lagos(SAT, "08:45"), current) as { phase?: string })?.phase, "grace");
-	assert.equal(decide(lagos(SAT, "09:01"), current), null);
+test("night shift: sign-out reminder from 07:30, urgent 08:00-08:30", () => {
+	const current = { ...none, night: { entry: entry("night", FRI, lagos(FRI, "20:05")) } };
+	assert.equal(decide(lagos(SAT, "07:29"), current), null);
+	assert.equal((decide(lagos(SAT, "07:30"), current) as { phase?: string })?.phase, "closing-soon");
+	assert.equal((decide(lagos(SAT, "08:15"), current) as { phase?: string })?.phase, "grace");
+	assert.equal(decide(lagos(SAT, "08:31"), current), null);
 });
 
-test("20:45: afternoon sign-out (deadline 21:00) wins over night sign-in", () => {
-	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:41")) } };
-	const r = decide(lagos(FRI, "20:45"), current);
+test("20:15: afternoon sign-out (deadline 20:30) wins over night sign-in", () => {
+	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:11")) } };
+	const r = decide(lagos(FRI, "20:15"), current);
 	assert.equal(r?.kind, "sign-out");
 	assert.equal(r?.shift, "afternoon");
 	// Once signed out, the night sign-in reminder takes over.
-	const out = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:41"), lagos(FRI, "20:44")) } };
-	assert.equal(decide(lagos(FRI, "20:45"), out)?.shift, "night");
+	const out = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:11"), lagos(FRI, "20:14")) } };
+	assert.equal(decide(lagos(FRI, "20:15"), out)?.shift, "night");
 });
 
 test("snoozing the closing-soon reminder does not hide the urgent grace one", () => {
-	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:41")) } };
-	const soon = decide(lagos(FRI, "20:10"), current)!;
-	const memory = snooze(EMPTY_MEMORY, soon.key, lagos(FRI, "20:10"));
-	assert.notEqual(decide(lagos(FRI, "20:20"), current, memory)?.kind, "sign-out");
-	assert.equal((decide(lagos(FRI, "20:31"), current, memory) as { phase?: string })?.phase, "grace");
+	const current = { ...none, afternoon: { entry: entry("afternoon", FRI, lagos(FRI, "12:11")) } };
+	const soon = decide(lagos(FRI, "19:40"), current)!;
+	const memory = snooze(EMPTY_MEMORY, soon.key, lagos(FRI, "19:40"));
+	assert.notEqual(decide(lagos(FRI, "19:50"), current, memory)?.kind, "sign-out");
+	assert.equal((decide(lagos(FRI, "20:01"), current, memory) as { phase?: string })?.phase, "grace");
 });
 
 test("memory: prune drops old shifts and expired snoozes; parse survives junk", () => {

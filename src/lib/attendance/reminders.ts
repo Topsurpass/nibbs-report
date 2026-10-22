@@ -35,6 +35,8 @@ const DAY = 86_400_000;
 export interface CurrentShift {
 	/** The user's row for this shift's current date, if any. */
 	entry: AttendanceEntry | null;
+	/** They said "not on duty" for this shift date (on any device, or a push notification). */
+	notOnDuty?: boolean;
 }
 
 export type Reminder =
@@ -103,7 +105,7 @@ export function decideReminder(input: {
 		const entry = current[shift].entry;
 		if (entry && entry.nightDate === date) continue;
 		const key = shiftKey(shift, date);
-		if (memory.notOnDuty.includes(key) || hidden(memory, key, now)) continue;
+		if (current[shift].notOnDuty || memory.notOnDuty.includes(key) || hidden(memory, key, now)) continue;
 		return { kind: "sign-in", key, shift, date, closesAt: shiftClosesAt(shift, date) };
 	}
 

@@ -1,6 +1,8 @@
 import { SHIFT_META, parseShift, signOutDutyFor } from "@/lib/attendance/shifts";
+import { after } from "next/server";
 import { requireUser } from "@/services/auth/guards";
 import { signOut } from "@/services/attendance/repository";
+import { notifyTeam } from "@/services/push/broadcast";
 
 export const runtime = "nodejs";
 
@@ -50,6 +52,13 @@ export async function POST(request: Request) {
 				{ status: 409 },
 			);
 		}
+
+		const user = auth.user;
+		after(() =>
+			notifyTeam({ actor: user, action: "sign-out", shift, date: dutyDate, at: now }).catch((err) =>
+				console.error("[push] team sign-out alert failed", err),
+			),
+		);
 
 		return Response.json({
 			ok: true,

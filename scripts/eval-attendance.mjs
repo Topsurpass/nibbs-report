@@ -14,7 +14,7 @@
 // both users (which cascades their attendance rows) and reports the table count
 // so a leaked row is impossible to miss. Exits non-zero if any check fails.
 //
-// The sign-in branch it takes depends on the wall clock: inside 20:30-08:30 it
+// The sign-in branch it takes depends on the wall clock: inside 20:00-08:00 it
 // verifies the accept path, outside it verifies the refusal. Run it once at
 // night and once in the day to cover both.
 
@@ -76,7 +76,7 @@ const lagos = new Date(now.getTime() + 60 * 60000);
 const mod = lagos.getUTCHours() * 60 + lagos.getUTCMinutes();
 const day = lagos.toISOString().slice(0, 10);
 const shift = (d, n) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10);
-const expectedNight = mod >= 1230 ? day : mod < 510 ? shift(day, -1) : null;
+const expectedNight = mod >= 1200 ? day : mod < 480 ? shift(day, -1) : null;
 const month = (expectedNight ?? day).slice(0, 7);
 console.log(`\nLagos now ${String(Math.floor(mod/60)).padStart(2,"0")}:${String(mod%60).padStart(2,"0")} on ${day}`);
 console.log(`Window ${expectedNight ? "OPEN → night " + expectedNight : "CLOSED"} · month ${month}\n`);
@@ -113,7 +113,7 @@ if (expectedNight) {
   // The lock binds the analyst, not the admin: corrections must still be possible.
   const fix = await call("/api/attendance/entries", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: who.analyst.id, nightDate: expectedNight, signedIn: "20:30", signedOut: "06:00", note: "Left early." }),
+    body: JSON.stringify({ userId: who.analyst.id, nightDate: expectedNight, signedIn: "20:00", signedOut: "06:00", note: "Left early." }),
   }, "admin");
   const fixBody = await fix.json();
   ok("an admin can still change a locked night", fix.status === 200 && fixBody.ok, JSON.stringify(fixBody));
@@ -121,7 +121,7 @@ if (expectedNight) {
   await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${expectedNight}`, { method: "DELETE" }, "admin");
 } else {
   ok("sign-in refused outside the window", si.status === 403 && !siBody.ok, JSON.stringify(siBody));
-  ok("...and it says when it opens", /20:30/.test(siBody.error ?? ""), siBody.error);
+  ok("...and it says when it opens", /20:00/.test(siBody.error ?? ""), siBody.error);
   const so = await call("/api/attendance/sign-out", { method: "POST" });
   ok("sign-out refused with no open shift", so.status === 403);
 }
@@ -144,10 +144,10 @@ ok("07:15 lands on the MORNING AFTER",
 // back as a clean twelve hours.
 const defaults = await call("/api/attendance/entries", {
   method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ userId: who.analyst.id, nightDate: shift(night, 1), signedIn: "20:30", signedOut: "08:30" }),
+  body: JSON.stringify({ userId: who.analyst.id, nightDate: shift(night, 1), signedIn: "20:00", signedOut: "08:00" }),
 }, "admin");
 const defBody = await defaults.json();
-ok("the prefilled 20:30 → 08:30 shift is accepted", defaults.status === 200 && defBody.ok, JSON.stringify(defBody));
+ok("the prefilled 20:00 → 08:00 shift is accepted", defaults.status === 200 && defBody.ok, JSON.stringify(defBody));
 ok("...and it spans exactly 12 hours",
    defBody.entry && (Date.parse(defBody.entry.signedOutAt) - Date.parse(defBody.entry.signedInAt)) === 12 * 3600000,
    `${defBody.entry?.signedInAt} → ${defBody.entry?.signedOutAt}`);
@@ -240,7 +240,7 @@ for (let d = 1; d <= 12; d++) {
   seeded.push(n);
   await call("/api/attendance/entries", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: who.analyst.id, nightDate: n, signedIn: "20:30", signedOut: "08:30" }),
+    body: JSON.stringify({ userId: who.analyst.id, nightDate: n, signedIn: "20:00", signedOut: "08:00" }),
   }, "admin");
 }
 const shared = `${month}-12`;
@@ -287,11 +287,11 @@ for (const sh of ["night", "afternoon"]) {
      tn.ok === true && tn.shift === sh && "entry" in tn && (tn.nightDate === null || /^\d{4}-\d{2}-\d{2}$/.test(tn.nightDate)),
      JSON.stringify(tn));
 }
-// Mirrored independently of src/lib/attendance/shifts.ts: weekdays open 12:30,
-// weekends 14:30, both close 20:30, sign-out grace until 21:00.
+// Mirrored independently of src/lib/attendance/shifts.ts: weekdays open 12:00,
+// weekends 14:00, both close 20:00, sign-out grace until 20:30.
 const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
-const pmOpen = dow === 0 || dow === 6 ? 870 : 750;
-const pmOpenNow = mod >= pmOpen && mod < 1230;
+const pmOpen = dow === 0 || dow === 6 ? 840 : 720;
+const pmOpenNow = mod >= pmOpen && mod < 1200;
 const pmSi = await call("/api/attendance/sign-in?shift=afternoon", { method: "POST" });
 const pmSiBody = await pmSi.json();
 if (pmOpenNow) {
@@ -315,18 +315,18 @@ const post = (body) => call("/api/attendance/entries", {
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
 }, "admin");
 
-const pmAdd = await post({ userId: who.analyst.id, nightDate: weekday, shift: "afternoon", signedIn: "12:30", signedOut: "20:30" });
+const pmAdd = await post({ userId: who.analyst.id, nightDate: weekday, shift: "afternoon", signedIn: "12:00", signedOut: "20:00" });
 const pmAddBody = await pmAdd.json();
-ok("admin can add a weekday afternoon 12:30 → 20:30", pmAdd.status === 200 && pmAddBody.ok, JSON.stringify(pmAddBody));
+ok("admin can add a weekday afternoon 12:00 → 20:00", pmAdd.status === 200 && pmAddBody.ok, JSON.stringify(pmAddBody));
 ok("...stored as an afternoon on that same date",
-   pmAddBody.entry?.shift === "afternoon" && pmAddBody.entry?.signedInAt === `${weekday}T11:30:00.000Z` &&
-   pmAddBody.entry?.signedOutAt === `${weekday}T19:30:00.000Z`, JSON.stringify(pmAddBody.entry));
+   pmAddBody.entry?.shift === "afternoon" && pmAddBody.entry?.signedInAt === `${weekday}T11:00:00.000Z` &&
+   pmAddBody.entry?.signedOutAt === `${weekday}T19:00:00.000Z`, JSON.stringify(pmAddBody.entry));
 
-const pmEarlyWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "12:30", signedOut: "20:30" });
-ok("a weekend afternoon starting 12:30 is rejected (weekends open 14:30)", pmEarlyWknd.status === 400,
+const pmEarlyWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "12:00", signedOut: "20:00" });
+ok("a weekend afternoon starting 12:00 is rejected (weekends open 14:00)", pmEarlyWknd.status === 400,
    `${pmEarlyWknd.status} ${JSON.stringify(await pmEarlyWknd.json())}`);
-const pmWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "14:30", signedOut: "20:30" });
-ok("a weekend afternoon 14:30 → 20:30 is accepted", pmWknd.status === 200);
+const pmWknd = await post({ userId: who.analyst.id, nightDate: weekend, shift: "afternoon", signedIn: "14:00", signedOut: "20:00" });
+ok("a weekend afternoon 14:00 → 20:00 is accepted", pmWknd.status === 200);
 const pmNightTime = await post({ userId: who.analyst.id, nightDate: weekday, shift: "afternoon", signedIn: "22:00" });
 ok("a night-time sign-in on the afternoon register is rejected", pmNightTime.status === 400);
 
@@ -357,7 +357,7 @@ const [legacy] = await sql`
   select count(*)::int as n from pg_constraint
   where conname = 'nibbs_night_attendance_user_id_night_date_key'`;
 if (legacy.n === 0) {
-  const both = await post({ userId: who.analyst.id, nightDate: weekday, shift: "night", signedIn: "20:30", signedOut: "08:30" });
+  const both = await post({ userId: who.analyst.id, nightDate: weekday, shift: "night", signedIn: "20:00", signedOut: "08:00" });
   ok("a night and an afternoon can share a date", both.status === 200, String(both.status));
   await call(`/api/attendance/entries?userId=${who.analyst.id}&nightDate=${weekday}&shift=night`, { method: "DELETE" }, "admin");
 } else {

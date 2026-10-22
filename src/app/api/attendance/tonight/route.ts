@@ -1,6 +1,7 @@
 import { activeDutyDate, parseShift } from "@/lib/attendance/shifts";
 import { requireUser } from "@/services/auth/guards";
 import { getEntry } from "@/services/attendance/repository";
+import { isDismissed } from "@/services/push/repository";
 
 export const runtime = "nodejs";
 
@@ -22,8 +23,11 @@ export async function GET(request: Request) {
 	const nightDate = activeDutyDate(shift, new Date());
 
 	try {
-		const entry = nightDate ? await getEntry(auth.user.id, nightDate, shift) : null;
-		return Response.json({ ok: true, shift, nightDate, entry });
+		const [entry, notOnDuty] = nightDate
+			? await Promise.all([getEntry(auth.user.id, nightDate, shift), isDismissed(auth.user.id, shift, nightDate).catch(() => false)])
+			: [null, false];
+		// `notOnDuty`: they said so on a push notification or the pop-up, on any device.
+		return Response.json({ ok: true, shift, nightDate, entry, notOnDuty });
 	} catch (err) {
 		console.error("[attendance] current-shift lookup failed", err);
 		return Response.json(

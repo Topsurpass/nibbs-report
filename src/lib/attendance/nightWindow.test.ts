@@ -43,25 +43,25 @@ test("toLagos reads wall clock in Lagos, never host local time", () => {
 	});
 });
 
-test("window opens at 20:30 and not a minute before", () => {
-	assert.equal(nightDateFor(lagos("2026-09-04T20:29:59")), null);
-	assert.equal(nightDateFor(lagos("2026-09-04T20:30:00")), "2026-09-04");
-	assert.equal(isWindowOpen(lagos("2026-09-04T20:29:00")), false);
-	assert.equal(isWindowOpen(lagos("2026-09-04T20:31:00")), true);
+test("window opens at 20:00 and not a minute before", () => {
+	assert.equal(nightDateFor(lagos("2026-09-04T19:59:59")), null);
+	assert.equal(nightDateFor(lagos("2026-09-04T20:00:00")), "2026-09-04");
+	assert.equal(isWindowOpen(lagos("2026-09-04T19:59:00")), false);
+	assert.equal(isWindowOpen(lagos("2026-09-04T20:01:00")), true);
 });
 
 test("after midnight still belongs to the night that started the evening before", () => {
-	assert.equal(nightDateFor(lagos("2026-09-05T00:00:00")), "2026-09-04");
-	assert.equal(nightDateFor(lagos("2026-09-05T02:00:00")), "2026-09-04");
-	assert.equal(nightDateFor(lagos("2026-09-05T08:29:59")), "2026-09-04");
+	assert.equal(nightDateFor(lagos("2026-09-04T23:30:00")), "2026-09-04");
+	assert.equal(nightDateFor(lagos("2026-09-05T01:30:00")), "2026-09-04");
+	assert.equal(nightDateFor(lagos("2026-09-05T07:59:59")), "2026-09-04");
 });
 
-test("window shuts at 08:30 — the daytime gap has no night", () => {
-	assert.equal(nightDateFor(lagos("2026-09-05T08:30:00")), null);
-	assert.equal(nightDateFor(lagos("2026-09-05T12:00:00")), null);
-	assert.equal(nightDateFor(lagos("2026-09-05T20:29:00")), null);
+test("window shuts at 08:00 — the daytime gap has no night", () => {
+	assert.equal(nightDateFor(lagos("2026-09-05T08:00:00")), null);
+	assert.equal(nightDateFor(lagos("2026-09-05T11:30:00")), null);
+	assert.equal(nightDateFor(lagos("2026-09-05T19:59:00")), null);
 	// ...and the next evening starts a NEW night, not a continuation.
-	assert.equal(nightDateFor(lagos("2026-09-05T20:30:00")), "2026-09-05");
+	assert.equal(nightDateFor(lagos("2026-09-05T20:00:00")), "2026-09-05");
 });
 
 test("night key rolls across month and year boundaries", () => {
@@ -85,18 +85,18 @@ test("a whole night maps to exactly one key, sampled every 10 minutes", () => {
 test("window bounds are 12 hours apart", () => {
 	const open = windowOpensAt("2026-09-04");
 	const close = windowClosesAt("2026-09-04");
-	assert.equal(open.toISOString(), "2026-09-04T19:30:00.000Z");
-	assert.equal(close.toISOString(), "2026-09-05T07:30:00.000Z");
+	assert.equal(open.toISOString(), "2026-09-04T19:00:00.000Z");
+	assert.equal(close.toISOString(), "2026-09-05T07:00:00.000Z");
 	assert.equal((close.getTime() - open.getTime()) / 3_600_000, 12);
 });
 
 test("sign-out gets a 30 minute grace past the close, then stops", () => {
-	assert.equal(signOutDeadline("2026-09-04").toISOString(), "2026-09-05T08:00:00.000Z");
-	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T08:29:00")), true);
-	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T09:00:00")), true);
-	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T09:01:00")), false);
+	assert.equal(signOutDeadline("2026-09-04").toISOString(), "2026-09-05T07:30:00.000Z");
+	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T07:59:00")), true);
+	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T08:30:00")), true);
+	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-05T08:31:00")), false);
 	// Never before the shift began.
-	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-04T20:29:00")), false);
+	assert.equal(canSignOutAt("2026-09-04", lagos("2026-09-04T19:59:00")), false);
 });
 
 test("duration: absent sign-out is missing, not zero", () => {
@@ -120,20 +120,20 @@ test("formatLagosTime is 24-hour Lagos wall clock", () => {
 	assert.equal(formatLagosTime(new Date("2026-09-04T23:05:00Z")), "00:05");
 });
 
-test("nextOpenAfter finds tonight before 20:30 and tomorrow after the close", () => {
+test("nextOpenAfter finds tonight before 20:00 and tomorrow after the close", () => {
 	assert.equal(
-		nextOpenAfter(lagos("2026-09-05T12:00:00")).toISOString(),
-		"2026-09-05T19:30:00.000Z",
+		nextOpenAfter(lagos("2026-09-05T11:30:00")).toISOString(),
+		"2026-09-05T19:00:00.000Z",
 	);
 	// Already inside a night (02:00) → the next window is this evening.
 	assert.equal(
-		nextOpenAfter(lagos("2026-09-05T02:00:00")).toISOString(),
-		"2026-09-05T19:30:00.000Z",
+		nextOpenAfter(lagos("2026-09-05T01:30:00")).toISOString(),
+		"2026-09-05T19:00:00.000Z",
 	);
 	// Just after opening → tomorrow.
 	assert.equal(
-		nextOpenAfter(lagos("2026-09-05T21:00:00")).toISOString(),
-		"2026-09-06T19:30:00.000Z",
+		nextOpenAfter(lagos("2026-09-05T20:30:00")).toISOString(),
+		"2026-09-06T19:00:00.000Z",
 	);
 });
 
@@ -219,21 +219,21 @@ test("labels", () => {
 
 test("signOutNightFor keeps pointing at the finished night through the grace", () => {
 	// Mid-shift: same answer as sign-in.
-	assert.equal(signOutNightFor(lagos("2026-09-05T02:00:00")), "2026-09-04");
+	assert.equal(signOutNightFor(lagos("2026-09-05T01:30:00")), "2026-09-04");
 	// Window has shut, but the grace is still running.
-	assert.equal(nightDateFor(lagos("2026-09-05T08:45:00")), null);
-	assert.equal(signOutNightFor(lagos("2026-09-05T08:45:00")), "2026-09-04");
-	assert.equal(signOutNightFor(lagos("2026-09-05T09:00:00")), "2026-09-04");
+	assert.equal(nightDateFor(lagos("2026-09-05T08:15:00")), null);
+	assert.equal(signOutNightFor(lagos("2026-09-05T08:15:00")), "2026-09-04");
+	assert.equal(signOutNightFor(lagos("2026-09-05T08:30:00")), "2026-09-04");
 	// Grace over — nothing left to close.
-	assert.equal(signOutNightFor(lagos("2026-09-05T09:01:00")), null);
-	assert.equal(signOutNightFor(lagos("2026-09-05T15:00:00")), null);
+	assert.equal(signOutNightFor(lagos("2026-09-05T08:31:00")), null);
+	assert.equal(signOutNightFor(lagos("2026-09-05T14:30:00")), null);
 	// A new evening is a new night, never the old one.
-	assert.equal(signOutNightFor(lagos("2026-09-05T21:00:00")), "2026-09-05");
+	assert.equal(signOutNightFor(lagos("2026-09-05T20:30:00")), "2026-09-05");
 });
 
 test("signOutNightFor never leaks across a month boundary", () => {
-	assert.equal(signOutNightFor(lagos("2026-10-01T08:45:00")), "2026-09-30");
-	assert.equal(signOutNightFor(lagos("2027-01-01T08:45:00")), "2026-12-31");
+	assert.equal(signOutNightFor(lagos("2026-10-01T08:15:00")), "2026-09-30");
+	assert.equal(signOutNightFor(lagos("2027-01-01T08:15:00")), "2026-12-31");
 });
 
 test("parseClock accepts real clock times only", () => {
@@ -268,7 +268,7 @@ test("instantForNight puts evening times on the night's date and morning times o
 		"2026-09-05T07:00:00.000Z",
 	);
 	// The night key it produces must round-trip back to the same night.
-	for (const clock of ["20:30", "23:00", "00:01", "04:00", "08:29"]) {
+	for (const clock of ["20:00", "23:00", "00:01", "04:00", "07:59"]) {
 		assert.equal(
 			nightDateFor(instantForNight("2026-09-04", parseClock(clock)!)),
 			"2026-09-04",

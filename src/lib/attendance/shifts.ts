@@ -5,8 +5,8 @@
  * the afternoon shift beside it and gives every caller one shift-aware API, so
  * the browser and the routes keep running the identical rule for both.
  *
- *   Afternoon   Mon-Fri 12:30 → 20:30   Sat-Sun 14:30 → 20:30   (Lagos)
- *   Night       every day 20:30 → 08:30 next morning
+ *   Afternoon   Mon-Fri 12:00 → 20:00   Sat-Sun 14:00 → 20:00   (Lagos)
+ *   Night       every day 20:00 → 08:00 next morning
  *
  * Public holidays on a weekday use weekday hours. Both shifts allow the same
  * 30-minute sign-out grace after they close.
@@ -18,6 +18,8 @@
 
 import {
 	SIGN_OUT_GRACE_MINUTES,
+	WINDOW_CLOSE_MINUTE,
+	WINDOW_OPEN_MINUTE,
 	addDays,
 	canSignOutAt as nightCanSignOutAt,
 	instantForNight,
@@ -55,12 +57,12 @@ export const SHIFT_META: Record<Shift, ShiftMeta> = {
 	afternoon: { label: "Afternoon", noun: "afternoon", plural: "Afternoons", current: "this afternoon" },
 };
 
-/** 12:30 Lagos on Monday-Friday. */
-export const AFTERNOON_WEEKDAY_OPEN_MINUTE = 12 * 60 + 30;
-/** 14:30 Lagos on Saturday and Sunday. */
-export const AFTERNOON_WEEKEND_OPEN_MINUTE = 14 * 60 + 30;
-/** Afternoon duty ends at 20:30 every day, as the night shift begins. */
-export const AFTERNOON_CLOSE_MINUTE = 20 * 60 + 30;
+/** 12:00 Lagos on Monday-Friday. */
+export const AFTERNOON_WEEKDAY_OPEN_MINUTE = 12 * 60;
+/** 14:00 Lagos on Saturday and Sunday. */
+export const AFTERNOON_WEEKEND_OPEN_MINUTE = 14 * 60;
+/** Afternoon duty ends at 20:00 every day, as the night shift begins. */
+export const AFTERNOON_CLOSE_MINUTE = 20 * 60;
 
 const MS_PER_MINUTE = 60_000;
 
@@ -149,17 +151,17 @@ export function isWithinDuty(shift: Shift, date: DutyDate, at: Date): boolean {
 const clock = (minute: number) =>
 	`${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 
-/** `"12:30"` / `"14:30"` / `"20:30"`: the standard start time on a date. */
+/** `"12:00"` / `"14:00"` / `"20:00"`: the standard start time on a date. */
 export function shiftStartClock(shift: Shift, date: DutyDate): string {
-	return shift === "night" ? "20:30" : clock(afternoonOpenMinute(date));
+	return clock(shift === "night" ? WINDOW_OPEN_MINUTE : afternoonOpenMinute(date));
 }
 
-/** `"20:30"` / `"08:30"`: the standard end time. */
+/** `"20:00"` / `"08:00"`: the standard end time. */
 export function shiftEndClock(shift: Shift): string {
-	return shift === "night" ? "08:30" : clock(AFTERNOON_CLOSE_MINUTE);
+	return clock(shift === "night" ? WINDOW_CLOSE_MINUTE : AFTERNOON_CLOSE_MINUTE);
 }
 
-/** `"12:30–20:30"` for a date, as shown in hints and errors. */
+/** `"12:00–20:00"` for a date, as shown in hints and errors. */
 export function shiftHours(shift: Shift, date: DutyDate): string {
 	return `${shiftStartClock(shift, date)}–${shiftEndClock(shift)}`;
 }
@@ -167,8 +169,8 @@ export function shiftHours(shift: Shift, date: DutyDate): string {
 /** Plain-language hours for both day types, for help text. */
 export function shiftHoursSummary(shift: Shift): string {
 	return shift === "night"
-		? "20:30 → 08:30 every day"
-		: "12:30 → 20:30 on weekdays, 14:30 → 20:30 on weekends";
+		? `${shiftStartClock("night", "2026-01-01")} → ${shiftEndClock("night")} every day`
+		: `${clock(AFTERNOON_WEEKDAY_OPEN_MINUTE)} → ${clock(AFTERNOON_CLOSE_MINUTE)} on weekdays, ${clock(AFTERNOON_WEEKEND_OPEN_MINUTE)} → ${clock(AFTERNOON_CLOSE_MINUTE)} on weekends`;
 }
 
 /**

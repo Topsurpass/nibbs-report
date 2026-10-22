@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
  * A month of nights, laid out Monday-first.
  *
  * Cells are keyed by *night*, not by timestamp: the square for the 4th covers
- * 20:30 on the 4th through 08:30 on the 5th, which is why a 02:00 sign-in shows
+ * 20:00 on the 4th through 08:00 on the 5th, which is why a 02:00 sign-in shows
  * up on the 4th and not the 5th. `buildMonthGrid` owns the layout and is unit
  * tested, so this component only paints.
  */
@@ -139,7 +139,7 @@ export default function AttendanceCalendar({ shift, month, entries, scope, onPic
 				</span>
 				<span className="ml-auto">
 					{shift === "night"
-						? "A night runs 20:30 → 08:30 and is shown on the day it started."
+						? "A night runs 20:00 → 08:00 and is shown on the day it started."
 						: `An ${meta.noun} runs ${shiftHoursSummary(shift)}.`}
 				</span>
 			</div>

@@ -6,8 +6,10 @@ import {
 	parseShift,
 	shiftClosesAt,
 } from "@/lib/attendance/shifts";
+import { after } from "next/server";
 import { requireUser } from "@/services/auth/guards";
 import { signIn } from "@/services/attendance/repository";
+import { notifyTeam } from "@/services/push/broadcast";
 
 export const runtime = "nodejs";
 
@@ -41,6 +43,16 @@ export async function POST(request: Request) {
 
 	try {
 		const { created, entry } = await signIn(auth.user.id, dutyDate, shift, now);
+		// Tell the rest of the team, after the response so the button stays fast.
+		// Only a real sign-in: a repeat tap changed nothing and says nothing.
+		if (created) {
+			const user = auth.user;
+			after(() =>
+				notifyTeam({ actor: user, action: "sign-in", shift, date: dutyDate, at: now }).catch((err) =>
+					console.error("[push] team sign-in alert failed", err),
+				),
+			);
+		}
 		return Response.json({
 			ok: true,
 			created,

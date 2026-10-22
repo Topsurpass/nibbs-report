@@ -60,9 +60,9 @@ async function fetchCurrent(): Promise<Record<Shift, CurrentShift>> {
 	const pairs = await Promise.all(
 		SHIFTS.map(async (shift) => {
 			const res = await fetch(`/api/attendance/tonight?shift=${shift}`, { cache: "no-store" });
-			const body = (await res.json()) as { ok: boolean; entry: AttendanceEntry | null };
+			const body = (await res.json()) as { ok: boolean; entry: AttendanceEntry | null; notOnDuty?: boolean };
 			if (!res.ok || !body.ok) throw new Error("lookup failed");
-			return [shift, { entry: body.entry }] as const;
+			return [shift, { entry: body.entry, notOnDuty: body.notOnDuty === true }] as const;
 		}),
 	);
 	return Object.fromEntries(pairs) as Record<Shift, CurrentShift>;
@@ -200,7 +200,19 @@ export default function ShiftReminder({ userId }: { userId: string }) {
 				<DialogFooter className="gap-2 sm:justify-between">
 					{reminder.kind === "sign-in" ? (
 						<>
-							<Button variant="ghost" onClick={() => remember((m) => markNotOnDuty(m, reminder.key))} disabled={busy}>
+							<Button
+								variant="ghost"
+								onClick={() => {
+									remember((m) => markNotOnDuty(m, reminder.key));
+									// Also on the server, so push reminders on every device stop too.
+									void fetch("/api/push/not-on-duty", {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ shift: reminder.shift, date: reminder.date }),
+									}).catch(() => undefined);
+								}}
+								disabled={busy}
+							>
 								Not on duty today
 							</Button>
 							<div className="flex flex-col-reverse gap-2 sm:flex-row">

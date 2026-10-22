@@ -9,6 +9,7 @@ import ShiftReminder from "./attendance/ShiftReminder";
 import { MasterProvider } from "./providers/MasterProvider";
 import { AuditProvider } from "./providers/AuditProvider";
 import { WeekendMergeProvider } from "./providers/WeekendMergeProvider";
+import { PushProvider } from "./providers/PushProvider";
 import type { MasterBank } from "@/lib/master";
 import type { AuthUser } from "@/types/user";
 
@@ -33,15 +34,17 @@ export default function AppChrome({ user, initialMaster, children }: Props) {
 		<MasterProvider initialMaster={initialMaster}>
 			<AuditProvider>
 				<WeekendMergeProvider>
-					<SidebarProvider>
-						<AppSidebar user={user} />
-						<SidebarInset>
-							<SiteHeader user={user} onOpenCommand={() => setCommandOpen(true)} />
-							<div className="flex flex-1 flex-col">{children}</div>
-						</SidebarInset>
-					</SidebarProvider>
-					<CommandMenu open={commandOpen} onOpenChange={setCommandOpen} user={user} />
-					<ShiftReminder userId={user.id} />
+					<PushProvider>
+						<SidebarProvider>
+							<AppSidebar user={user} />
+							<SidebarInset>
+								<SiteHeader user={user} onOpenCommand={() => setCommandOpen(true)} />
+								<div className="flex flex-1 flex-col">{children}</div>
+							</SidebarInset>
+						</SidebarProvider>
+						<CommandMenu open={commandOpen} onOpenChange={setCommandOpen} user={user} />
+						<ShiftReminder userId={user.id} />
+					</PushProvider>
 				</WeekendMergeProvider>
 			</AuditProvider>
 		</MasterProvider>

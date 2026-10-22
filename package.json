@@ -18,7 +18,8 @@
     "eval:weekend-merge": "node --experimental-strip-types scripts/eval-weekend-merge.mjs",
     "db:contract-afternoon": "node scripts/db-drop-legacy-night-unique.mjs",
     "eval:holidays": "node --experimental-strip-types scripts/eval-holidays.mjs",
-    "eval:settlement-review": "node --experimental-strip-types scripts/eval-settlement-review.mjs"
+    "eval:settlement-review": "node --experimental-strip-types scripts/eval-settlement-review.mjs",
+    "eval:push": "node scripts/eval-push.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -41,6 +42,7 @@
     "shadcn": "^4.21.0",
     "sonner": "^2.0.8",
     "tw-animate-css": "^1.4.0",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
@@ -50,6 +52,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",

@@ -47,11 +47,11 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 	},
 	{
 		icon: "🕗",
-		title: "The button opens at 20:30",
+		title: "The button opens at 20:00",
 		body: (
 			<>
 				<p>
-					Sign-in is only available between <strong>20:30 and 08:30</strong>, so a night can
+					Sign-in is only available between <strong>20:00 and 08:00</strong>, so a night can
 					only be marked while you are actually on duty. Outside those hours the card shows a
 					countdown instead of a button.
 				</p>
@@ -64,7 +64,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 			<Mock>
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-lg font-bold tabular-nums text-foreground">20:31</p>
+						<p className="text-lg font-bold tabular-nums text-foreground">20:01</p>
 						<p className="text-[10px] text-muted-foreground">Africa/Lagos</p>
 					</div>
 					<span className="rounded-lg bg-primary px-3 py-2 font-semibold text-white">
@@ -81,7 +81,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 			<>
 				<p>
 					Signing out records your hours for the night. There is a half-hour grace after
-					08:30, so a shift that runs long can still be closed.
+					08:00, so a shift that runs long can still be closed.
 				</p>
 				<p className="mt-2 text-muted-foreground">
 					Once you sign out the night is <strong>locked</strong> — you cannot change it
@@ -100,7 +100,7 @@ export const ATTENDANCE_TOUR_STEPS: TourStep[] = [
 					<span className="rounded-full bg-success/15 px-2 py-0.5 font-semibold text-success">
 						12h 00m
 					</span>
-					<span className="text-muted-foreground">20:30 → 08:30</span>
+					<span className="text-muted-foreground">20:00 → 08:00</span>
 					<span className="ml-auto rounded-full bg-warning/15 px-2 py-0.5 font-semibold text-warning">
 						Still open
 					</span>

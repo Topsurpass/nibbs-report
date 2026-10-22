@@ -125,7 +125,7 @@ create table if not exists nibbs_nip_bank_codes (
 -- distinguishes the two (existing rows are nights).
 --
 -- `night_date` is the Africa/Lagos date the shift STARTED, not the date of the
--- timestamp: the window runs 20:30 → 08:30, so a 02:00 sign-in belongs to the
+-- timestamp: the window runs 20:00 → 08:00, so a 02:00 sign-in belongs to the
 -- previous evening. src/lib/attendance/nightWindow.ts owns that mapping and is
 -- the only place it is computed.
 --
@@ -166,3 +166,49 @@ create index if not exists nibbs_night_attendance_night_idx
 
 create index if not exists nibbs_night_attendance_user_idx
   on nibbs_night_attendance (user_id, night_date desc);
+
+-- Web push (src/services/push). One row per browser/device a user turned
+-- notifications on in; a user may have several. The endpoint is the push
+-- service URL for that device and is unique. Dead endpoints (404/410 from the
+-- push service) are deleted by the sender.
+create table if not exists nibbs_push_subscriptions (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references nibbs_users(id) on delete cascade,
+  endpoint    text not null unique,
+  p256dh      text not null,
+  auth        text not null,
+  user_agent  text,
+  created_at  timestamptz not null default now(),
+  last_ok_at  timestamptz
+);
+
+create index if not exists nibbs_push_subscriptions_user_idx
+  on nibbs_push_subscriptions (user_id);
+
+-- Every push sent: the trace (what went out, to whom, did it land) and, for
+-- reminders, the once-only guard. A reminder's dedup_key is claimed by insert
+-- before sending, so two overlapping cron runs can't both send it.
+create table if not exists nibbs_push_log (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references nibbs_users(id) on delete cascade,
+  kind        text not null,                 -- team-sign-in, sign-in, sign-out-urgent, test, ...
+  dedup_key   text unique,                   -- null for team alerts and tests
+  status      text not null default 'pending'
+              check (status in ('pending', 'sent', 'failed', 'no-device')),
+  devices     int not null default 0,        -- devices it was delivered to
+  error       text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists nibbs_push_log_created_idx
+  on nibbs_push_log (created_at desc);
+
+-- "Not on duty today" from a reminder (or the in-app pop-up): silences that
+-- shift date's sign-in reminders for that user, on every device.
+create table if not exists nibbs_shift_dismissals (
+  user_id     uuid not null references nibbs_users(id) on delete cascade,
+  shift       text not null check (shift in ('night', 'afternoon')),
+  night_date  date not null,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, shift, night_date)
+);

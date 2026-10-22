@@ -9,6 +9,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import ThemeToggle from "../ThemeToggle";
 import UserMenu from "./UserMenu";
+import NotificationBell from "../push/NotificationBell";
 import { pageTitle } from "../navConfig";
 import type { AuthUser } from "@/types/user";
 
@@ -48,6 +49,7 @@ export default function SiteHeader({ user, onOpenCommand }: Props) {
 				<Button type="button" variant="outline" size="icon" onClick={onOpenCommand} className="sm:hidden" aria-label="Search">
 					<Search className="size-4" />
 				</Button>
+				<NotificationBell />
 				<ThemeToggle mini className="size-8 justify-center rounded-lg border border-border" />
 				<UserMenu user={user} />
 			</div>

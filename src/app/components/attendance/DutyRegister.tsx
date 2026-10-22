@@ -50,6 +50,7 @@ import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import PushBanner from "../push/PushBanner";
 
 /**
  * The duty register: night and afternoon shifts.
@@ -254,6 +255,8 @@ export default function DutyRegister({
 					</Button>
 				}
 			/>
+
+			<PushBanner />
 
 			<div role="tablist" aria-label="Shift" className="grid gap-3 sm:grid-cols-2">
 				{SHIFTS.map((value) => {

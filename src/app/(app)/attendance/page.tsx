@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import DutyRegister, { type CurrentShift } from "@/app/components/attendance/DutyRegister";
 import { currentMonth } from "@/lib/attendance/nightWindow";
-import { SHIFTS, activeDutyDate, defaultShift, type Shift } from "@/lib/attendance/shifts";
+import { SHIFTS, activeDutyDate, defaultShift, isShift, type Shift } from "@/lib/attendance/shifts";
 import type { AttendanceEntry } from "@/lib/attendance/types";
 import { getSessionUser } from "@/services/auth/sessions";
 import { getEntry } from "@/services/attendance/repository";
@@ -17,11 +17,11 @@ export const dynamic = "force-dynamic";
  * dates are computed from the server clock — a device with a wrong clock must
  * not be able to open a window early.
  *
- * `activeDutyDate` includes each shift's sign-out grace (08:30-09:00 for a
- * night, 20:30-21:00 for an afternoon), matching the precedence SignInCard
+ * `activeDutyDate` includes each shift's sign-out grace (08:00-08:30 for a
+ * night, 20:00-20:30 for an afternoon), matching the precedence SignInCard
  * uses client-side, so the sign-out button is there exactly when needed.
  */
-export default async function AttendancePage() {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ shift?: string }> }) {
 	const user = await getSessionUser();
 	if (!user) redirect("/login");
 
@@ -54,12 +54,14 @@ export default async function AttendancePage() {
 		console.error("[attendance] could not load the register", err);
 	}
 
+	const requested = (await searchParams).shift;
 	const openAfternoon = Boolean(current.afternoon.entry && !current.afternoon.entry.signedOutAt);
 
 	return (
 		<DutyRegister
 			user={user}
-			initialShift={defaultShift(now, openAfternoon)}
+			// `?shift=` comes from a notification click: open on the shift it was about.
+			initialShift={isShift(requested) ? requested : defaultShift(now, openAfternoon)}
 			initialMonth={month}
 			initialPeople={people}
 			initialEntries={entries}

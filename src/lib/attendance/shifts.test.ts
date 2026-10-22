@@ -30,46 +30,46 @@ test("weekend detection uses the calendar date, not the host timezone", () => {
 	assert.equal(isWeekendDate("2026-10-19"), false);
 });
 
-test("weekday afternoon: sign-in open 12:30 up to (not including) 20:30", () => {
-	assert.equal(dutyDateFor("afternoon", lagos(FRI, "12:29")), null);
-	assert.equal(dutyDateFor("afternoon", lagos(FRI, "12:30")), FRI);
-	assert.equal(dutyDateFor("afternoon", lagos(FRI, "16:00")), FRI);
-	assert.equal(dutyDateFor("afternoon", lagos(FRI, "20:29")), FRI);
-	assert.equal(dutyDateFor("afternoon", lagos(FRI, "20:30")), null);
+test("weekday afternoon: sign-in open 12:00 up to (not including) 20:00", () => {
+	assert.equal(dutyDateFor("afternoon", lagos(FRI, "11:59")), null);
+	assert.equal(dutyDateFor("afternoon", lagos(FRI, "12:00")), FRI);
+	assert.equal(dutyDateFor("afternoon", lagos(FRI, "15:30")), FRI);
+	assert.equal(dutyDateFor("afternoon", lagos(FRI, "19:59")), FRI);
+	assert.equal(dutyDateFor("afternoon", lagos(FRI, "20:00")), null);
 });
 
-test("weekend afternoon opens at 14:30, not 12:30", () => {
-	assert.equal(dutyDateFor("afternoon", lagos(SAT, "12:30")), null);
-	assert.equal(dutyDateFor("afternoon", lagos(SAT, "14:29")), null);
-	assert.equal(dutyDateFor("afternoon", lagos(SAT, "14:30")), SAT);
-	assert.equal(dutyDateFor("afternoon", lagos(SUN, "20:00")), SUN);
-	assert.equal(shiftHours("afternoon", SAT), "14:30–20:30");
-	assert.equal(shiftHours("afternoon", FRI), "12:30–20:30");
+test("weekend afternoon opens at 14:00, not 12:00", () => {
+	assert.equal(dutyDateFor("afternoon", lagos(SAT, "12:00")), null);
+	assert.equal(dutyDateFor("afternoon", lagos(SAT, "13:59")), null);
+	assert.equal(dutyDateFor("afternoon", lagos(SAT, "14:00")), SAT);
+	assert.equal(dutyDateFor("afternoon", lagos(SUN, "19:30")), SUN);
+	assert.equal(shiftHours("afternoon", SAT), "14:00–20:00");
+	assert.equal(shiftHours("afternoon", FRI), "12:00–20:00");
 });
 
 test("afternoon sign-out allowed through a 30-minute grace, then shut", () => {
-	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "20:45")), FRI);
-	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "21:00")), FRI);
-	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "21:01")), null);
-	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "12:00")), null);
-	assert.equal(shiftSignOutDeadline("afternoon", FRI).toISOString(), lagos(FRI, "21:00").toISOString());
-	assert.equal(canSignOutDuty("afternoon", FRI, lagos(FRI, "12:29")), false);
+	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "20:15")), FRI);
+	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "20:30")), FRI);
+	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "20:31")), null);
+	assert.equal(signOutDutyFor("afternoon", lagos(FRI, "11:30")), null);
+	assert.equal(shiftSignOutDeadline("afternoon", FRI).toISOString(), lagos(FRI, "20:30").toISOString());
+	assert.equal(canSignOutDuty("afternoon", FRI, lagos(FRI, "11:59")), false);
 });
 
 test("night rules are unchanged by the shift layer", () => {
-	assert.equal(dutyDateFor("night", lagos(FRI, "20:30")), FRI);
-	assert.equal(dutyDateFor("night", lagos(SAT, "02:00")), FRI);
-	assert.equal(dutyDateFor("night", lagos(SAT, "12:00")), null);
-	assert.equal(signOutDutyFor("night", lagos(SAT, "08:50")), FRI);
-	assert.equal(shiftHours("night", FRI), "20:30–08:30");
+	assert.equal(dutyDateFor("night", lagos(FRI, "20:00")), FRI);
+	assert.equal(dutyDateFor("night", lagos(SAT, "01:30")), FRI);
+	assert.equal(dutyDateFor("night", lagos(SAT, "11:30")), null);
+	assert.equal(signOutDutyFor("night", lagos(SAT, "08:20")), FRI);
+	assert.equal(shiftHours("night", FRI), "20:00–08:00");
 });
 
 test("next opening: later today, or the next day at that day's hours", () => {
-	assert.equal(nextShiftOpenAfter("afternoon", lagos(FRI, "09:00")).toISOString(), lagos(FRI, "12:30").toISOString());
+	assert.equal(nextShiftOpenAfter("afternoon", lagos(FRI, "08:30")).toISOString(), lagos(FRI, "12:00").toISOString());
 	// Friday evening → Saturday opens at the weekend time.
-	assert.equal(nextShiftOpenAfter("afternoon", lagos(FRI, "21:00")).toISOString(), lagos(SAT, "14:30").toISOString());
-	assert.equal(nextShiftOpenAfter("afternoon", lagos(SUN, "21:00")).toISOString(), lagos("2026-10-19", "12:30").toISOString());
-	assert.equal(shiftOpensAt("afternoon", SUN).toISOString(), lagos(SUN, "14:30").toISOString());
+	assert.equal(nextShiftOpenAfter("afternoon", lagos(FRI, "20:30")).toISOString(), lagos(SAT, "14:00").toISOString());
+	assert.equal(nextShiftOpenAfter("afternoon", lagos(SUN, "20:30")).toISOString(), lagos("2026-10-19", "12:00").toISOString());
+	assert.equal(shiftOpensAt("afternoon", SUN).toISOString(), lagos(SUN, "14:00").toISOString());
 });
 
 test("an afternoon time maps onto its own date; a night time may roll over", () => {
@@ -81,13 +81,13 @@ test("an afternoon time maps onto its own date; a night time may roll over", () 
 });
 
 test("the register opens on the afternoon while it is running, else the night", () => {
-	assert.equal(defaultShift(lagos(FRI, "13:00")), "afternoon");
-	assert.equal(defaultShift(lagos(FRI, "10:00")), "night");
-	assert.equal(defaultShift(lagos(FRI, "20:45")), "night");
-	assert.equal(defaultShift(lagos(FRI, "20:45"), true), "afternoon");
-	assert.equal(defaultShift(lagos(SAT, "13:00")), "night");
-	assert.equal(activeDutyDate("afternoon", lagos(FRI, "20:50")), FRI);
-	assert.equal(activeDutyDate("afternoon", lagos(FRI, "22:00")), null);
+	assert.equal(defaultShift(lagos(FRI, "12:30")), "afternoon");
+	assert.equal(defaultShift(lagos(FRI, "09:30")), "night");
+	assert.equal(defaultShift(lagos(FRI, "20:15")), "night");
+	assert.equal(defaultShift(lagos(FRI, "20:15"), true), "afternoon");
+	assert.equal(defaultShift(lagos(SAT, "12:30")), "night");
+	assert.equal(activeDutyDate("afternoon", lagos(FRI, "20:20")), FRI);
+	assert.equal(activeDutyDate("afternoon", lagos(FRI, "21:30")), null);
 });
 
 test("parseShift falls back to night for anything unknown", () => {
